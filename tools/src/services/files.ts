@@ -40,6 +40,33 @@ function nativePath(p: string): string {
     return isWindows ? p.replace(/\//g, '\\') : p;
 }
 
+/**
+ * Quoting per **cmd**, la shell del terminale su Windows: quota col doppio apice e degli apici
+ * singoli non sa che farsene. Un percorso Windows non puo' contenere `"`, quindi toglierlo e'
+ * sicuro e chiude la via a un argomento costruito ad arte.
+ */
+const quote = (p: string) => `"${nativePath(p).replace(/"/g, '')}"`;
+
+/** Un solo terminale per la sessione, creato alla prima richiesta. */
+let termId: string | null = null;
+
+/**
+ * Apre la cartella nel file manager.
+ *
+ * `utils` espone solo appunti e notifiche, quindi l'unica via e' il terminale: `explorer` passa
+ * il filtro dei comandi, al contrario di `start` e `open`. **Il pannello del terminale si vede**
+ * — compare appena il comando produce output e `setVisibility` lo richiude troppo tardi — percio'
+ * questa e' l'azione secondaria e il chiamante lo dice all'utente. Su macOS e Linux non c'e'
+ * comando ammesso: li' resta solo copiare il percorso.
+ */
+export async function openFolder(path: string): Promise<void> {
+    if (!isWindows) throw new Error('disponibile solo su Windows: usa Copia percorso');
+    const term = globalThis.toolboxAPI.terminal;
+    if (!termId) termId = (await term.create({ name: 'Agent Rename Manager', visible: false })).id;
+    await term.execute(termId, `explorer ${quote(path)}`);
+    try { await term.setVisibility(termId, false); } catch { /* non e' un motivo per fallire */ }
+}
+
 export async function ensureDirectory(path: string): Promise<void> {
     await fs.createDirectory(path);
 }

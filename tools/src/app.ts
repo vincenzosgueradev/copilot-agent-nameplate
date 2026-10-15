@@ -10,7 +10,7 @@ import {
 } from './services/solutions';
 import { OverwriteDeclined, writeArtifactSet } from './services/artifacts';
 import { describeError } from './services/dataverse';
-import { saveJsonFile, saveTextFile, selectFolder } from './services/files';
+import { openFolder, saveJsonFile, saveTextFile, selectFolder } from './services/files';
 import { addRecord, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
 import { runPackaging, type PackagingResult } from './services/packaging';
@@ -1501,6 +1501,9 @@ function renderResultStep(): void {
         <section class="panel">
             <div class="panel-head">
                 <h3 class="panel-heading">Dove si trova</h3>
+                <button class="btn btn--secondary btn--sm" id="open-folder-btn"
+                    title="Apre Esplora risorse. PPTB mostra per un attimo il pannello del terminale: è il modo in cui un tool può lanciare un comando.">
+                    Apri cartella</button>
             </div>
             <div class="panel-body">
                 <div class="kv"><span class="kv-key">Cartella</span>
@@ -1519,6 +1522,10 @@ function renderResultStep(): void {
             <button class="btn btn--secondary" id="done-btn">Fine</button>
         </div>`;
 
+    els.stepResult.querySelector('#open-folder-btn')!.addEventListener('click', () => {
+        void openFolder(set.folderPath).catch(err =>
+            log(`Non sono riuscito ad aprire la cartella: ${describeError(err)}`, 'error'));
+    });
     els.stepResult.querySelector('#copy-path-btn')!.addEventListener('click', ev => {
         const btn = ev.currentTarget as HTMLButtonElement;
         void toolbox.utils.copyToClipboard(set.folderPath).then(() => {
