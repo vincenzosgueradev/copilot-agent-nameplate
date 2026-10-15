@@ -36,8 +36,12 @@ function nativePath(p: string): string {
     return isWindows ? p.replace(/\//g, '\\') : p;
 }
 
-/** Apice singolo raddoppiato: e' come PowerShell e le shell POSIX scappano l'apice. */
-const quote = (p: string) => `'${nativePath(p).replace(/'/g, "''")}'`;
+/**
+ * Quoting per **cmd**, che e' la shell del terminale su Windows: quota con il doppio apice e
+ * degli apici singoli non sa che farsene, li passa dentro l'argomento. Un percorso Windows non
+ * puo' contenere `"`, quindi toglierlo e' sicuro e chiude la via a un argomento costruito ad arte.
+ */
+const quote = (p: string) => `"${nativePath(p).replace(/"/g, '')}"`;
 
 /** Un solo terminale nascosto per la sessione, creato alla prima necessita'. */
 let termId: string | null = null;
@@ -58,7 +62,11 @@ async function shellId(): Promise<string> {
  */
 export async function openFolder(path: string): Promise<void> {
     if (!isWindows) throw new Error('apertura della cartella non disponibile su questa piattaforma');
-    await term.execute(await shellId(), `explorer ${quote(path)}`);
+    const id = await shellId();
+    await term.execute(id, `explorer ${quote(path)}`);
+    // Il pannello del terminale si apre da solo quando un comando produce output. Richiuderlo
+    // subito riporta l'utente dov'era: voleva la cartella, non una console.
+    try { await term.setVisibility(id, false); } catch { /* non e' un motivo per fallire */ }
 }
 
 export async function ensureDirectory(path: string): Promise<void> {
