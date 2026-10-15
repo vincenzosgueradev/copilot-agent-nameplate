@@ -267,11 +267,10 @@ body {
     .hero-stats { gap: var(--sp-5); }
 }
 
+/* Barra degli strumenti a tutta larghezza: filtro a sinistra, ricerca che occupa il
+   mezzo, azioni a destra. Accatastarli a un lato lasciava vuota meta' della barra. */
 .solutions-browser-header {
     display: flex;
-    justify-content: flex-end;
-    align-items: flex-start;
-    gap: var(--sp-4);
     margin-bottom: var(--sp-4);
     flex-shrink: 0;
 }
@@ -285,9 +284,13 @@ body {
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
+    gap: var(--sp-3);
+    width: 100%;
+    flex-wrap: wrap;
 }
+
+/* La ricerca prende lo spazio che avanza e spinge le azioni al bordo opposto */
+.header-actions .search-box { flex: 1 1 240px; }
 
 /* Solution type switch */
 .segmented {
@@ -352,7 +355,7 @@ body {
 }
 
 .search-box input {
-    width: 280px;
+    width: 100%;
     padding: var(--sp-2) var(--sp-6) var(--sp-2) var(--sp-6);
     background: var(--color-surface-2);
     border: 1px solid var(--color-border);
@@ -752,15 +755,11 @@ mark.hl {
    gracefully instead of forcing horizontal page scroll. */
 @media (max-width: 1100px) {
     :root { --sidebar-right-width: 230px; }
-    .search-box input { width: 190px; }
 }
 
 @media (max-width: 900px) {
     .main-content { padding: 16px; }
     .solutions-browser-header { flex-direction: column; align-items: stretch; }
-    .header-actions { justify-content: space-between; }
-    .search-box { flex: 1; }
-    .search-box input { width: 100%; }
     /* Le colonne secondarie escono prima che la tabella scorra in orizzontale. La matrice dei
        controlli si sfila: li' ogni colonna e' un esito, meglio lo scorrimento. */
     .data-table:not(.check-matrix) th:nth-child(5),
