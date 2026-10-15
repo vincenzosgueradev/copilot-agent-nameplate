@@ -9,10 +9,14 @@
  * strada sarebbero quattro dialog di fila, e il percorso proposto non regge i separatori misti,
  * tanto che i file finivano accanto alla cartella invece che dentro.
  *
- * Qui i byte passano per il disco in base64 — `writeText` non chiede nulla — e un comando di
- * shell li riconverte in binario nella posizione giusta, cancellando il temporaneo. La sonda su
- * `writeBinary` resta: se una versione di PPTB la introdurra', quella strada e' preferibile e
- * viene presa senza altre modifiche.
+ * **Nemmeno la shell e' una via d'uscita**: il terminale rifiuta gli interpreti e ogni
+ * decodificatore base64 — `powershell`, `pwsh`, `cmd`, `certutil`, `node`, `python`, `perl` sono
+ * tutti nella lista dei comandi bloccati ("Shell interpreters and privilege-escalation tools are
+ * not allowed"). Scrivere byte senza passare dal dialog, con questa piattaforma, non si puo'.
+ *
+ * Resta quindi `saveFile`, un dialog per archivio, con il percorso in forma nativa perche' il
+ * dialog lo risolva davvero. La sonda su `writeBinary` resta: se una versione di PPTB la
+ * introdurra', quella strada e' preferibile e viene presa senza altre modifiche.
  */
 
 import { log } from './log';
@@ -35,17 +39,7 @@ function nativePath(p: string): string {
 /** Apice singolo raddoppiato: e' come PowerShell e le shell POSIX scappano l'apice. */
 const quote = (p: string) => `'${nativePath(p).replace(/'/g, "''")}'`;
 
-/** Base64 a blocchi: `apply` su un array di centinaia di migliaia di byte sfonda lo stack. */
-function toBase64(bytes: Uint8Array): string {
-    let s = '';
-    const CHUNK = 0x8000;
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-        s += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-    }
-    return btoa(s);
-}
-
-/** Un solo terminale nascosto per tutta la sessione, creato alla prima necessita'. */
+/** Un solo terminale nascosto per la sessione, creato alla prima necessita'. */
 let termId: string | null = null;
 async function shellId(): Promise<string> {
     if (termId) return termId;
@@ -54,25 +48,17 @@ async function shellId(): Promise<string> {
     return t.id;
 }
 
-async function run(command: string): Promise<void> {
-    const r = await term.execute(await shellId(), command);
-    if (r.exitCode !== undefined && r.exitCode !== 0) {
-        throw new Error(`comando fallito (exit ${r.exitCode}): ${r.error || r.output || ''}`);
-    }
-}
-
 /**
  * Apre la cartella nel file manager del sistema.
  *
- * `utils` espone solo appunti e notifiche, quindi non c'e' una via diretta: si passa di nuovo
- * dalla shell. `explorer` su Windows esce con codice 1 anche quando riesce, percio' qui l'esito
- * non viene controllato.
+ * `utils` espone solo appunti e notifiche, quindi non c'e' una via diretta: si passa dal
+ * terminale. Funziona perche' `explorer` non e' fra i comandi bloccati, mentre `start` e `open`
+ * lo sono: su macOS e Linux questo pulsante non ha una strada e il chiamante lo gestisce.
+ * `explorer` esce con codice 1 anche quando riesce, percio' l'esito non viene controllato.
  */
 export async function openFolder(path: string): Promise<void> {
-    const opener = isWindows ? 'explorer'
-        : /mac|darwin/i.test(globalThis.navigator?.userAgent ?? '') ? 'open'
-        : 'xdg-open';
-    await term.execute(await shellId(), `${opener} ${quote(path)}`);
+    if (!isWindows) throw new Error('apertura della cartella non disponibile su questa piattaforma');
+    await term.execute(await shellId(), `explorer ${quote(path)}`);
 }
 
 export async function ensureDirectory(path: string): Promise<void> {
@@ -111,32 +97,22 @@ export async function writeBinary(path: string, bytes: Uint8Array): Promise<stri
         return path;
     }
 
-    if (!toldAboutShell) {
-        toldAboutShell = true;
-        log('PPTB non espone una scrittura binaria: gli archivi vengono scritti in base64 e '
-            + 'riconvertiti con un comando di shell, senza dialog.', 'info');
-    }
-
-    const tmp = `${path}.b64`;
-    await fs.writeText(tmp, toBase64(bytes));
-
-    if (isWindows) {
-        // `powershell` invocato per nome: cosi' il comando regge sia che la shell del terminale
-        // sia cmd sia che sia PowerShell. Niente `$` nella stringa, che la shell esterna
-        // espanderebbe prima di passarla.
-        await run(`powershell -NoProfile -Command "[IO.File]::WriteAllBytes(${quote(path)},`
-            + `[Convert]::FromBase64String([IO.File]::ReadAllText(${quote(tmp)})));`
-            + `[IO.File]::Delete(${quote(tmp)})"`);
-    } else {
-        await run(`base64 -d ${quote(tmp)} > ${quote(path)} && rm ${quote(tmp)}`);
-    }
-    return path;
+    // `defaultPath` con separatori misti non si risolve su Windows: il dialog ripiegava
+    // sull'ultima cartella usata, ed e' cosi' che gli archivi finivano accanto alla cartella
+    // dell'operazione invece che dentro.
+    return fs.saveFile(nativePath(path), bytes,
+        [{ name: 'Solution package', extensions: ['zip'] }]);
 }
 
-let toldAboutShell = false;
-
-/** Non serve piu' avvisare di nulla: la scrittura non apre dialog. */
-export function warnAboutDialogs(_count: number): void { /* no-op */ }
+/** Avvisa una volta sola, perché il fallback si nota: un dialog per archivio. */
+let warned = false;
+export function warnAboutDialogs(count: number): void {
+    if (warned || hasDirectBinaryWrite()) return;
+    warned = true;
+    log(`PPTB non espone una scrittura binaria e non consente a un tool di invocare una shell: `
+        + `verranno chiesti ${count} salvataggi, uno per archivio. Il percorso è già compilato.`,
+        'warning');
+}
 
 /** Chiude il terminale nascosto. Chiamata a fine sessione: un terminale orfano resta aperto. */
 export async function disposeShell(): Promise<void> {
