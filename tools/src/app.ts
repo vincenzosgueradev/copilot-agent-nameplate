@@ -882,19 +882,6 @@ function renderSuffixStep(): void {
 
                         <div class="opt-row" style="padding:12px 16px">
                             <div>
-                                <div class="opt-label">Conserva le copie aggiuntive</div>
-                                <div class="hint">unmanaged patchato e i due export originali ·
-                                    3 archivi in più, quindi 3 salvataggi in più</div>
-                            </div>
-                            <label class="switch" for="opt-keep">
-                                <input class="switch-input" type="checkbox" id="opt-keep"
-                                    ${state.options.keepSourceArtifacts ? 'checked' : ''}>
-                                <span class="switch-track"><span class="switch-thumb"></span></span>
-                            </label>
-                        </div>
-
-                        <div class="opt-row" style="padding:12px 16px">
-                            <div>
                                 <div class="opt-label">Publish all'import</div>
                                 <div class="hint">porta il nome su Teams e M365 Copilot</div>
                             </div>
@@ -910,8 +897,17 @@ function renderSuffixStep(): void {
 
                 <section class="panel">
                     <div class="panel-head">
-                        <h3 class="panel-heading">Artefatti</h3>
-                        <span class="panel-sub">cosa finisce su disco</span>
+                        <div>
+                            <h3 class="panel-heading">Artefatti</h3>
+                            <span class="panel-sub">cosa finisce su disco</span>
+                        </div>
+                        <label class="switch" for="opt-keep"
+                            title="unmanaged patchato e i due export originali">
+                            <span class="switch-text">Conserva le copie aggiuntive</span>
+                            <input class="switch-input" type="checkbox" id="opt-keep"
+                                ${state.options.keepSourceArtifacts ? 'checked' : ''}>
+                            <span class="switch-track"><span class="switch-thumb"></span></span>
+                        </label>
                     </div>
                     <div class="panel-body" id="artifact-list">
                         ${artifactListHtml(sol, draft, state.options.keepSourceArtifacts)}

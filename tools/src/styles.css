@@ -1529,6 +1529,13 @@ select option {
 
 .switch-input { display: none; }
 
+/* Etichetta a sinistra dell'interruttore, per quando sta in un'intestazione di pannello */
+.switch-text {
+    font-size: var(--fs-sm);
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
 .switch-track {
     position: relative;
     width: 38px;
