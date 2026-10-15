@@ -14,7 +14,7 @@ import { openFolder, saveJsonFile, saveTextFile, selectFolder } from './services
 import { addRecord, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
 import { runPackaging, type PackagingResult } from './services/packaging';
-import { buildName } from './services/patch';
+import { buildName, bumpVersion } from './services/patch';
 import { icon } from './icons';
 import {
     DEFAULT_OPTIONS,
@@ -798,6 +798,21 @@ function stepperHtml(active: 1 | 2 | 3 | 4 | 5): string {
  * rinunciando a scrivere dice piu' di una riga di testo che lo racconta. Il manifest e' sempre
  * acceso e porta la sua nota, perche' essendo testo non costa un salvataggio.
  */
+/**
+ * Che versione avra' il package, e che cosa comporta all'import.
+ *
+ * Stessa versione e' un **update**, superiore un **upgrade**: dirlo mostrando i due numeri
+ * evita di doverlo dedurre dalla regola.
+ */
+function versionHintHtml(current: string, bump: boolean): string {
+    if (!bump) {
+        return `<code>${escapeHtml(current)}</code> resta invariata — all'import sarà un
+            <strong>update</strong>`;
+    }
+    return `<code>${escapeHtml(current)}</code> → <code>${escapeHtml(bumpVersion(current))}</code>
+        — all'import sarà un <strong>upgrade</strong>`;
+}
+
 function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): string {
     const base = `${sol.uniqueName}_${sol.version.replace(/\./g, '_')}`;
     const tag = suffix.trim() || 'nosuffix';
@@ -885,7 +900,7 @@ function renderSuffixStep(): void {
                         <div class="opt-row" style="padding:12px 16px">
                             <div>
                                 <div class="opt-label">Incrementa la versione</div>
-                                <div class="hint">stessa versione = update · superiore = upgrade</div>
+                                <div class="hint" id="version-hint">${versionHintHtml(sol.version, state.options.bumpVersion)}</div>
                             </div>
                             <label class="switch" for="opt-bump">
                                 <input class="switch-input" type="checkbox" id="opt-bump"
@@ -960,6 +975,8 @@ function renderSuffixStep(): void {
     });
     (document.getElementById('opt-bump') as HTMLInputElement).addEventListener('change', ev => {
         state.options.bumpVersion = (ev.target as HTMLInputElement).checked;
+        const hint = els.stepSuffix.querySelector('#version-hint');
+        if (hint) hint.innerHTML = versionHintHtml(sol.version, state.options.bumpVersion);
     });
     (document.getElementById('opt-keep') as HTMLInputElement).addEventListener('change', ev => {
         state.options.keepSourceArtifacts = (ev.target as HTMLInputElement).checked;
@@ -1049,10 +1066,8 @@ function renderReviewStep(): void {
                     <span class="panel-sub">scelte allo step precedente</span>
                 </div>
                 <div class="panel-body">
-                    <div class="kv"><span class="kv-key">Incrementa la versione</span>
-                        <span class="kv-val">${state.options.bumpVersion
-                            ? `Sì <span class="cell-muted">— il package sarà un upgrade</span>`
-                            : `No <span class="cell-muted">— stessa versione, sarà un update</span>`}</span></div>
+                    <div class="kv"><span class="kv-key">Versione del package</span>
+                        <span class="kv-val">${versionHintHtml(sol.version, state.options.bumpVersion)}</span></div>
                     <div class="kv"><span class="kv-key">Publish all'import</span>
                         <span class="kv-val">${escapeHtml(publishLabel)}</span></div>
                     <div class="kv"><span class="kv-key">Artefatti prodotti</span>
