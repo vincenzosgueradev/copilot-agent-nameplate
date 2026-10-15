@@ -1141,8 +1141,9 @@ function renderPreviewStep(): void {
             ${stepperHtml(3)}
         </div>
         <div class="strip" id="preview-body">
-            <div class="progress-line"><span class="spinner"></span>
-                <span id="preview-progress">avvio dell'export…</span></div>
+            <div class="pack-wait" id="preview-progress">
+                ${packProgressHtml(0, "avvio dell'export…", 0)}
+            </div>
         </div>
         <div id="preview-panels"></div>
         <div class="step-footer" id="preview-footer">
@@ -1166,6 +1167,43 @@ function packagingKey(sol: Solution, agent: AgentListItem): string {
     return JSON.stringify([sol.uniqueName, agent.schemaName, state.suffix, state.options]);
 }
 
+/** Le fasi del packaging, nell'ordine in cui il servizio le attraversa. */
+const PACK_PHASES = [
+    'Export managed',
+    'Export unmanaged',
+    'Lettura dei package',
+    'Patch e verifica',
+] as const;
+
+/**
+ * A che punto siamo, dedotto dal messaggio del servizio.
+ *
+ * Il servizio riporta testo libero, non un indice: leggerlo qui evita di cambiare la sua
+ * firma per un bisogno che e' solo di presentazione. Una frase che non si riconosce lascia
+ * la fase dov'era, invece di farla saltare all'indietro.
+ */
+function phaseFromMessage(msg: string, current: number): number {
+    const m = msg.toLowerCase();
+    if (m.includes('patch')) return 3;
+    if (m.includes('lettura')) return 2;
+    if (m.includes('unmanaged')) return 1;
+    if (m.includes('export') || m.includes('coda')) return 0;
+    return current;
+}
+
+/** Il riquadro di attesa: barra indeterminata, fasi con il loro stato, messaggio e secondi. */
+function packProgressHtml(phase: number, msg: string, seconds: number): string {
+    const rows = PACK_PHASES.map((label, i) => {
+        const state = i < phase ? 'done' : i === phase ? 'running' : 'todo';
+        const mark = state === 'done' ? icon('check', 'icon--xs') : '';
+        return `<li class="ph ph--${state}"><span class="ph-dot">${mark}</span>${label}</li>`;
+    }).join('');
+    return `
+        <div class="pack-bar"><span></span></div>
+        <ul class="ph-list">${rows}</ul>
+        <p class="pack-msg">${escapeHtml(msg)} · <strong>${seconds} s</strong></p>`;
+}
+
 let previewSeq = 0;
 
 async function runPreview(
@@ -1173,18 +1211,20 @@ async function runPreview(
 ): Promise<void> {
     const startedAt = Date.now();
     let lastText = "avvio dell'export…";
+    let phase = 0;
     const paint = () => {
         if (seq !== previewSeq) return;
-        const el = document.getElementById('preview-progress');
+        const el = els.stepPreview.querySelector('#preview-progress');
         if (!el) return;
         const s = Math.round((Date.now() - startedAt) / 1000);
-        el.textContent = `${lastText} — ${s} s`;
+        el.innerHTML = packProgressHtml(phase, lastText, s);
     };
     // Il tempo trascorso va mostrato sempre: l'export sincrono costa 13-111 s sulle solution
     // misurate, il fallback asincrono ~154 s per archivio. Senza un contatore sembra bloccato.
     const ticker = window.setInterval(paint, 1000);
     const setProgress = (text: string) => {
         lastText = text;
+        phase = phaseFromMessage(text, phase);
         paint();
     };
     try {
