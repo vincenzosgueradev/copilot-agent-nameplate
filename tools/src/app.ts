@@ -924,7 +924,7 @@ function renderPreviewStep(): void {
             <div class="progress-line"><span class="spinner"></span>
                 <span id="preview-progress">avvio dell'export…</span></div>
         </div>
-        <div class="step-footer">
+        <div class="step-footer" id="preview-footer">
             <button class="btn btn--secondary" id="back-btn">← Indietro</button>
         </div>`;
     document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('suffix'));
@@ -1093,10 +1093,17 @@ function renderPreviewResult(r: PackagingResult): void {
                 ? 'Package pronti e verificati: managed e unmanaged, con una sola entry modificata.'
                 : 'La verifica non è passata: l\'artefatto non è utilizzabile. Gli export originali restano importabili.'}
         </div>
-        <div class="step-footer" style="margin-top:16px">
+        `;
+
+    // Move the footer outside the card so it never overlaps the back button
+    const footer = document.getElementById('preview-footer');
+    if (footer) {
+        footer.innerHTML = `
+            <button class="btn btn--secondary" id="back-btn">← Indietro</button>
             <button class="btn btn--primary" id="save-btn" ${r.valid ? '' : 'disabled'}>
-                Salva l'artifact set</button>
-        </div>`;
+                Salva l'artifact set</button>`;
+        footer.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('suffix'));
+    }
 
     const saveBtn = document.getElementById('save-btn');
     if (saveBtn) saveBtn.addEventListener('click', () => void confirmThenSave(unexpected, extra));
