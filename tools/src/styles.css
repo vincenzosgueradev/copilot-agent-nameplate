@@ -595,7 +595,31 @@ mark.hl {
 
 .stepper-line { width: 28px; height: 1px; background: var(--color-border); }
 
-/* ── Suffix step ── */
+/* ── Suffix step ──
+   Campo e preset sulla stessa riga: a tutta larghezza, incolonnati, lasciavano vuota meta'
+   del pannello. Sotto i 900px tornano uno sopra l'altro. */
+.suffix-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+}
+
+.suffix-row .input-row { flex: 0 1 420px; }
+
+.suffix-or {
+    color: var(--color-text-muted);
+    font-size: var(--fs-sm);
+    flex-shrink: 0;
+}
+
+.suffix-row .chip-row { flex: 1 1 auto; margin-top: 0; }
+
+@media (max-width: 900px) {
+    .suffix-row { align-items: stretch; flex-direction: column; gap: var(--sp-3); }
+    .suffix-or { display: none; }
+}
+
 .opt-label {
     font-size: var(--fs-base);
     font-weight: 500;

@@ -842,17 +842,20 @@ function renderSuffixStep(): void {
                         <span class="panel-sub">aggiunto tra parentesi quadre dopo il nome</span>
                     </div>
                     <div class="panel-body">
-                        <div class="input-row">
-                            <input id="suffix-input" class="text-input" type="text"
-                                maxlength="${SUFFIX_MAX}" autocomplete="off"
-                                placeholder="es. UAT" value="${escapeHtml(draft)}">
-                            <button id="clear-suffix-btn" class="btn btn--secondary btn--sm"
-                                ${draft ? '' : 'disabled'}>Clear</button>
-                        </div>
-                        <div class="chip-row" style="margin-top:10px">
-                            ${SUFFIX_PRESETS.map(p => `
-                                <button class="chip-btn ${p === draft ? 'is-active' : ''}"
-                                    data-preset="${p}">${p}</button>`).join('')}
+                        <div class="suffix-row">
+                            <div class="input-row">
+                                <input id="suffix-input" class="text-input" type="text"
+                                    maxlength="${SUFFIX_MAX}" autocomplete="off"
+                                    placeholder="es. UAT" value="${escapeHtml(draft)}">
+                                <button id="clear-suffix-btn" class="btn btn--secondary btn--sm"
+                                    ${draft ? '' : 'disabled'}>Clear</button>
+                            </div>
+                            <span class="suffix-or">oppure</span>
+                            <div class="chip-row">
+                                ${SUFFIX_PRESETS.map(p => `
+                                    <button class="chip-btn ${p === draft ? 'is-active' : ''}"
+                                        data-preset="${p}">${p}</button>`).join('')}
+                            </div>
                         </div>
                         <p class="hint" style="margin-top:8px">
                             Lascia vuoto per <strong>rimuovere</strong> il suffisso esistente.
