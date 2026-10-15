@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Rename Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <span class="header-icon">✏️</span>
+            <span class="header-title">Agent Rename Manager</span>
+            <span class="header-version">v0.1.0</span>
+        </div>
+        <div class="header-right">
+            <div id="connection-badge" class="connection-badge connection-badge--loading">
+                <span class="connection-dot"></span>
+                <span id="connection-name">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main layout: 3 zones -->
+    <div class="app-layout">
+
+        <!-- CENTER: Step content -->
+        <main class="main-content" id="main-content">
+            <nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb" hidden></nav>
+            <div class="solutions-browser" id="welcome-screen">
+                <div class="solutions-browser-header">
+                    <div>
+                        <h2 class="browser-title">Solutions</h2>
+                        <p class="browser-subtitle" id="browser-subtitle">
+                            Solutions containing agents. Select one to see its agents.
+                        </p>
+                    </div>
+                    <div class="header-actions">
+                        <span class="refresh-indicator" role="status">
+                            <span class="spinner"></span> Updating…
+                        </span>
+                        <div class="segmented" id="solution-type-filter" role="group"
+                            aria-label="Solution type"></div>
+                        <div class="search-box">
+                            <span class="search-icon">🔍</span>
+                            <input id="solution-search" type="text" autocomplete="off"
+                                placeholder="Search solutions and agents...">
+                            <button id="clear-search-btn" class="search-clear"
+                                title="Clear search" hidden>✕</button>
+                        </div>
+                        <button id="history-btn" class="btn btn--secondary btn--sm"
+                            title="Backups of previous changes, with undo">History</button>
+                        <button id="refresh-solutions-btn" class="btn btn--secondary btn--sm"
+                            title="Reload solutions and agents" disabled>⟳ Refresh</button>
+                    </div>
+                </div>
+                <div id="solutions-table-container"></div>
+            </div>
+
+            <!-- Step content areas (hidden by default) -->
+            <div id="step-solution" class="step-panel" style="display:none"></div>
+            <div id="step-history" class="step-panel" style="display:none"></div>
+            <div id="step-suffix" class="step-panel" style="display:none"></div>
+            <div id="step-preview" class="step-panel" style="display:none"></div>
+            <div id="step-apply" class="step-panel" style="display:none"></div>
+            <div id="step-publish" class="step-panel" style="display:none"></div>
+        </main>
+
+        <!-- RIGHT: Log Panel -->
+        <aside class="sidebar-right" id="log-panel">
+            <div class="sidebar-header">
+                <span class="sidebar-title">Log</span>
+                <button id="clear-log-btn" class="icon-btn" title="Clear log">✕</button>
+            </div>
+            <div id="log-entries" class="log-entries"></div>
+            <div class="log-footer">
+                <button id="export-log-btn" class="btn btn--secondary btn--sm" disabled>Export</button>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Confirmation Dialog (hidden by default) -->
+    <div id="confirm-overlay" class="overlay" style="display:none">
+        <div class="dialog">
+            <div class="dialog-header">
+                <h3 id="confirm-title">Confirm</h3>
+            </div>
+            <div class="dialog-body" id="confirm-body"></div>
+            <div class="dialog-footer">
+                <button id="confirm-cancel-btn" class="btn btn--secondary">Cancel</button>
+                <button id="confirm-ok-btn" class="btn btn--primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./app.ts"></script>
+</body>
+</html>

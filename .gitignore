@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+tools/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.suo
+*.user
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Lock files (keep package-lock.json for reproducibility)
+# yarn.lock
+
+# Temp
+*.tmp
+*.temp

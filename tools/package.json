@@ -1,0 +1,32 @@
+{
+    "name": "agent-rename-manager",
+    "version": "0.1.0",
+    "displayName": "Agent Rename Manager",
+    "description": "Rename Copilot Studio agents across environments using a per-solution environment variable",
+    "main": "index.html",
+    "author": "Power Platform ToolBox",
+    "license": "MIT",
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "scripts": {
+        "build": "tsc && vite build",
+        "dev": "vite",
+        "watch": "vite build --watch",
+        "dev-watch": "vite build --mode development --watch",
+        "preview": "vite preview",
+        "finalize-package": "npm shrinkwrap",
+        "validate": "pptb-validate",
+        "version-stable": "npm version patch --no-git-tag-version",
+        "publish-package": "npm run build && npm run version-stable && npm publish --access public"
+    },
+    "devDependencies": {
+        "@pptb/types": "^1.2.0",
+        "typescript": "^5.0.0",
+        "vite": "^8.0.3"
+    },
+    "files": [
+        "dist",
+        "npm-shrinkwrap.json"
+    ]
+}
