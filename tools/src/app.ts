@@ -1104,17 +1104,22 @@ function renderReviewStep(): void {
                         + manifest</span></div>
 
                     <h4 class="section-title">Cosa succede ora</h4>
-                    <p class="hint">
-                        Vengono esportate <strong>due copie</strong> della solution, managed e
-                        unmanaged, e patchate entrambe: servono anche a verificarsi a vicenda.
-                        ${state.options.keepSourceArtifacts
-                            ? `Su disco finiscono <strong>4 archivi</strong> più il manifest.`
-                            : `Su disco però finisce <strong>solo il managed</strong>, l'unico che
-                               importerai, più il manifest.`}
-                        L'export richiede da pochi secondi a qualche minuto a seconda della
-                        dimensione della solution.
-                        <strong>Nulla viene scritto su Dataverse</strong>: l'artefatto nasce su disco.
-                    </p>
+                    <ul class="facts">
+                        <li>${icon('package', 'icon--sm')}
+                            <span><strong>Due export</strong> della solution, managed e unmanaged,
+                            patchati entrambi: servono anche a verificarsi a vicenda.</span></li>
+                        <li>${icon('archive', 'icon--archive icon--sm')}
+                            <span>Su disco ${state.options.keepSourceArtifacts
+                                ? `<strong>4 archivi</strong> e il manifest.`
+                                : `<strong>solo il managed</strong>, l'unico che importerai,
+                                   e il manifest.`}</span></li>
+                        <li>${icon('shield', 'icon--sm')}
+                            <span><strong>Nulla viene scritto su Dataverse</strong>:
+                            l'artefatto nasce su disco.</span></li>
+                        <li>${icon('history', 'icon--sm')}
+                            <span>Da pochi secondi a qualche minuto, secondo la dimensione
+                            della solution.</span></li>
+                    </ul>
                 </div>
             </section>
         </div>
