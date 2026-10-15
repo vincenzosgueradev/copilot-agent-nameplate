@@ -1219,6 +1219,61 @@ mark.hl {
     color: var(--color-text-muted);
 }
 
+/* Colonna che impila piu' pannelli dentro una cella della griglia */
+.col-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+}
+
+.col-stack > .panel { margin-bottom: 0; }
+
+/* ── Elenco degli artefatti ──
+   Gli archivi che l'opzione non produce restano visibili ma spenti: si vede cosa si sta
+   lasciando fuori, invece di doverlo dedurre. */
+.art-list { list-style: none; margin: 0; padding: 0; }
+
+.art-item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-3);
+    padding: var(--sp-2) 0;
+    font-size: var(--fs-sm);
+    transition: opacity 0.15s;
+}
+
+.art-dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--color-success);
+    transform: translateY(-1px);
+}
+
+.art-name {
+    color: var(--color-text-strong);
+    word-break: break-all;
+    min-width: 0;
+}
+
+.art-note {
+    margin-left: auto;
+    padding-left: var(--sp-3);
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+    white-space: nowrap;
+}
+
+/* Spento: niente colore, niente corpo, e il nome barrato per non lasciare dubbi */
+.art-item.is-off { opacity: 0.45; }
+.art-item.is-off .art-dot { background: transparent; border: 1px solid var(--color-text-muted); }
+.art-item.is-off .art-name { color: var(--color-text-muted); text-decoration: line-through; }
+
+@media (max-width: 1100px) {
+    .art-note { display: none; }
+}
+
 /* ── Consegna ──
    Di tutto l'artifact set una cosa sola serve a valle: quale file importare. Sta in cima,
    da sola, prima dell'elenco completo. */

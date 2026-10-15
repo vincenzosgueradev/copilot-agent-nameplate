@@ -791,9 +791,40 @@ function stepperHtml(active: 1 | 2 | 3 | 4 | 5): string {
     return `<ol class="stepper">${withLines.join('')}</ol>`;
 }
 
+/**
+ * Elenco di cosa finira' su disco, aggiornato mentre si digita.
+ *
+ * Gli archivi che l'opzione non produce restano in elenco, spenti: vedere cosa si sta
+ * rinunciando a scrivere dice piu' di una riga di testo che lo racconta. Il manifest e' sempre
+ * acceso e porta la sua nota, perche' essendo testo non costa un salvataggio.
+ */
+function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): string {
+    const base = `${sol.uniqueName}_${sol.version.replace(/\./g, '_')}`;
+    const tag = suffix.trim() || 'nosuffix';
+    const rows: Array<[boolean, string, string]> = [
+        [true, `${base}_managed_${tag}.zip`, 'da importare a valle'],
+        [keepExtras, `${base}_unmanaged_${tag}.zip`, 'source control'],
+        [keepExtras, 'source_managed.zip', 'backup, non patchato'],
+        [keepExtras, 'source_unmanaged.zip', 'backup, non patchato'],
+        [true, 'manifest.json', 'testo: non costa un salvataggio'],
+    ];
+    const n = rows.filter(([on, f]) => on && f.endsWith('.zip')).length;
+    return `
+        <ul class="art-list">${rows.map(([on, file, note]) => `
+            <li class="art-item${on ? '' : ' is-off'}">
+                <span class="art-dot"></span>
+                <code class="art-name">${escapeHtml(file)}</code>
+                <span class="art-note">${escapeHtml(note)}</span>
+            </li>`).join('')}</ul>
+        <p class="hint">${n === 1
+            ? 'Un archivio: <strong>un solo salvataggio</strong>.'
+            : `${n} archivi: <strong>${n} salvataggi</strong>, uno per file.`}</p>`;
+}
+
 function renderSuffixStep(): void {
     const agent = state.activeAgent;
-    if (!agent) { navigateTo('welcome'); return; }
+    const sol = state.activeSolution;
+    if (!agent || !sol) { navigateTo('welcome'); return; }
     renderBreadcrumb();
 
     const draft = state.suffix;
@@ -805,7 +836,7 @@ function renderSuffixStep(): void {
         </div>
 
         <div class="two-col">
-
+            <div class="col-stack">
                 <section class="panel">
                     <div class="panel-head">
                         <h3 class="panel-heading">Suffisso</h3>
@@ -829,6 +860,17 @@ function renderSuffixStep(): void {
                         </p>
                     </div>
                 </section>
+
+                <section class="panel">
+                    <div class="panel-head">
+                        <h3 class="panel-heading">Artefatti</h3>
+                        <span class="panel-sub">cosa finisce su disco</span>
+                    </div>
+                    <div class="panel-body" id="artifact-list">
+                        ${artifactListHtml(sol, draft, state.options.keepSourceArtifacts)}
+                    </div>
+                </section>
+            </div>
 
                 <section class="panel">
                     <div class="panel-head"><h3 class="panel-heading">Opzioni</h3></div>
@@ -883,12 +925,20 @@ function renderSuffixStep(): void {
     const input = document.getElementById('suffix-input') as HTMLInputElement;
     const clearBtn = document.getElementById('clear-suffix-btn') as HTMLButtonElement;
 
+    const refreshArtifacts = () => {
+        const host = els.stepSuffix.querySelector('#artifact-list');
+        if (host) {
+            host.innerHTML = artifactListHtml(sol, state.suffix, state.options.keepSourceArtifacts);
+        }
+    };
+
     const sync = () => {
         state.suffix = input.value;
         clearBtn.disabled = !input.value;
         document.querySelectorAll<HTMLElement>('.chip-btn').forEach(b => {
             b.classList.toggle('is-active', b.dataset.preset === input.value);
         });
+        refreshArtifacts();
     };
 
     input.addEventListener('input', sync);
@@ -901,6 +951,7 @@ function renderSuffixStep(): void {
     });
     (document.getElementById('opt-keep') as HTMLInputElement).addEventListener('change', ev => {
         state.options.keepSourceArtifacts = (ev.target as HTMLInputElement).checked;
+        refreshArtifacts();
     });
 
     document.getElementById('opt-publish')!.addEventListener('click', ev => {
