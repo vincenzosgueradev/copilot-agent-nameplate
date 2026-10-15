@@ -166,6 +166,7 @@ function compare(
         botComponentElements: string[];
         configurationKeys: string[];
         platformStamps?: FormatFingerprint['platformStamps'];
+        optionalTopLevelPaths?: string[];
         optionalBotComponentElements?: string[];
         optionalConfigurationKeys?: string[];
     },
@@ -179,7 +180,7 @@ function compare(
             what: `SolutionPackageVersion: ${ref.solutionPackageVersion} → ${actual.solutionPackageVersion}`,
         });
     }
-    out.push(...diffList('cartelle di primo livello', ref.topLevelPaths, actual.topLevelPaths, against));
+    out.push(...diffList('cartelle di primo livello', ref.topLevelPaths, actual.topLevelPaths, against, ref.optionalTopLevelPaths));
     out.push(...diffList('elementi di bot.xml', ref.botElements, actual.botElements, against));
     out.push(...diffList('elementi di botcomponent.xml', ref.botComponentElements, actual.botComponentElements, against, ref.optionalBotComponentElements));
     out.push(...diffList('chiavi di configuration.json', ref.configurationKeys, actual.configurationKeys, against, ref.optionalConfigurationKeys));
@@ -211,6 +212,7 @@ export function detectDrift(
         botElements: baseline.botXml.elements,
         botComponentElements: baseline.botComponentXml.elements,
         configurationKeys: baseline.configurationJson.keys,
+        optionalTopLevelPaths: baseline.optionalTopLevelPaths,
         optionalBotComponentElements: baseline.botComponentXml.optionalElements,
         optionalConfigurationKeys: baseline.configurationJson.optionalKeys,
     }, actual, 'baseline');

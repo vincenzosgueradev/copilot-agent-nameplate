@@ -748,7 +748,19 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   quella verificata il 2026-10-15 su `testAgentTool` (research §14) — così che il confronto
   funzioni anche alla **prima** esecuzione su un ambiente il cui formato è già cambiato. La
   baseline DEVE riportare la data e l'origine della verifica, e va aggiornata consapevolmente,
-  mai in automatico
+  mai in automatico.
+  **Voci facoltative** *(revisione 2026-10-16)*: la baseline DEVE distinguere ciò che un package
+  ha **sempre** da ciò che può legittimamente mancare, e l'assenza di una voce facoltativa NON
+  DEVE produrre uno scostamento. Il confronto è simmetrico — segnala sia ciò che compare sia ciò
+  che sparisce — quindi elencare una voce facoltativa fra quelle attese genera un falso allarme a
+  ogni package che non la contiene. Sono facoltative, perché dipendono da come è fatta la singola
+  solution e non dal formato:
+  - `environmentvariabledefinitions/` fra le cartelle di primo livello: c'è solo se la solution
+    contiene variabili d'ambiente, che per un agent non sono obbligatorie
+  - `description` fra gli elementi di `botcomponent.xml`: colonna nullable, serializzata
+    nell'export solo quando ha un valore
+  - `publishOnImport`, `publishOnCreate`, `deferredProvisioning` fra le chiavi di
+    `configuration.json`, per la stessa ragione
 - **FR-099** *(fase 2)*: Dopo un deploy il tool DEVE rileggere `bot.name` dall'ambiente di
   destinazione e confrontarlo con il valore patchato. È la **controprova end-to-end**: se non
   coincidono, l'assunzione sul formato è caduta e il tool DEVE dirlo in modo esplicito, non

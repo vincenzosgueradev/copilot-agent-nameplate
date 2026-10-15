@@ -12,11 +12,14 @@
     "topLevelPaths": [
         "bots/",
         "botcomponents/",
-        "environmentvariabledefinitions/",
         "solution.xml",
         "customizations.xml",
         "[Content_Types].xml"
     ],
+    "optionalTopLevelPaths": [
+        "environmentvariabledefinitions/"
+    ],
+    "$comment_topLevelPaths": "environmentvariabledefinitions/ c'e' solo se la solution contiene variabili d'ambiente, che per un agent sono facoltative: la sua assenza non e' uno scostamento di formato.",
     "botXml": {
         "rootElement": "bot",
         "rootAttributes": [
