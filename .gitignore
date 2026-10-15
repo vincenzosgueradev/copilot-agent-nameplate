@@ -1,3 +1,6 @@
+# Claude Code local tooling
+.claude/
+
 # Dependencies
 node_modules/
 
