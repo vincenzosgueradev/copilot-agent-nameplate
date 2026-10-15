@@ -55,8 +55,8 @@
         "managed-layer"
     ],
     "configurations": {
-        "repository": "https://dev.azure.com/vsgueradeveloper/PPTB%20-%20Agent%20Rename/_git/PPTB%20-%20Agent%20Rename",
-        "readmeUrl": "https://dev.azure.com/vsgueradeveloper/PPTB%20-%20Agent%20Rename/_git/PPTB%20-%20Agent%20Rename?path=/tools/README.md",
+        "repository": "https://dev.azure.com/vsgueradeveloper/PPTB%20-%20Agent%20Rename/_git/Copilot%20Agent%20Nameplate",
+        "readmeUrl": "https://dev.azure.com/vsgueradeveloper/PPTB%20-%20Agent%20Rename/_git/Copilot%20Agent%20Nameplate?path=/tools/README.md",
         "category": "Copilot Studio"
     },
     "features": {
