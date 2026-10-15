@@ -1219,6 +1219,56 @@ mark.hl {
     color: var(--color-text-muted);
 }
 
+/* ── Consegna ──
+   Di tutto l'artifact set una cosa sola serve a valle: quale file importare. Sta in cima,
+   da sola, prima dell'elenco completo. */
+.handoff {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-5);
+    margin-bottom: var(--sp-4);
+    border: 1px solid var(--color-success);
+    border-left-width: 3px;
+    border-radius: var(--radius-lg);
+    background: rgba(76, 175, 80, 0.08);
+}
+
+.handoff-mark {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-success);
+    color: #fff;
+}
+
+.handoff-mark .icon { width: 17px; height: 17px; }
+
+.handoff-text { flex: 1; min-width: 0; }
+
+.handoff-label {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-muted);
+}
+
+.handoff-file {
+    display: block;
+    margin-top: var(--sp-1);
+    font-size: var(--fs-md);
+    font-weight: 600;
+    color: var(--color-text-strong);
+    word-break: break-all;
+}
+
+/* La riga dell'archivio da importare, nell'elenco completo */
+.row-highlight > td { background: rgba(76, 175, 80, 0.06); }
+
 /* ── Matrice dei controlli ──
    Un controllo per colonna, un package per riga: l'esito si legge come una griglia
    invece che come una frase. */

@@ -1457,47 +1457,61 @@ function renderResultStep(): void {
     const deploy = set.files.find(f => f.role === 'deploy');
     els.stepResult.innerHTML = `
         <div class="step-header step-header-row">
-            <div>
-                <h2 class="step-title">Artifact set pronto</h2>
-                <div class="step-sub">${escapeHtml(set.folderName)}</div>
-            </div>
+            <h2 class="step-title">Artifact set pronto</h2>
             ${stepperHtml(5)}
         </div>
 
-        <div class="card">
-            <div class="result-banner result-banner--success">
-                Da importare in UAT/PROD: <strong>${escapeHtml(deploy?.fileName ?? '—')}</strong>
+        <div class="handoff">
+            <span class="handoff-mark">${icon('check')}</span>
+            <div class="handoff-text">
+                <div class="handoff-label">Da importare in UAT o PROD</div>
+                <code class="handoff-file">${escapeHtml(deploy?.fileName ?? '—')}</code>
             </div>
-
-            <h3 class="section-title">File prodotti</h3>
-            <table class="data-table">
-                <thead><tr><th>File</th><th>Ruolo</th><th>Entry</th><th>SHA-256</th></tr></thead>
-                <tbody>${set.files.map(f => `
-                    <tr>
-                        <td><code>${escapeHtml(f.fileName)}</code></td>
-                        <td>${roleChip(f.role)}</td>
-                        <td>${f.entryCount}</td>
-                        <td class="cell-muted"><code title="${escapeHtml(f.sha256)}">${escapeHtml(f.sha256.slice(0, 16))}…</code></td>
-                    </tr>`).join('')}</tbody>
-            </table>
-            <p class="hint">
-                Due artefatti della stessa versione si distinguono dall'<strong>hash</strong>, non
-                dalla <code>&lt;Version&gt;</code>: per questo non serve forzare un bump.
-            </p>
-            <p class="hint hint--warn">
-                L'archivio <strong>unmanaged</strong> non va importato in UAT/PROD: creerebbe una
-                solution unmanaged, cioè il problema che questo flusso elimina.
-            </p>
-
-            <h3 class="section-title">Cartella</h3>
-            <div class="kv"><span class="kv-key">Percorso</span>
-                <span class="kv-val"><code>${escapeHtml(set.folderPath)}</code></span></div>
-            <div class="kv"><span class="kv-key">Manifest</span>
-                <span class="kv-val"><code>manifest.json</code> — sorgente, suffisso, operatore,
-                impronta del formato e hash di ogni file</span></div>
-            <div class="kv"><span class="kv-key">Spazio occupato</span>
-                <span class="kv-val">${(set.totalBytes / 1024).toFixed(0)} KB</span></div>
+            <span class="chip chip--success">managed</span>
         </div>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h3 class="panel-heading">File prodotti</h3>
+                <span class="panel-sub">${set.files.length} archivi · ${(set.totalBytes / 1024).toFixed(0)} KB</span>
+            </div>
+            <div class="panel-body">
+                <table class="data-table">
+                    <thead><tr>
+                        <th>File</th><th>Ruolo</th><th class="col-num">Entry</th><th>SHA-256</th>
+                    </tr></thead>
+                    <tbody>${set.files.map(f => `
+                        <tr${f.role === 'deploy' ? ' class="row-highlight"' : ''}>
+                            <td class="cell-strong"><code>${escapeHtml(f.fileName)}</code></td>
+                            <td>${roleChip(f.role)}</td>
+                            <td class="col-num">${f.entryCount}</td>
+                            <td class="cell-muted"><code title="${escapeHtml(f.sha256)}">${escapeHtml(f.sha256.slice(0, 16))}…</code></td>
+                        </tr>`).join('')}</tbody>
+                </table>
+                <div class="note note--warn">
+                    L'archivio <strong>unmanaged</strong> non va importato in UAT o PROD:
+                    creerebbe una solution unmanaged, cioè il problema che questo flusso elimina.
+                </div>
+                <div class="note">
+                    Due artefatti della stessa versione si distinguono dall'<strong>hash</strong>,
+                    non dalla <code>&lt;Version&gt;</code>: per questo non serve forzare un bump.
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h3 class="panel-heading">Dove si trova</h3>
+                <button class="btn btn--secondary btn--sm" id="copy-path-btn">Copia percorso</button>
+            </div>
+            <div class="panel-body">
+                <div class="kv"><span class="kv-key">Cartella</span>
+                    <span class="kv-val"><code>${escapeHtml(set.folderPath)}</code></span></div>
+                <div class="kv"><span class="kv-key">Manifest</span>
+                    <span class="kv-val"><code>manifest.json</code> — sorgente, suffisso, operatore,
+                    impronta del formato e hash di ogni file</span></div>
+            </div>
+        </section>
 
         <div class="card" id="deploy-panel"></div>
 
@@ -1515,6 +1529,13 @@ function renderResultStep(): void {
     els.stepResult.querySelector('#open-folder-btn')!.addEventListener('click', () => {
         void openFolder(set.folderPath).catch(err =>
             log(`Non sono riuscito ad aprire la cartella: ${describeError(err)}`, 'error'));
+    });
+    els.stepResult.querySelector('#copy-path-btn')!.addEventListener('click', ev => {
+        const btn = ev.currentTarget as HTMLButtonElement;
+        void toolbox.utils.copyToClipboard(set.folderPath).then(() => {
+            btn.textContent = 'Copiato';
+            setTimeout(() => { btn.textContent = 'Copia percorso'; }, 1500);
+        });
     });
     els.stepResult.querySelector('#history-nav-btn')!.addEventListener('click', () => navigateTo('history'));
     els.stepResult.querySelector('#done-btn')!.addEventListener('click', () => {
