@@ -1216,6 +1216,88 @@ mark.hl {
     color: var(--color-text-muted);
 }
 
+/* ── Inventario del package ──
+   Lista invece di tabella: a quattro colonne il chip veniva tagliato dal bordo del
+   pannello e il tipo andava a capo a meta' parola. */
+.inv-list { list-style: none; margin: 0; padding: 0; }
+
+.inv-item {
+    padding: var(--sp-3) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.inv-item:first-child { padding-top: 0; }
+.inv-item:last-child { border-bottom: none; padding-bottom: 0; }
+
+.inv-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+
+.inv-path {
+    color: var(--color-text-strong);
+    word-break: break-all;
+    min-width: 0;
+}
+
+.inv-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-top: var(--sp-1);
+    font-size: var(--fs-sm);
+    color: var(--color-text-muted);
+}
+
+.inv-count {
+    padding: 0 var(--sp-2);
+    border-radius: 10px;
+    background: var(--color-surface-2);
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.inv-item--extra .inv-path { color: var(--color-warning); }
+
+/* ── Checklist di verifica ── */
+.check-list { list-style: none; margin: 0; padding: 0; }
+
+.check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-2) 0;
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+}
+
+.check-item--ok  { color: var(--color-text); }
+.check-item--ok  .icon { color: var(--color-success); }
+.check-item--ko  { color: var(--color-error); }
+.check-item--ko  .icon { color: var(--color-error); }
+
+/* Nota riquadrata: un avviso in mezzo al testo si legge e si dimentica */
+.note {
+    margin-top: var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--color-border);
+    background: var(--color-surface-2);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+}
+
+.note--warn {
+    border-left-color: var(--color-warning);
+    background: rgba(255, 152, 0, 0.08);
+    color: var(--color-text);
+}
+
+.note--warn strong { color: var(--color-warning); }
+
 /* ── Storico: riga di dettaglio ──
    Era una sola stringa separata da punti; ogni dato ha la sua etichetta e la sua riga. */
 .detail-row > td {

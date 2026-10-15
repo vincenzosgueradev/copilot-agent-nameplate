@@ -16,7 +16,6 @@ import { addRecord, deleteRecord, readHistory, updateRecord } from './services/h
 import { askConfirm } from './services/ui';
 import { runPackaging, type PackagingResult } from './services/packaging';
 import { buildName } from './services/patch';
-import { describeVerification } from './services/rezip';
 import { icon } from './icons';
 import {
     DEFAULT_OPTIONS,
@@ -29,6 +28,7 @@ import {
     type PackagingOptions,
     type PackagingRecord,
     type Solution,
+    type VerificationResult,
 } from './types';
 
 
@@ -1165,6 +1165,28 @@ function renderPreviewResult(r: PackagingResult): void {
 }
 
 /**
+ * I quattro controlli come righe separate, ognuna col proprio esito.
+ *
+ * `describeVerification` li concatena in una frase sola: utile nel log, illeggibile in un
+ * pannello stretto, dove andava a capo tre volte e non si vedeva quale controllo fosse
+ * passato. Qui ogni controllo e' una riga con la sua icona.
+ */
+function checkListHtml(v: VerificationResult, expectedEntries: number): string {
+    const rows: Array<[boolean, string]> = [
+        [v.archiveReadable, 'Archivio leggibile'],
+        [v.entryCountMatches, 'Numero di entry corrispondente'],
+        [v.patchedValuesConfirmed, 'Valori patchati confermati'],
+        [v.byteIdenticalEntries === expectedEntries,
+            `${v.byteIdenticalEntries}/${expectedEntries} entry non patchate byte-identiche`],
+    ];
+    return `<ul class="check-list">${rows.map(([ok, label]) => `
+        <li class="check-item check-item--${ok ? 'ok' : 'ko'}">
+            ${icon(ok ? 'check' : 'close', 'icon--sm')}
+            <span>${escapeHtml(label)}</span>
+        </li>`).join('')}</ul>`;
+}
+
+/**
  * Step 3: i controlli che dicono se l'artefatto e' utilizzabile.
  *
  * Separato dall'anteprima perche' risponde a un'altra domanda — non "cosa cambia" ma "e'
@@ -1195,21 +1217,21 @@ function renderVerifyStep(): void {
                     <span class="panel-sub">cosa viaggia all'import</span>
                 </div>
                 <div class="panel-body">
-                    <table class="data-table">
-                        <thead><tr><th>Cartella</th><th>Tipo</th><th>Quanti</th><th></th></tr></thead>
-                        <tbody>${pkg.inventory.map(c => `
-                            <tr>
-                                <td><code>${escapeHtml(c.path)}</code></td>
-                                <td>${escapeHtml(c.kind)}</td>
-                                <td>${c.count}</td>
-                                <td>${c.relatedToSelectedAgent ? '' : '<span class="chip chip--warning">oltre all\'agent</span>'}</td>
-                            </tr>`).join('')}</tbody>
-                    </table>
+                    <ul class="inv-list">${pkg.inventory.map(c => `
+                        <li class="inv-item${c.relatedToSelectedAgent ? '' : ' inv-item--extra'}">
+                            <div class="inv-head">
+                                <code class="inv-path">${escapeHtml(c.path)}</code>
+                                ${c.relatedToSelectedAgent ? ''
+                                    : '<span class="chip chip--warning">oltre all\'agent</span>'}
+                            </div>
+                            <div class="inv-meta">${escapeHtml(c.kind)}
+                                <span class="inv-count">${c.count}</span></div>
+                        </li>`).join('')}</ul>
                     ${extra.length ? `
-                    <p class="hint hint--warn" style="margin-top:12px">
+                    <div class="note note--warn">
                         L'artefatto è la <strong>solution intera</strong>: all'import viaggia anche
                         quanto sopra, non solo l'agent.
-                    </p>` : ''}
+                    </div>` : ''}
                 </div>
             </section>
 
@@ -1222,10 +1244,12 @@ function renderVerifyStep(): void {
                     <div class="kv"><span class="kv-key">Occorrenze del nome</span>
                         <span class="kv-val">${pkg.nameOccurrences.length} trovate,
                         ${unexpected.length} impreviste</span></div>
-                    <div class="kv"><span class="kv-key">Verifica managed</span>
-                        <span class="kv-val">${escapeHtml(describeVerification(v, r.managed.expectedIdenticalEntries))}</span></div>
-                    <div class="kv"><span class="kv-key">Verifica unmanaged</span>
-                        <span class="kv-val">${escapeHtml(describeVerification(vu, r.unmanaged.expectedIdenticalEntries))}</span></div>
+
+                    <h4 class="section-title">Managed</h4>
+                    ${checkListHtml(v, r.managed.expectedIdenticalEntries)}
+
+                    <h4 class="section-title">Unmanaged</h4>
+                    ${checkListHtml(vu, r.unmanaged.expectedIdenticalEntries)}
                     ${unexpected.length ? `
                     <p class="hint hint--warn" style="margin-top:12px">
                         Il nome compare in punti che il tool non conosce: ${unexpected.map(o =>
