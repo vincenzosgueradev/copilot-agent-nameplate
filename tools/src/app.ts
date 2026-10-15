@@ -850,7 +850,7 @@ function renderSuffixStep(): void {
                                 <div class="hint">porta il nome su Teams e M365 Copilot</div>
                             </div>
                             <div class="toggle-group" id="opt-publish" role="group">
-                                <button class="toggle-btn ${pub === 'keep'        ? 'is-active' : ''}" data-val="keep">Auto</button>
+                                <button class="toggle-btn ${pub === 'keep'        ? 'is-active' : ''}" data-val="keep">Lascia</button>
                                 <button class="toggle-btn ${pub === 'force-true'  ? 'is-active' : ''}" data-val="force-true">Sì</button>
                                 <button class="toggle-btn ${pub === 'force-false' ? 'is-active' : ''}" data-val="force-false">No</button>
                             </div>
