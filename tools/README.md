@@ -1,7 +1,11 @@
-# Agent Rename Manager
+# Copilot Agent Nameplate
+
+**Rename Copilot Studio agents per environment — without an unmanaged layer.**
 
 Produce il package di una solution con i display name degli agent Copilot Studio già corretti
-per l'ambiente di destinazione. **Nessun unmanaged layer, mai.**
+per l'ambiente di destinazione: l'agent arriva in UAT o PROD **già con la targhetta giusta**,
+invece di essere rinominato una volta lì. È la differenza fra un package pulito e un unmanaged
+layer che si porta dietro per sempre.
 
 ## Il problema
 

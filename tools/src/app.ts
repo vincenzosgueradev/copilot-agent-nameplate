@@ -1617,7 +1617,7 @@ async function saveArtifactSet(): Promise<void> {
         state.lastSet = written.set;
         navigateTo('result');
         toolbox.utils.showNotification({
-            title: 'Agent Rename Manager',
+            title: 'Copilot Agent Nameplate',
             body: `Artifact set pronto in ${written.set.folderName}`,
             type: written.complete ? 'success' : 'warning',
         });
@@ -1871,8 +1871,8 @@ els.exportLogBtn.addEventListener('click', async () => {
             <p class="hint">Il file resta sul dispositivo: nulla viene trasmesso.</p>`,
     });
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    if (ok) await saveTextFile(`agent-rename-log-${stamp}.csv`, toCsv());
-    else await saveTextFile(`agent-rename-log-${stamp}.json`, toJson());
+    if (ok) await saveTextFile(`nameplate-log-${stamp}.csv`, toCsv());
+    else await saveTextFile(`nameplate-log-${stamp}.json`, toJson());
 });
 
 document.getElementById('solution-type-filter')!.addEventListener('click', ev => {
@@ -1927,5 +1927,5 @@ toolbox.events.on((_event: unknown, payload: { event: string }) => {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 attachLog(els.logEntries);
 els.exportLogBtn.disabled = false;
-log('Agent Rename Manager starting...');
+log('Copilot Agent Nameplate starting...');
 initConnection();

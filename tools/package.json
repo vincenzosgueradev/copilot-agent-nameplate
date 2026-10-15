@@ -1,8 +1,8 @@
 {
-    "name": "agent-rename-manager",
+    "name": "copilot-agent-nameplate",
     "version": "0.1.0",
-    "displayName": "Agent Rename Manager",
-    "description": "Produce the solution package with Copilot Studio agent display names already set for the target environment. No unmanaged layer, ever.",
+    "displayName": "Copilot Agent Nameplate",
+    "description": "Rename Copilot Studio agents per environment — without an unmanaged layer. The solution package arrives already named for its target.",
     "type": "module",
     "main": "index.html",
     "icon": "dist/logo.svg",

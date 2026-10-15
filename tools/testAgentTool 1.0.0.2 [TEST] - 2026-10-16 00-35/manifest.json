@@ -1,0 +1,107 @@
+{
+  "operationId": "testAgentTool 1.0.0.2 [TEST] - 2026-10-16 00-35",
+  "timestamp": "2026-10-15T22:35:41.190Z",
+  "user": "DEV",
+  "notice": "Questo package e' stato modificato dal tool: un solo elemento, bots/<schema>/bot.xml <name>. Microsoft non supporta la modifica manuale dei file di una solution. source_managed.zip, non modificato, e' nella stessa cartella.",
+  "source": {
+    "environmentUrl": "DEV",
+    "solutionUniqueName": "testAgentTool",
+    "version": "1.0.0.2",
+    "publisher": {
+      "uniqueName": "Avanade",
+      "prefix": "ava"
+    }
+  },
+  "suffix": "TEST",
+  "export": {
+    "mode": "sync",
+    "seconds": 12.5
+  },
+  "options": {
+    "bumpVersion": false,
+    "publishOnImport": "force-true",
+    "keepSourceArtifacts": false
+  },
+  "agents": [
+    {
+      "schemaName": "ava_agenteTool1",
+      "before": "agenteTool1 [DEV]",
+      "after": "agenteTool1 [TEST]"
+    }
+  ],
+  "fingerprint": {
+    "solutionPackageVersion": "9.2",
+    "platformStamps": {
+      "version": "9.2.26091.167",
+      "organizationVersion": "9.2.26091.167",
+      "serviceabilityVersion": "9.2.26092.00158"
+    },
+    "topLevelPaths": [
+      "[Content_Types].xml",
+      "botcomponents/",
+      "bots/",
+      "customizations.xml",
+      "solution.xml"
+    ],
+    "botElements": [
+      "authenticationmode",
+      "authenticationtrigger",
+      "iconbase64",
+      "iscustomizable",
+      "language",
+      "name",
+      "runtimeprovider",
+      "template",
+      "timezoneruleversionnumber"
+    ],
+    "botComponentElements": [
+      "componenttype",
+      "description",
+      "iscustomizable",
+      "name",
+      "parentbotid",
+      "statecode",
+      "statuscode"
+    ],
+    "configurationKeys": [
+      "$kind",
+      "aISettings",
+      "channels",
+      "deferredProvisioning",
+      "gPTSettings",
+      "isAgentConnectable",
+      "isLightweightBot",
+      "publishOnImport",
+      "recognizer",
+      "settings"
+    ]
+  },
+  "drift": [],
+  "nameOccurrences": [
+    {
+      "file": "bots/ava_agenteTool1/bot.xml",
+      "locator": "<name>",
+      "value": "agenteTool1 [DEV]",
+      "expected": true,
+      "willBePatched": true
+    }
+  ],
+  "confirmations": [],
+  "files": [
+    {
+      "fileName": "testAgentTool_1_0_0_2_managed_TEST.zip",
+      "role": "deploy",
+      "managed": true,
+      "patched": true,
+      "bytes": 31241,
+      "entryCount": 33,
+      "sha256": "630c6832db4e1208905edbf73b2bbc5514e20244ca3b864e342496b19f5d8485",
+      "verification": {
+        "archiveReadable": true,
+        "entryCountMatches": true,
+        "patchedValuesConfirmed": true,
+        "byteIdenticalEntries": 32
+      }
+    }
+  ]
+}
