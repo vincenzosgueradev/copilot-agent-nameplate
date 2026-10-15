@@ -43,14 +43,18 @@ export interface PackagingOptions {
     bumpVersion: boolean;
     /** Tre stati; `keep` **non tocca il file** (FR-090). */
     publishOnImport: 'keep' | 'force-true' | 'force-false';
-    /** Conserva nell'artifact set i due export non patchati (FR-078, FR-088). */
+    /**
+     * Conserva le copie aggiuntive: l'unmanaged patchato e i due export originali (FR-078,
+     * FR-088). Spento, l'artifact set e' il minimo che serve per importare — il managed
+     * patchato e il manifest — e costa un salvataggio invece di quattro.
+     */
     keepSourceArtifacts: boolean;
 }
 
 export const DEFAULT_OPTIONS: PackagingOptions = {
     bumpVersion: false,
     publishOnImport: 'keep',
-    keepSourceArtifacts: true,
+    keepSourceArtifacts: false,
 };
 
 export type PackagingStep = 'solution' | 'suffix' | 'preview' | 'result';

@@ -118,15 +118,17 @@ export async function writeArtifactSet(
             entryCount: result.managed.source.entries.length,
             verification: result.managed.verification,
         },
-        {
-            fileName: `${base}_unmanaged_${suffixTag}.zip`, role: 'source', managed: false,
-            patched: true, bytes: result.unmanaged.bytes,
-            entryCount: result.unmanaged.source.entries.length,
-            verification: result.unmanaged.verification,
-        },
     ];
+    // Scrivere un archivio costa un dialog di salvataggio, perche' PPTB non espone una
+    // scrittura binaria: il minimo indispensabile e' un file solo.
     if (options.keepSourceArtifacts) {
         planned.push(
+            {
+                fileName: `${base}_unmanaged_${suffixTag}.zip`, role: 'source', managed: false,
+                patched: true, bytes: result.unmanaged.bytes,
+                entryCount: result.unmanaged.source.entries.length,
+                verification: result.unmanaged.verification,
+            },
             {
                 fileName: 'source_managed.zip', role: 'restore', managed: true, patched: false,
                 bytes: result.managed.source.bytes,

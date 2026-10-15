@@ -848,6 +848,19 @@ function renderSuffixStep(): void {
 
                         <div class="opt-row" style="padding:12px 16px">
                             <div>
+                                <div class="opt-label">Conserva le copie aggiuntive</div>
+                                <div class="hint">unmanaged patchato e i due export originali ·
+                                    3 archivi in più, quindi 3 salvataggi in più</div>
+                            </div>
+                            <label class="switch" for="opt-keep">
+                                <input class="switch-input" type="checkbox" id="opt-keep"
+                                    ${state.options.keepSourceArtifacts ? 'checked' : ''}>
+                                <span class="switch-track"><span class="switch-thumb"></span></span>
+                            </label>
+                        </div>
+
+                        <div class="opt-row" style="padding:12px 16px">
+                            <div>
                                 <div class="opt-label">Publish all'import</div>
                                 <div class="hint">porta il nome su Teams e M365 Copilot</div>
                             </div>
@@ -885,6 +898,9 @@ function renderSuffixStep(): void {
     });
     (document.getElementById('opt-bump') as HTMLInputElement).addEventListener('change', ev => {
         state.options.bumpVersion = (ev.target as HTMLInputElement).checked;
+    });
+    (document.getElementById('opt-keep') as HTMLInputElement).addEventListener('change', ev => {
+        state.options.keepSourceArtifacts = (ev.target as HTMLInputElement).checked;
     });
 
     document.getElementById('opt-publish')!.addEventListener('click', ev => {
@@ -976,6 +992,11 @@ function renderReviewStep(): void {
                             : `No <span class="cell-muted">— stessa versione, sarà un update</span>`}</span></div>
                     <div class="kv"><span class="kv-key">Publish all'import</span>
                         <span class="kv-val">${escapeHtml(publishLabel)}</span></div>
+                    <div class="kv"><span class="kv-key">Artefatti prodotti</span>
+                        <span class="kv-val">${state.options.keepSourceArtifacts
+                            ? `4 archivi <span class="cell-muted">— managed, unmanaged e i due originali</span>`
+                            : `1 archivio <span class="cell-muted">— solo il managed da importare</span>`}
+                        + manifest</span></div>
 
                     <h4 class="section-title">Cosa succede ora</h4>
                     <p class="hint">

@@ -641,8 +641,8 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
 #### Artifact set — il tool nel ruolo del pipelines host *(revisione 2026-10-15)*
 
 - **FR-083**: Ogni operazione di packaging DEVE produrre un **artifact set**: una cartella di
-  operazione contenente l'artefatto **managed** e quello **unmanaged**, entrambi patchati, i
-  rispettivi originali non patchati e un `manifest.json`. Il principio è quello delle Power
+  operazione contenente l'artefatto **managed** patchato e un `manifest.json`, e — quando
+  l'opzione di FR-088 è attiva — anche l'**unmanaged** patchato e i due originali non patchati. Il principio è quello delle Power
   Platform Pipelines, che conservano la coppia managed+unmanaged per versione e la trattano come
   immutabile; la differenza è che qui l'artefatto lo produce il tool, perché il pipelines host
   **proibisce la modifica dell'artefatto** e quindi non può ospitare il patch del display name
@@ -677,7 +677,15 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   creerebbe una solution unmanaged, cioè esattamente il problema che il processo elimina
 - **FR-088**: L'artifact set occupa fino a quattro archivi per operazione. Il tool DEVE mostrare lo
   spazio occupato, permettere di non conservare gli originali (FR-078) e applicare al set la stessa
-  retention della History (30 giorni), eliminando la cartella insieme alla voce
+  retention della History (30 giorni), eliminando la cartella insieme alla voce.
+  **Set minimo e costo per archivio** *(revisione 2026-10-16)*: su PPTB **ogni archivio costa un
+  dialog di salvataggio**, perché la piattaforma non espone una scrittura binaria (`writeText` è
+  UTF-8, `saveFile` apre sempre) e vieta ai tool di invocare una shell. Quattro archivi significano
+  quattro dialog, più quello della cartella: cinque interruzioni per un'operazione. L'artifact set
+  **predefinito** è quindi il minimo che serve a importare — il **managed patchato** e il
+  `manifest.json`, che essendo testo non costa alcun dialog — e un'unica opzione conserva le copie
+  aggiuntive: l'unmanaged patchato (FR-087) e i due export originali (FR-078). L'opzione DEVE
+  dichiarare il costo, e il riepilogo pre-export DEVE dire quanti archivi verranno scritti
 - **FR-089**: Il tool NON DEVE scrivere il `<defaultvalue>` della environment variable né toccare
   in alcun modo il *Channel display name suffix* nativo. DEVE però **avvisare** quando quella
   feature risulta configurata sull'agent, perché sommata al suffisso nel nome produce un doppio
