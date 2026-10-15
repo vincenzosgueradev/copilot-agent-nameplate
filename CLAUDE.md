@@ -24,3 +24,13 @@ Ordine tipico a fine lavoro: `/custom-cleanup` (se ci sono stati file rimossi) �
 
 - Mai `git push`, amend o reset senza richiesta esplicita.
 - Messaggi in Conventional Commits, con gli scope definiti in `/custom-commit`.
+
+## Proporre nuove skill
+
+Tieni d'occhio i pattern ripetuti. Se noti uno di questi casi, **proponi tu** una nuova skill, a fine risposta e senza crearla finché l'utente non dice di sì:
+
+- l'utente lancia a mano più volte (2-3+) lo stesso comando o la stessa sequenza di comandi/prompt;
+- tu stesso ripeti ogni volta gli stessi passaggi (es. build + smoke + controllo di un file);
+- durante il lavoro emerge un'attività ricorrente che oggi non è coperta da nessuna skill.
+
+Formato: "Secondo me conviene creare la skill `/custom-xxx` perché …" con una riga su cosa farebbe e se la renderesti automatica o manuale. Non riproporre una skill già rifiutata.
