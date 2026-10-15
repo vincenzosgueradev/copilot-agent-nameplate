@@ -580,7 +580,6 @@ mark.hl {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
     gap: 16px;
     margin-bottom: 16px;
-    align-items: start;
 }
 
 .suffix-left {
@@ -590,6 +589,11 @@ mark.hl {
 }
 
 .suffix-layout .panel { margin-bottom: 0; }
+
+/* Right panel stretches to match the full left column height */
+.suffix-layout > .panel {
+    height: 100%;
+}
 
 .opt-label {
     font-size: 13px;
