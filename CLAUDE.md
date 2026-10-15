@@ -1,11 +1,13 @@
 # Agent Rename Manager — istruzioni per Claude
 
-## Suggerire le skill al momento giusto
+## Usare le skill al momento giusto
 
-L'utente si dimentica quando usare le skill custom. Quando il contesto lo rende opportuno, **dillo tu**, a fine risposta, con una riga tipo:
-"Secondo me ora conviene lanciare `/custom-xxx` perché …" (se serve, anche più skill in ordine).
+L'utente si dimentica quando usare le skill custom: decidi tu quando servono, secondo la tabella sotto.
 
-Non lanciare tu le skill manuali: suggeriscile e aspetta il via dell'utente. Non ripetere lo stesso suggerimento se è già stato ignorato nella stessa sessione.
+- **Automatiche (le lanci tu senza chiedere)**: `/custom-commit`, `/custom-ampush`, `/custom-types`, `/custom-dedup`. `custom-ampush`, `custom-types` e `custom-dedup` sono di sola analisi/lettura; `custom-commit` chiede comunque conferma del messaggio.
+- **Solo su via libera**: `/custom-cleanup` modifica i file, quindi suggeriscila con "secondo me conviene lanciare `/custom-cleanup` perché …" e aspetta l'ok.
+- Dì sempre in una riga quale skill hai usato e perché. Non rilanciare la stessa skill se i file non sono cambiati dall'ultima esecuzione.
+- Mai fare push automaticamente: `/custom-ampush` dice solo se sei pronto.
 
 | Situazione | Skill da suggerire |
 |---|---|

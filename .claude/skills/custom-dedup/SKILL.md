@@ -2,7 +2,7 @@
 name: "custom-dedup"
 description: "Analysis-only scan for duplicate and redundant code in tools/src (duplicate helpers, dead code, unused exports, leftover console.log, duplicated constants). Reports findings; does not modify code."
 user-invocable: true
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Duplicate / redundant code analysis (read-only)

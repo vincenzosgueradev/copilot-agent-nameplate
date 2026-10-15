@@ -2,7 +2,7 @@
 name: "custom-types"
 description: "Analysis-only TypeScript audit of tools/src: any usage, ts-ignore, missing or loose types, strict-mode violations, unsafe XML/JSON handling. Reports findings; does not modify code."
 user-invocable: true
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # TypeScript audit (read-only)

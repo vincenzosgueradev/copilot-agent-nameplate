@@ -2,7 +2,7 @@
 name: "custom-ampush"
 description: "Pre-push readiness check for Agent Rename Manager: git state, tsc + vite build, smoke test, spec task completeness. Read-only; reports READY or NOT READY. Run manually before pushing."
 user-invocable: true
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Am I ready to push?
