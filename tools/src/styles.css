@@ -1262,9 +1262,22 @@ mark.hl {
     display: flex;
     align-items: baseline;
     gap: var(--sp-3);
-    padding: var(--sp-2) 0;
+    padding: var(--sp-3) 0;
+    border-bottom: 1px solid var(--color-border);
     font-size: var(--fs-sm);
     transition: opacity 0.15s;
+}
+
+.art-item:first-child { padding-top: 0; }
+.art-item:last-child { border-bottom: none; padding-bottom: 0; }
+
+.art-body { min-width: 0; }
+
+.art-desc {
+    margin: var(--sp-1) 0 0;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    max-width: 78ch;
 }
 
 .art-dot {
@@ -1282,22 +1295,13 @@ mark.hl {
     min-width: 0;
 }
 
-.art-note {
-    margin-left: auto;
-    padding-left: var(--sp-3);
-    color: var(--color-text-muted);
-    font-size: var(--fs-xs);
-    white-space: nowrap;
-}
 
 /* Spento: niente colore, niente corpo, e il nome barrato per non lasciare dubbi */
 .art-item.is-off { opacity: 0.45; }
 .art-item.is-off .art-dot { background: transparent; border: 1px solid var(--color-text-muted); }
 .art-item.is-off .art-name { color: var(--color-text-muted); text-decoration: line-through; }
+.art-item.is-off .art-desc { font-style: italic; }
 
-@media (max-width: 1100px) {
-    .art-note { display: none; }
-}
 
 /* ── Consegna ──
    Di tutto l'artifact set una cosa sola serve a valle: quale file importare. Sta in cima,

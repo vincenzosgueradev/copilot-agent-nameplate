@@ -802,19 +802,31 @@ function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): s
     const base = `${sol.uniqueName}_${sol.version.replace(/\./g, '_')}`;
     const tag = suffix.trim() || 'nosuffix';
     const rows: Array<[boolean, string, string]> = [
-        [true, `${base}_managed_${tag}.zip`, 'da importare a valle'],
-        [keepExtras, `${base}_unmanaged_${tag}.zip`, 'source control'],
-        [keepExtras, 'source_managed.zip', 'backup, non patchato'],
-        [keepExtras, 'source_unmanaged.zip', 'backup, non patchato'],
-        [true, 'manifest.json', 'testo: non costa un salvataggio'],
+        [true, `${base}_managed_${tag}.zip`,
+            "L'unico da importare in UAT o PROD. Essendo managed non crea un unmanaged layer "
+            + "nell'ambiente di destinazione."],
+        [keepExtras, `${base}_unmanaged_${tag}.zip`,
+            "Lo stesso patch in versione unmanaged, per il source control o un ambiente di "
+            + "sviluppo. Non va mai importato a valle."],
+        [keepExtras, 'source_managed.zip',
+            "L'export managed originale, non patchato. Si reimporta per tornare indietro, e "
+            + "accanto al patchato dimostra che è stato toccato un solo elemento."],
+        [keepExtras, 'source_unmanaged.zip',
+            "L'export unmanaged originale: la fotografia intatta della solution com'era "
+            + "nell'ambiente di partenza."],
+        [true, 'manifest.json',
+            "Chi, quando, da dove, suffisso applicato e hash di ogni file. Distingue due "
+            + "artefatti della stessa versione fatti per ambienti diversi."],
     ];
     const n = rows.filter(([on, f]) => on && f.endsWith('.zip')).length;
     return `
-        <ul class="art-list">${rows.map(([on, file, note]) => `
+        <ul class="art-list">${rows.map(([on, file, desc]) => `
             <li class="art-item${on ? '' : ' is-off'}">
                 <span class="art-dot"></span>
-                <code class="art-name">${escapeHtml(file)}</code>
-                <span class="art-note">${escapeHtml(note)}</span>
+                <div class="art-body">
+                    <code class="art-name">${escapeHtml(file)}</code>
+                    <p class="art-desc">${escapeHtml(desc)}</p>
+                </div>
             </li>`).join('')}</ul>
         <p class="hint">${n === 1
             ? 'Un archivio: <strong>un solo salvataggio</strong>.'
