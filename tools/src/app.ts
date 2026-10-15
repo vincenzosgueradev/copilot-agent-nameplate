@@ -794,10 +794,7 @@ function renderSuffixStep(): void {
     const draft = state.suffix;
     els.stepSuffix.innerHTML = `
         <div class="step-header step-header-row">
-            <div>
-                <h2 class="step-title">Suffisso per l'ambiente di destinazione</h2>
-                <div class="step-sub">${escapeHtml(agent.name)}</div>
-            </div>
+            <h2 class="step-title">Suffisso per l'ambiente di destinazione</h2>
             ${stepperHtml(1)}
         </div>
 
@@ -806,7 +803,7 @@ function renderSuffixStep(): void {
                 <div class="panel-head"><h3 class="panel-heading">Suffisso</h3></div>
                 <div class="panel-body">
                     <div class="input-row">
-                        <input id="suffix-input" type="text" maxlength="${SUFFIX_MAX}"
+                        <input id="suffix-input" class="text-input" type="text" maxlength="${SUFFIX_MAX}"
                             autocomplete="off" placeholder="es. UAT" value="${escapeHtml(draft)}">
                         <button id="clear-suffix-btn" class="btn btn--secondary btn--sm"
                             ${draft ? '' : 'disabled'}>Clear</button>
@@ -829,11 +826,11 @@ function renderSuffixStep(): void {
                     <div class="opt-row">
                         <span><strong>Publish all'import</strong>
                         <span class="hint">è il publish che porta il nome su Teams e M365 Copilot</span></span>
-                        <select id="opt-publish">
-                            <option value="keep" ${state.options.publishOnImport === 'keep' ? 'selected' : ''}>Lascia com'è</option>
-                            <option value="force-true" ${state.options.publishOnImport === 'force-true' ? 'selected' : ''}>Forza Sì</option>
-                            <option value="force-false" ${state.options.publishOnImport === 'force-false' ? 'selected' : ''}>Forza No</option>
-                        </select>
+                        <div class="toggle-group" id="opt-publish" role="group" aria-label="Publish all'import">
+                            <button class="toggle-btn ${state.options.publishOnImport === 'keep'        ? 'is-active' : ''}" data-val="keep">Auto</button>
+                            <button class="toggle-btn ${state.options.publishOnImport === 'force-true'  ? 'is-active' : ''}" data-val="force-true">Sì</button>
+                            <button class="toggle-btn ${state.options.publishOnImport === 'force-false' ? 'is-active' : ''}" data-val="force-false">No</button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -869,9 +866,13 @@ function renderSuffixStep(): void {
     (document.getElementById('opt-bump') as HTMLInputElement).addEventListener('change', ev => {
         state.options.bumpVersion = (ev.target as HTMLInputElement).checked;
     });
-    (document.getElementById('opt-publish') as HTMLSelectElement).addEventListener('change', ev => {
-        state.options.publishOnImport =
-            (ev.target as HTMLSelectElement).value as PackagingOptions['publishOnImport'];
+    document.getElementById('opt-publish')!.addEventListener('click', ev => {
+        const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.toggle-btn');
+        if (!btn) return;
+        state.options.publishOnImport = btn.dataset.val as PackagingOptions['publishOnImport'];
+        document.querySelectorAll<HTMLElement>('#opt-publish .toggle-btn').forEach(b => {
+            b.classList.toggle('is-active', b === btn);
+        });
     });
     document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('solution'));
     document.getElementById('next-btn')!.addEventListener('click', () => navigateTo('preview'));

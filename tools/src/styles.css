@@ -1260,3 +1260,83 @@ mark.hl {
     line-height: 1.6;
     color: var(--color-text-muted);
 }
+
+/* ── Dark-themed native inputs ── */
+input[type="text"],
+input[type="search"],
+textarea,
+select {
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    color: var(--color-text-strong);
+    font-size: 13px;
+    font-family: inherit;
+    padding: 6px 10px;
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23858585'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+    cursor: pointer;
+}
+
+select option {
+    background: var(--color-surface-2);
+    color: var(--color-text-strong);
+}
+
+/* ── Toggle group (3-state segmented button) ── */
+.toggle-group {
+    display: inline-flex;
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    overflow: hidden;
+    background: var(--color-surface-2);
+}
+
+.toggle-btn {
+    padding: 5px 16px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    position: relative;
+}
+
+.toggle-btn + .toggle-btn::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 20%;
+    height: 60%;
+    width: 1px;
+    background: var(--color-border);
+}
+
+.toggle-btn:hover { color: var(--color-text-strong); background: var(--color-border); }
+
+.toggle-btn.is-active {
+    background: var(--color-primary);
+    color: #fff;
+    font-weight: 600;
+}
+
+.toggle-btn.is-active + .toggle-btn::before { display: none; }
