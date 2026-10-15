@@ -1277,6 +1277,25 @@ mark.hl {
     color: var(--color-text-muted);
 }
 
+/* Due pannelli affiancati che condividono l'altezza della riga. Sotto i 1000px la
+   seconda colonna va a capo invece di comprimere le tabelle. */
+.two-col {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.two-col > .panel { margin-bottom: 0; height: 100%; }
+
+@media (max-width: 1000px) {
+    .two-col { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Pannelli impilati sotto la card di riepilogo dell'anteprima */
+#preview-panels { display: flex; flex-direction: column; gap: 16px; }
+#preview-panels .panel { margin-bottom: 0; }
+
 /* ── Icone ──
    Forma da `mask-image`, colore da `currentColor`: l'icona e' uno <span> normale, quindi
    non dipende da come l'host tratta gli elementi <svg> inline, ed eredita il colore del

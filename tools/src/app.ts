@@ -35,7 +35,7 @@ import {
 const toolbox = globalThis.toolboxAPI;
 
 // ── State ────────────────────────────────────────────────────────────────────
-type AppStep = 'welcome' | 'solution' | 'suffix' | 'preview' | 'result' | 'history';
+type AppStep = 'welcome' | 'solution' | 'suffix' | 'preview' | 'verify' | 'result' | 'history';
 
 const state = {
     connectionName: '',
@@ -76,6 +76,7 @@ const els = {
     stepSolution: document.getElementById('step-solution')!,
     stepSuffix: document.getElementById('step-suffix')!,
     stepPreview: document.getElementById('step-preview')!,
+    stepVerify: document.getElementById('step-verify')!,
     stepResult: document.getElementById('step-result')!,
     stepHistory: document.getElementById('step-history')!,
     historyBtn: document.getElementById('history-btn') as HTMLButtonElement,
@@ -702,6 +703,9 @@ function buildBreadcrumb(): Crumb[] {
     trail.push({ label: 'Anteprima', step: 'preview' });
     if (state.currentStep === 'preview') return trail;
 
+    trail.push({ label: 'Verifica', step: 'verify' });
+    if (state.currentStep === 'verify') return trail;
+
     trail.push({ label: 'Risultato', step: 'result' });
     return trail;
 }
@@ -740,6 +744,7 @@ function navigateTo(step: AppStep): void {
     els.stepSolution.style.display = 'none';
     els.stepSuffix.style.display = 'none';
     els.stepPreview.style.display = 'none';
+    els.stepVerify.style.display = 'none';
     els.stepResult.style.display = 'none';
     els.stepHistory.style.display = 'none';
 
@@ -757,6 +762,7 @@ function navigateTo(step: AppStep): void {
             break;
         case 'suffix':  els.stepSuffix.style.display  = ''; renderSuffixStep();  break;
         case 'preview': els.stepPreview.style.display = ''; renderPreviewStep(); break;
+        case 'verify':  els.stepVerify.style.display  = ''; renderVerifyStep();  break;
         case 'result':  els.stepResult.style.display  = ''; renderResultStep();  break;
         case 'history': els.stepHistory.style.display = ''; void renderHistoryStep(); break;
     }
@@ -766,8 +772,8 @@ function navigateTo(step: AppStep): void {
 
 const SUFFIX_PRESETS = ['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'];
 
-function stepperHtml(active: 1 | 2 | 3): string {
-    const steps = ['Suffisso', 'Anteprima', 'Risultato'];
+function stepperHtml(active: 1 | 2 | 3 | 4): string {
+    const steps = ['Suffisso', 'Anteprima', 'Verifica', 'Risultato'];
     const items = steps.map((label, i) => {
         const n = i + 1;
         const cls = n === active ? 'active' : n < active ? 'done' : '';
@@ -957,6 +963,7 @@ function renderPreviewStep(): void {
             <div class="progress-line"><span class="spinner"></span>
                 <span id="preview-progress">avvio dell'export…</span></div>
         </div>
+        <div id="preview-panels"></div>
         <div class="step-footer" id="preview-footer">
             <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
         </div>`;
@@ -1030,8 +1037,6 @@ function renderPreviewResult(r: PackagingResult): void {
     const body = document.getElementById('preview-body');
     if (!body) return;
     const pkg = r.managed.source;
-    const unexpected = pkg.nameOccurrences.filter(o => !o.expected);
-    const extra = pkg.inventory.filter(c => !c.relatedToSelectedAgent);
 
     const planRows = r.plan.length ? r.plan.map(c => `
         <tr>
@@ -1043,9 +1048,6 @@ function renderPreviewResult(r: PackagingResult): void {
                 ${c.exceedsTeamsLimit ? '<span class="chip chip--warning">&gt; 30 char</span>' : ''}</td>
         </tr>`).join('') : `<tr><td colspan="5" class="cell-muted">Nessuna modifica da applicare.</td></tr>`;
 
-    const v = r.managed.verification;
-    const vu = r.unmanaged.verification;
-
     body.innerHTML = `
         <div class="detail-meta detail-meta--flat">
             <div><span class="meta-label">Solution</span><span>${escapeHtml(pkg.uniqueName)}</span></div>
@@ -1053,91 +1055,153 @@ function renderPreviewResult(r: PackagingResult): void {
             <div><span class="meta-label">Publisher</span><span>${escapeHtml(pkg.publisherUniqueName)} (${escapeHtml(pkg.publisherPrefix)})</span></div>
             <div><span class="meta-label">Entry</span><span>${pkg.entries.length}</span></div>
             <div><span class="meta-label">Export</span><span>${r.exportMode} · ${r.exportSeconds.toFixed(1)} s</span></div>
+        </div>`;
+
+    // Il contenuto vero sta nei pannelli sotto la card: la card tiene solo il riepilogo
+    const panels = document.getElementById('preview-panels');
+    if (panels) {
+        panels.innerHTML = `
+            <section class="panel">
+                <div class="panel-head">
+                    <h3 class="panel-heading">Cosa viene modificato</h3>
+                    <span class="panel-sub">l'unico punto toccato nel package</span>
+                </div>
+                <div class="panel-body">
+                    <table class="data-table">
+                        <thead><tr><th>File</th><th>Elemento</th><th>Prima</th><th>Dopo</th><th>Stato</th></tr></thead>
+                        <tbody>${planRows}</tbody>
+                    </table>
+                    <p class="hint" style="margin-top:12px">
+                        <strong>Non</strong> vengono toccati: <code>schemaname</code>, nomi di cartella e
+                        di file, GUID, <code>[Content_Types].xml</code>, <code>customizations.xml</code>.
+                        Nessuna sostituzione testuale globale.
+                    </p>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head"><h3 class="panel-heading">Agent nel package</h3></div>
+                <div class="panel-body">
+                    ${pkg.agents.map(a => `
+                        <div class="kv"><span class="kv-key">${escapeHtml(a.schemaName)}</span>
+                            <span class="kv-val">${escapeHtml(a.name)} ·
+                            publish all'import: <strong>${a.publishOnImport === null
+                                ? 'non specificato' : a.publishOnImport ? 'sì' : 'no'}</strong>
+                            ${a.channels.length ? `· canali: ${escapeHtml(a.channels.join(', '))}` : ''}</span></div>`).join('')}
+                    ${pkg.agents.some(a => a.publishOnImport !== true) ? `
+                    <p class="hint hint--warn" style="margin-top:12px">
+                        Senza publish nell'ambiente di destinazione il nome cambia solo in Copilot
+                        Studio e <strong>resta quello vecchio su Teams e M365</strong>.
+                    </p>` : ''}
+                </div>
+            </section>`;
+    }
+
+    const footer = document.getElementById('preview-footer');
+    if (footer) {
+        footer.innerHTML = `
+            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
+            <button class="btn btn--primary" id="to-verify-btn">
+                Verifica ${icon('arrow-right', 'icon--sm')}</button>`;
+        footer.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('suffix'));
+        footer.querySelector('#to-verify-btn')!.addEventListener('click', () => navigateTo('verify'));
+    }
+}
+
+/**
+ * Step 3: i controlli che dicono se l'artefatto e' utilizzabile.
+ *
+ * Separato dall'anteprima perche' risponde a un'altra domanda — non "cosa cambia" ma "e'
+ * sicuro" — e perche' insieme i due riempivano una schermata sola troppo lunga da leggere.
+ * Non rifa' nulla: legge il risultato gia' in `state.packaging`.
+ */
+function renderVerifyStep(): void {
+    const r = state.packaging;
+    if (!r) { navigateTo('preview'); return; }
+    renderBreadcrumb();
+
+    const pkg = r.managed.source;
+    const unexpected = pkg.nameOccurrences.filter(o => !o.expected);
+    const extra = pkg.inventory.filter(c => !c.relatedToSelectedAgent);
+    const v = r.managed.verification;
+    const vu = r.unmanaged.verification;
+
+    els.stepVerify.innerHTML = `
+        <div class="step-header step-header-row">
+            <h2 class="step-title">Verifica dell'artefatto</h2>
+            ${stepperHtml(3)}
         </div>
 
-        <h3 class="section-title">Cosa viene modificato</h3>
-        <table class="data-table">
-            <thead><tr><th>File</th><th>Elemento</th><th>Prima</th><th>Dopo</th><th>Stato</th></tr></thead>
-            <tbody>${planRows}</tbody>
-        </table>
-        <p class="hint">
-            <strong>Non</strong> vengono toccati: <code>schemaname</code>, nomi di cartella e di file,
-            GUID, <code>[Content_Types].xml</code>, <code>customizations.xml</code>. Nessuna
-            sostituzione testuale globale.
-        </p>
+        <div class="two-col">
+            <section class="panel">
+                <div class="panel-head">
+                    <h3 class="panel-heading">Contenuto del package</h3>
+                    <span class="panel-sub">cosa viaggia all'import</span>
+                </div>
+                <div class="panel-body">
+                    <table class="data-table">
+                        <thead><tr><th>Cartella</th><th>Tipo</th><th>Quanti</th><th></th></tr></thead>
+                        <tbody>${pkg.inventory.map(c => `
+                            <tr>
+                                <td><code>${escapeHtml(c.path)}</code></td>
+                                <td>${escapeHtml(c.kind)}</td>
+                                <td>${c.count}</td>
+                                <td>${c.relatedToSelectedAgent ? '' : '<span class="chip chip--warning">oltre all\'agent</span>'}</td>
+                            </tr>`).join('')}</tbody>
+                    </table>
+                    ${extra.length ? `
+                    <p class="hint hint--warn" style="margin-top:12px">
+                        L'artefatto è la <strong>solution intera</strong>: all'import viaggia anche
+                        quanto sopra, non solo l'agent.
+                    </p>` : ''}
+                </div>
+            </section>
 
-        <h3 class="section-title">Agent nel package</h3>
-        ${pkg.agents.map(a => `
-            <div class="kv"><span class="kv-key">${escapeHtml(a.schemaName)}</span>
-                <span class="kv-val">${escapeHtml(a.name)} ·
-                publish all'import: <strong>${a.publishOnImport === null
-                    ? 'non specificato' : a.publishOnImport ? 'sì' : 'no'}</strong>
-                ${a.channels.length ? `· canali: ${escapeHtml(a.channels.join(', '))}` : ''}</span></div>`).join('')}
-        ${pkg.agents.some(a => a.publishOnImport !== true) ? `
-        <p class="hint hint--warn">
-            Senza publish nell'ambiente di destinazione il nome cambia solo in Copilot Studio e
-            <strong>resta quello vecchio su Teams e M365</strong>.
-        </p>` : ''}
-
-        <h3 class="section-title">Contenuto del package</h3>
-        <table class="data-table">
-            <thead><tr><th>Cartella</th><th>Tipo</th><th>Quanti</th><th></th></tr></thead>
-            <tbody>${pkg.inventory.map(c => `
-                <tr>
-                    <td><code>${escapeHtml(c.path)}</code></td>
-                    <td>${escapeHtml(c.kind)}</td>
-                    <td>${c.count}</td>
-                    <td>${c.relatedToSelectedAgent ? '' : '<span class="chip chip--warning">oltre all\'agent</span>'}</td>
-                </tr>`).join('')}</tbody>
-        </table>
-        ${extra.length ? `
-        <p class="hint hint--warn">
-            L'artefatto è la <strong>solution intera</strong>: all'import viaggia anche quanto sopra,
-            non solo l'agent.
-        </p>` : ''}
-
-        ${pkg.drift.length ? `
-        <h3 class="section-title">Formato del package</h3>
-        <p class="hint hint--warn">
-            Il formato si discosta da quello di riferimento. Non blocca il packaging — Dataverse
-            si aggiorna di continuo — ma vale la pena saperlo:
-        </p>
-        <ul class="drift-list">${pkg.drift.map(d =>
-            `<li>${escapeHtml(d.what)} <span class="cell-muted">(vs ${escapeHtml(d.against)})</span></li>`).join('')}</ul>
-        ` : ''}
-
-        <h3 class="section-title">Controlli</h3>
-        <div class="kv"><span class="kv-key">Occorrenze del nome</span>
-            <span class="kv-val">${pkg.nameOccurrences.length} trovate,
-            ${unexpected.length} impreviste</span></div>
-        ${unexpected.length ? `
-        <p class="hint hint--warn">
-            Il nome compare in punti che il tool non conosce: ${unexpected.map(o =>
-                `<code>${escapeHtml(o.file)}</code> ${escapeHtml(o.locator)}`).join(', ')}.
-            Quei punti <strong>non</strong> verrebbero patchati.
-        </p>` : ''}
-        <div class="kv"><span class="kv-key">Verifica managed</span>
-            <span class="kv-val">${escapeHtml(describeVerification(v, r.managed.expectedIdenticalEntries))}</span></div>
-        <div class="kv"><span class="kv-key">Verifica unmanaged</span>
-            <span class="kv-val">${escapeHtml(describeVerification(vu, r.unmanaged.expectedIdenticalEntries))}</span></div>
+            <section class="panel">
+                <div class="panel-head">
+                    <h3 class="panel-heading">Controlli</h3>
+                    <span class="panel-sub">managed e unmanaged</span>
+                </div>
+                <div class="panel-body">
+                    <div class="kv"><span class="kv-key">Occorrenze del nome</span>
+                        <span class="kv-val">${pkg.nameOccurrences.length} trovate,
+                        ${unexpected.length} impreviste</span></div>
+                    <div class="kv"><span class="kv-key">Verifica managed</span>
+                        <span class="kv-val">${escapeHtml(describeVerification(v, r.managed.expectedIdenticalEntries))}</span></div>
+                    <div class="kv"><span class="kv-key">Verifica unmanaged</span>
+                        <span class="kv-val">${escapeHtml(describeVerification(vu, r.unmanaged.expectedIdenticalEntries))}</span></div>
+                    ${unexpected.length ? `
+                    <p class="hint hint--warn" style="margin-top:12px">
+                        Il nome compare in punti che il tool non conosce: ${unexpected.map(o =>
+                            `<code>${escapeHtml(o.file)}</code> ${escapeHtml(o.locator)}`).join(', ')}.
+                        Quei punti <strong>non</strong> verrebbero patchati.
+                    </p>` : ''}
+                    ${pkg.drift.length ? `
+                    <h4 class="section-title">Formato del package</h4>
+                    <p class="hint hint--warn">
+                        Il formato si discosta da quello di riferimento. Non blocca il packaging —
+                        Dataverse si aggiorna di continuo — ma vale la pena saperlo:
+                    </p>
+                    <ul class="drift-list">${pkg.drift.map(d =>
+                        `<li>${escapeHtml(d.what)} <span class="cell-muted">(vs ${escapeHtml(d.against)})</span></li>`).join('')}</ul>
+                    ` : ''}
+                </div>
+            </section>
+        </div>
 
         <div class="result-banner result-banner--${r.valid ? 'success' : 'error'}">
             ${r.valid
                 ? 'Package pronti e verificati: managed e unmanaged, con una sola entry modificata.'
                 : 'La verifica non è passata: l\'artefatto non è utilizzabile. Gli export originali restano importabili.'}
         </div>
-        `;
 
-    // Move the footer outside the card so it never overlaps the back button
-    const footer = document.getElementById('preview-footer');
-    if (footer) {
-        footer.innerHTML = `
+        <div class="step-footer">
             <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
             <button class="btn btn--primary" id="save-btn" ${r.valid ? '' : 'disabled'}>
-                ${icon('download', 'icon--sm')} Salva l'artifact set</button>`;
-        footer.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('suffix'));
-    }
+                ${icon('download', 'icon--sm')} Salva l'artifact set</button>
+        </div>`;
 
+    document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('preview'));
     const saveBtn = document.getElementById('save-btn');
     if (saveBtn) saveBtn.addEventListener('click', () => void confirmThenSave(unexpected, extra));
 }
@@ -1288,7 +1352,7 @@ function renderResultStep(): void {
                 <h2 class="step-title">Artifact set pronto</h2>
                 <div class="step-sub">${escapeHtml(set.folderName)}</div>
             </div>
-            ${stepperHtml(3)}
+            ${stepperHtml(4)}
         </div>
 
         <div class="card">
