@@ -1198,13 +1198,14 @@ function phaseFromMessage(msg: string, current: number): number {
 
 /** Il riquadro di attesa: barra indeterminata, fasi con il loro stato, messaggio e secondi. */
 function packProgressHtml(phase: number, msg: string, seconds: number): string {
+    const done = phase >= PACK_PHASES.length;
     const rows = PACK_PHASES.map((label, i) => {
         const state = i < phase ? 'done' : i === phase ? 'running' : 'todo';
         const mark = state === 'done' ? icon('check', 'icon--xs') : '';
         return `<li class="ph ph--${state}"><span class="ph-dot">${mark}</span>${label}</li>`;
     }).join('');
     return `
-        <div class="pack-bar"><span></span></div>
+        <div class="pack-bar${done ? ' pack-bar--done' : ''}"><span></span></div>
         <ul class="ph-list">${rows}</ul>
         <p class="pack-msg">${escapeHtml(msg)} · <strong>${seconds} s</strong></p>`;
 }
@@ -1237,6 +1238,15 @@ async function runPreview(
             sol.uniqueName, state.suffix, [agent.schemaName], state.options, setProgress)
             .finally(() => window.clearInterval(ticker));
         if (seq !== previewSeq) return;     // l'utente è già andato altrove
+
+        // Un istante con tutte le fasi chiuse prima di cambiare schermata: il lavoro e' durato
+        // decine di secondi, sparire di colpo lascia il dubbio che sia finito davvero.
+        phase = PACK_PHASES.length;
+        lastText = 'completato';
+        paint();
+        await new Promise(r => window.setTimeout(r, 900));
+        if (seq !== previewSeq) return;
+
         state.packaging = result;
         state.packagingKey = key;
         renderPreviewResult(result);
