@@ -6,6 +6,9 @@ export default defineConfig((configEnv) => {
     root: "./src",
     build: {
       outDir: "../dist",
+      // Senza, ogni build lascia i file con hash precedenti: dopo qualche giro la
+      // cartella e' piena di CSS e JS morti e non si capisce piu' quale sia il buono.
+      emptyOutDir: true,
       assetsDir: "assets",
       cssCodeSplit: false,
       sourcemap: configEnv.mode === "development",

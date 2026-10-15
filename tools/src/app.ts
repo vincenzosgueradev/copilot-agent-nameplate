@@ -919,8 +919,8 @@ function renderSuffixStep(): void {
             b.classList.toggle('is-active', b === btn);
         });
     });
-    document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('solution'));
-    document.getElementById('next-btn')!.addEventListener('click', () => navigateTo('review'));
+    els.stepSuffix.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('solution'));
+    els.stepSuffix.querySelector('#next-btn')!.addEventListener('click', () => navigateTo('review'));
 
     updateSuffixPreview();
 }
@@ -1044,8 +1044,8 @@ function renderReviewStep(): void {
                 ${icon('package', 'icon--sm')} Genera il package</button>
         </div>`;
 
-    document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('suffix'));
-    document.getElementById('next-btn')!.addEventListener('click', () => navigateTo('preview'));
+    els.stepReview.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('suffix'));
+    els.stepReview.querySelector('#next-btn')!.addEventListener('click', () => navigateTo('preview'));
 }
 
 function renderPreviewStep(): void {
@@ -1067,7 +1067,7 @@ function renderPreviewStep(): void {
         <div class="step-footer" id="preview-footer">
             <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
         </div>`;
-    document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('review'));
+    els.stepPreview.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('review'));
 
     // Tornare indietro e riavanzare non deve rifare l'export: sulla solution piu' pesante
     // dell'environment di riferimento la coppia costa 111 secondi (research.md §13).
@@ -1127,7 +1127,7 @@ async function runPreview(
                     <p class="hint">${escapeHtml(describeError(err))}</p>
                     <button class="btn btn--secondary" id="retry-btn">Riprova</button>
                 </div>`;
-            document.getElementById('retry-btn')!.addEventListener('click', () => renderPreviewStep());
+            els.stepPreview.querySelector('#retry-btn')!.addEventListener('click', () => renderPreviewStep());
         }
         log(`Packaging non riuscito: ${describeError(err)}`, 'error');
     }
@@ -1306,8 +1306,8 @@ function renderVerifyStep(): void {
                 ${icon('download', 'icon--sm')} Salva l'artifact set</button>
         </div>`;
 
-    document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('preview'));
-    const saveBtn = document.getElementById('save-btn');
+    els.stepVerify.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('preview'));
+    const saveBtn = els.stepVerify.querySelector('#save-btn');
     if (saveBtn) saveBtn.addEventListener('click', () => void confirmThenSave(unexpected, extra));
 }
 /**
@@ -1385,7 +1385,7 @@ async function saveArtifactSet(): Promise<void> {
     const folder = await selectFolder('Dove salvare l\'artifact set');
     if (!folder) { log('Salvataggio annullato.'); return; }
 
-    const btn = document.getElementById('save-btn') as HTMLButtonElement | null;
+    const btn = els.stepVerify.querySelector('#save-btn') as HTMLButtonElement | null;
     if (btn) { btn.disabled = true; btn.textContent = 'Salvataggio…'; }
 
     try {
@@ -1573,10 +1573,17 @@ async function renderHistoryStep(): Promise<void> {
                         <button class="btn btn--secondary btn--sm" data-delete="${escapeHtml(r.id)}">Elimina</button>
                     </td>
                 </tr>
-                <tr><td colspan="7" class="cell-muted" style="padding-top:0">
-                    <code>${escapeHtml(r.artifactSetPath)}</code> ·
-                    export ${escapeHtml(r.exportMode)} ${r.exportSeconds.toFixed(1)} s ·
-                    ${r.files.map(f => `${escapeHtml(f.role)} ${escapeHtml(f.sha256.slice(0, 12))}…`).join(' · ')}
+                <tr class="detail-row"><td colspan="7">
+                    <dl class="hist-detail">
+                        <dt>Cartella</dt>
+                        <dd><code>${escapeHtml(r.artifactSetPath)}</code></dd>
+                        <dt>Export</dt>
+                        <dd>${escapeHtml(r.exportMode)} · ${r.exportSeconds.toFixed(1)} s</dd>
+                        <dt>File</dt>
+                        <dd class="hist-files">${r.files.map(f => `
+                            <span class="hist-file">${escapeHtml(f.role)}
+                                <code>${escapeHtml(f.sha256.slice(0, 12))}…</code></span>`).join('')}</dd>
+                    </dl>
                 </td></tr>`).join('')}</tbody>
         </table>`;
 
