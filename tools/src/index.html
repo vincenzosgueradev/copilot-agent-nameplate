@@ -79,7 +79,11 @@
         <aside class="sidebar-right" id="log-panel">
             <div class="sidebar-header">
                 <span class="sidebar-title">Log</span>
-                <button id="clear-log-btn" class="icon-btn" title="Clear log"><span class="icon icon-close icon--xs" aria-hidden="true"></span></button>
+                <div class="sidebar-tools">
+                    <button id="clear-log-btn" class="icon-btn" title="Svuota il log"><span class="icon icon-close icon--xs" aria-hidden="true"></span></button>
+                    <button id="toggle-log-btn" class="icon-btn" title="Riduci il log"
+                        aria-expanded="true" aria-controls="log-panel"><span class="icon icon-chevron-right icon--sm" aria-hidden="true"></span></button>
+                </div>
             </div>
             <div id="log-entries" class="log-entries"></div>
             <div class="log-footer">

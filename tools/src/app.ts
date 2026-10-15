@@ -1858,6 +1858,35 @@ els.clearLogBtn.addEventListener('click', () => {
     clearLog();
     log('Log cleared.');
 });
+
+/**
+ * Il log si riduce a una colonnina.
+ *
+ * La preferenza sta in `localStorage`: e' di questo dispositivo e di questo pannello, non
+ * merita lo spazio impostazioni del tool. Se non e' leggibile — finestra privata, storage
+ * negato — il pannello resta aperto, che e' lo stato giusto per chi non ha mai scelto.
+ */
+const LOG_COLLAPSED_KEY = 'nameplate.log.collapsed';
+
+function setLogCollapsed(collapsed: boolean): void {
+    const panel = document.getElementById('log-panel');
+    const btn = document.getElementById('toggle-log-btn');
+    if (!panel || !btn) return;
+    panel.classList.toggle('sidebar-right--collapsed', collapsed);
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    btn.setAttribute('title', collapsed ? 'Mostra il log' : 'Riduci il log');
+    btn.innerHTML = icon(collapsed ? 'chevron-left' : 'chevron-right', 'icon--sm');
+    try { localStorage.setItem(LOG_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch { /* ok */ }
+}
+
+document.getElementById('toggle-log-btn')!.addEventListener('click', () => {
+    const panel = document.getElementById('log-panel');
+    setLogCollapsed(!panel?.classList.contains('sidebar-right--collapsed'));
+});
+
+try {
+    if (localStorage.getItem(LOG_COLLAPSED_KEY) === '1') setLogCollapsed(true);
+} catch { /* storage negato: resta aperto */ }
 els.refreshBtn.addEventListener('click', () => loadAgents());
 els.historyBtn.addEventListener('click', () => navigateTo('history'));
 
