@@ -14,6 +14,13 @@ export default defineConfig((configEnv) => {
       sourcemap: configEnv.mode === "development",
       rollupOptions: {
         output: {
+          // Nomi fissi, senza hash: l'host carica il tool da `dist/`, non da una CDN, quindi
+          // non c'e' nessuna cache da invalidare. Con l'hash ogni build scriveva file nuovi e,
+          // da quando `emptyOutDir` cancella i precedenti, una finestra gia' aperta restava a
+          // puntare un file sparito e si svuotava.
+          entryFileNames: "assets/index.js",
+          chunkFileNames: "assets/[name].js",
+          assetFileNames: "assets/[name][extname]",
           // Use IIFE format for compatibility with iframe srcdoc loading
           // ES modules can have issues when loaded via file:// URLs in iframes
           format: "iife",
