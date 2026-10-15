@@ -1501,9 +1501,6 @@ function renderResultStep(): void {
         <section class="panel">
             <div class="panel-head">
                 <h3 class="panel-heading">Dove si trova</h3>
-                <button class="btn btn--secondary btn--sm" id="open-folder-btn"
-                    title="Apre Esplora risorse. PPTB mostra per un attimo il pannello del terminale: è il modo in cui un tool può lanciare un comando.">
-                    Apri cartella</button>
             </div>
             <div class="panel-body">
                 <div class="kv"><span class="kv-key">Cartella</span>
@@ -1517,6 +1514,9 @@ function renderResultStep(): void {
         <div class="step-footer">
             <button class="btn btn--primary" id="copy-path-btn">
                 ${icon('package', 'icon--sm')} Copia percorso</button>
+            <button class="btn btn--secondary" id="open-folder-btn"
+                title="Apre Esplora risorse. PPTB mostra per un attimo il pannello del terminale: è il modo in cui un tool può lanciare un comando.">
+                Apri cartella</button>
             <button class="btn btn--secondary" id="history-nav-btn">
                 ${icon('history', 'icon--sm')} Vedi lo storico</button>
             <button class="btn btn--secondary" id="done-btn">Fine</button>
