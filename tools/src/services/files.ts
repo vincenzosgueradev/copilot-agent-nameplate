@@ -14,6 +14,11 @@
  * tutti nella lista dei comandi bloccati ("Shell interpreters and privilege-escalation tools are
  * not allowed"). Scrivere byte senza passare dal dialog, con questa piattaforma, non si puo'.
  *
+ * Il terminale non serve nemmeno ad aprire una cartella: `explorer` passa il filtro, ma PPTB
+ * **mostra il pannello del terminale** appena un comando produce output, e richiuderlo subito con
+ * `setVisibility` arriva comunque tardi. Per indicare dove sta l'artefatto si usano gli appunti,
+ * che non aprono niente.
+ *
  * Resta quindi `saveFile`, un dialog per archivio, con il percorso in forma nativa perche' il
  * dialog lo risolva davvero. La sonda su `writeBinary` resta: se una versione di PPTB la
  * introdurra', quella strada e' preferibile e viene presa senza altre modifiche.
@@ -22,7 +27,6 @@
 import { log } from './log';
 
 const fs = globalThis.toolboxAPI.fileSystem;
-const term = globalThis.toolboxAPI.terminal;
 
 /** `true` quando l'implementazione espone una scrittura binaria diretta. */
 export function hasDirectBinaryWrite(): boolean {
@@ -34,39 +38,6 @@ const isWindows = /win/i.test(globalThis.navigator?.userAgent ?? 'win');
 /** Su Windows i comandi vogliono i backslash; i percorsi qui nascono con `/`. */
 function nativePath(p: string): string {
     return isWindows ? p.replace(/\//g, '\\') : p;
-}
-
-/**
- * Quoting per **cmd**, che e' la shell del terminale su Windows: quota con il doppio apice e
- * degli apici singoli non sa che farsene, li passa dentro l'argomento. Un percorso Windows non
- * puo' contenere `"`, quindi toglierlo e' sicuro e chiude la via a un argomento costruito ad arte.
- */
-const quote = (p: string) => `"${nativePath(p).replace(/"/g, '')}"`;
-
-/** Un solo terminale nascosto per la sessione, creato alla prima necessita'. */
-let termId: string | null = null;
-async function shellId(): Promise<string> {
-    if (termId) return termId;
-    const t = await term.create({ name: 'Agent Rename Manager', visible: false });
-    termId = t.id;
-    return t.id;
-}
-
-/**
- * Apre la cartella nel file manager del sistema.
- *
- * `utils` espone solo appunti e notifiche, quindi non c'e' una via diretta: si passa dal
- * terminale. Funziona perche' `explorer` non e' fra i comandi bloccati, mentre `start` e `open`
- * lo sono: su macOS e Linux questo pulsante non ha una strada e il chiamante lo gestisce.
- * `explorer` esce con codice 1 anche quando riesce, percio' l'esito non viene controllato.
- */
-export async function openFolder(path: string): Promise<void> {
-    if (!isWindows) throw new Error('apertura della cartella non disponibile su questa piattaforma');
-    const id = await shellId();
-    await term.execute(id, `explorer ${quote(path)}`);
-    // Il pannello del terminale si apre da solo quando un comando produce output. Richiuderlo
-    // subito riporta l'utente dov'era: voleva la cartella, non una console.
-    try { await term.setVisibility(id, false); } catch { /* non e' un motivo per fallire */ }
 }
 
 export async function ensureDirectory(path: string): Promise<void> {
@@ -122,12 +93,6 @@ export function warnAboutDialogs(count: number): void {
         'warning');
 }
 
-/** Chiude il terminale nascosto. Chiamata a fine sessione: un terminale orfano resta aperto. */
-export async function disposeShell(): Promise<void> {
-    if (!termId) return;
-    try { await term.close(termId); } catch { /* gia' chiuso */ }
-    termId = null;
-}
 
 /** Salva un oggetto come JSON indentato tramite il dialog. */
 export async function saveJsonFile(fileName: string, data: unknown): Promise<string | null> {

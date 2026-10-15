@@ -10,7 +10,7 @@ import {
 } from './services/solutions';
 import { OverwriteDeclined, writeArtifactSet } from './services/artifacts';
 import { describeError } from './services/dataverse';
-import { disposeShell, openFolder, saveJsonFile, saveTextFile, selectFolder } from './services/files';
+import { saveJsonFile, saveTextFile, selectFolder } from './services/files';
 import { addRecord, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
 import { runPackaging, type PackagingResult } from './services/packaging';
@@ -1512,16 +1512,21 @@ function renderResultStep(): void {
         </section>
 
         <div class="step-footer">
-            <button class="btn btn--primary" id="open-folder-btn">
-                ${icon('package', 'icon--sm')} Apri cartella</button>
+            <button class="btn btn--primary" id="copy-path-btn">
+                ${icon('package', 'icon--sm')} Copia percorso</button>
             <button class="btn btn--secondary" id="history-nav-btn">
                 ${icon('history', 'icon--sm')} Vedi lo storico</button>
             <button class="btn btn--secondary" id="done-btn">Fine</button>
         </div>`;
 
-    els.stepResult.querySelector('#open-folder-btn')!.addEventListener('click', () => {
-        void openFolder(set.folderPath).catch(err =>
-            log(`Non sono riuscito ad aprire la cartella: ${describeError(err)}`, 'error'));
+    els.stepResult.querySelector('#copy-path-btn')!.addEventListener('click', ev => {
+        const btn = ev.currentTarget as HTMLButtonElement;
+        void toolbox.utils.copyToClipboard(set.folderPath).then(() => {
+            btn.innerHTML = `${icon('check', 'icon--sm')} Copiato`;
+            setTimeout(() => {
+                btn.innerHTML = `${icon('package', 'icon--sm')} Copia percorso`;
+            }, 1500);
+        });
     });
     els.stepResult.querySelector('#history-nav-btn')!.addEventListener('click', () => navigateTo('history'));
     els.stepResult.querySelector('#done-btn')!.addEventListener('click', () => {
@@ -1529,8 +1534,6 @@ function renderResultStep(): void {
         state.packagingKey = '';
         state.lastSet = null;
         state.confirmations = [];
-        // Il terminale nascosto serviva a scrivere gli archivi: finita l'operazione va chiuso.
-        void disposeShell();
         navigateTo('welcome');
     });
 }
