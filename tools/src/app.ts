@@ -792,6 +792,7 @@ function renderSuffixStep(): void {
     renderBreadcrumb();
 
     const draft = state.suffix;
+    const pub = state.options.publishOnImport;
     els.stepSuffix.innerHTML = `
         <div class="step-header step-header-row">
             <h2 class="step-title">Suffisso per l'ambiente di destinazione</h2>
@@ -799,46 +800,73 @@ function renderSuffixStep(): void {
         </div>
 
         <div class="suffix-layout">
-            <section class="panel">
-                <div class="panel-head"><h3 class="panel-heading">Suffisso</h3></div>
-                <div class="panel-body">
-                    <div class="input-row">
-                        <input id="suffix-input" class="text-input" type="text" maxlength="${SUFFIX_MAX}"
-                            autocomplete="off" placeholder="es. UAT" value="${escapeHtml(draft)}">
-                        <button id="clear-suffix-btn" class="btn btn--secondary btn--sm"
-                            ${draft ? '' : 'disabled'}>Clear</button>
-                    </div>
-                    <div class="chip-row">
-                        ${SUFFIX_PRESETS.map(p => `
-                            <button class="chip-btn ${p === draft ? 'is-active' : ''}"
-                                data-preset="${p}">${p}</button>`).join('')}
-                    </div>
-                    <p class="hint">
-                        Un suffisso vuoto <strong>rimuove</strong> quello esistente e lascia il nome base.
-                    </p>
 
-                    <h3 class="section-title">Opzioni</h3>
-                    <label class="opt-row">
-                        <input type="checkbox" id="opt-bump" ${state.options.bumpVersion ? 'checked' : ''}>
-                        <span><strong>Incrementa la versione</strong> della solution
-                        <span class="hint">stessa versione = update, versione superiore = upgrade</span></span>
-                    </label>
-                    <div class="opt-row">
-                        <span><strong>Publish all'import</strong>
-                        <span class="hint">è il publish che porta il nome su Teams e M365 Copilot</span></span>
-                        <div class="toggle-group" id="opt-publish" role="group" aria-label="Publish all'import">
-                            <button class="toggle-btn ${state.options.publishOnImport === 'keep'        ? 'is-active' : ''}" data-val="keep">Auto</button>
-                            <button class="toggle-btn ${state.options.publishOnImport === 'force-true'  ? 'is-active' : ''}" data-val="force-true">Sì</button>
-                            <button class="toggle-btn ${state.options.publishOnImport === 'force-false' ? 'is-active' : ''}" data-val="force-false">No</button>
+            <!-- LEFT: configurazione -->
+            <div class="suffix-left">
+
+                <section class="panel">
+                    <div class="panel-head">
+                        <h3 class="panel-heading">Suffisso</h3>
+                        <span class="panel-sub">aggiunto tra parentesi quadre dopo il nome</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="input-row">
+                            <input id="suffix-input" class="text-input" type="text"
+                                maxlength="${SUFFIX_MAX}" autocomplete="off"
+                                placeholder="es. UAT" value="${escapeHtml(draft)}">
+                            <button id="clear-suffix-btn" class="btn btn--secondary btn--sm"
+                                ${draft ? '' : 'disabled'}>Clear</button>
                         </div>
+                        <div class="chip-row" style="margin-top:10px">
+                            ${SUFFIX_PRESETS.map(p => `
+                                <button class="chip-btn ${p === draft ? 'is-active' : ''}"
+                                    data-preset="${p}">${p}</button>`).join('')}
+                        </div>
+                        <p class="hint" style="margin-top:8px">
+                            Lascia vuoto per <strong>rimuovere</strong> il suffisso esistente.
+                        </p>
                     </div>
-                </div>
-            </section>
+                </section>
 
+                <section class="panel">
+                    <div class="panel-head"><h3 class="panel-heading">Opzioni</h3></div>
+                    <div class="panel-body" style="padding:0">
+
+                        <div class="opt-row" style="padding:12px 16px">
+                            <div>
+                                <div class="opt-label">Incrementa la versione</div>
+                                <div class="hint">stessa versione = update · superiore = upgrade</div>
+                            </div>
+                            <label class="switch" for="opt-bump">
+                                <input class="switch-input" type="checkbox" id="opt-bump"
+                                    ${state.options.bumpVersion ? 'checked' : ''}>
+                                <span class="switch-track"><span class="switch-thumb"></span></span>
+                            </label>
+                        </div>
+
+                        <div class="opt-row" style="padding:12px 16px">
+                            <div>
+                                <div class="opt-label">Publish all'import</div>
+                                <div class="hint">porta il nome su Teams e M365 Copilot</div>
+                            </div>
+                            <div class="toggle-group" id="opt-publish" role="group">
+                                <button class="toggle-btn ${pub === 'keep'        ? 'is-active' : ''}" data-val="keep">Auto</button>
+                                <button class="toggle-btn ${pub === 'force-true'  ? 'is-active' : ''}" data-val="force-true">Sì</button>
+                                <button class="toggle-btn ${pub === 'force-false' ? 'is-active' : ''}" data-val="force-false">No</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- RIGHT: anteprima -->
             <section class="panel">
                 <div class="panel-head"><h3 class="panel-heading">Anteprima del nome</h3></div>
                 <div class="panel-body" id="suffix-preview"></div>
             </section>
+
         </div>
 
         <div class="step-footer">
@@ -866,6 +894,7 @@ function renderSuffixStep(): void {
     (document.getElementById('opt-bump') as HTMLInputElement).addEventListener('change', ev => {
         state.options.bumpVersion = (ev.target as HTMLInputElement).checked;
     });
+
     document.getElementById('opt-publish')!.addEventListener('click', ev => {
         const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.toggle-btn');
         if (!btn) return;

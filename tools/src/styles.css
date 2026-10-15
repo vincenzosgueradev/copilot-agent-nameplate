@@ -577,12 +577,25 @@ mark.hl {
 /* ── Suffix step ── */
 .suffix-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
     gap: 16px;
     margin-bottom: 16px;
+    align-items: start;
+}
+
+.suffix-left {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .suffix-layout .panel { margin-bottom: 0; }
+
+.opt-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+}
 
 .step-footer { display: flex; gap: 8px; margin-top: 4px; padding-bottom: 8px; }
 
@@ -1298,6 +1311,43 @@ select option {
     background: var(--color-surface-2);
     color: var(--color-text-strong);
 }
+
+/* ── Toggle switch (boolean on/off) ── */
+.switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.switch-input { display: none; }
+
+.switch-track {
+    position: relative;
+    width: 38px;
+    height: 22px;
+    background: var(--color-border);
+    border-radius: 11px;
+    flex-shrink: 0;
+    transition: background 0.2s;
+}
+
+.switch-input:checked + .switch-track { background: var(--color-primary); }
+
+.switch-thumb {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: left 0.18s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+}
+
+.switch-input:checked + .switch-track .switch-thumb { left: 19px; }
 
 /* ── Toggle group (3-state segmented button) ── */
 .toggle-group {
