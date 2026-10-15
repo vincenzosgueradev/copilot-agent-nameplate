@@ -5,6 +5,7 @@
     "description": "Produce the solution package with Copilot Studio agent display names already set for the target environment. No unmanaged layer, ever.",
     "type": "module",
     "main": "index.html",
+    "icon": "dist/logo.svg",
     "author": "Power Platform ToolBox",
     "license": "MIT",
     "engines": {
