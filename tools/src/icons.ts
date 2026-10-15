@@ -28,7 +28,10 @@ export type IconName =
     | 'package'
     | 'history'
     | 'download'
-    | 'alert';
+    | 'alert'
+    | 'folder'
+    | 'archive'
+    | 'file-json';
 
 /** Markup dell'icona, pronto da concatenare in un template string. */
 export function icon(name: IconName, cls = ''): string {

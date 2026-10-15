@@ -822,7 +822,9 @@ function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): s
     return `
         <ul class="art-list">${rows.map(([on, file, desc]) => `
             <li class="art-item${on ? '' : ' is-off'}">
-                <span class="art-dot"></span>
+                ${file.endsWith('.zip')
+                    ? icon('archive', on ? 'icon--archive' : 'icon--muted')
+                    : icon('file-json', on ? 'icon--data' : 'icon--muted')}
                 <div class="art-body">
                     <code class="art-name">${escapeHtml(file)}</code>
                     <p class="art-desc">${escapeHtml(desc)}</p>
@@ -1313,7 +1315,9 @@ function renderVerifyStep(): void {
                     </tr></thead>
                     <tbody>${pkg.inventory.map(c => `
                         <tr>
-                            <td class="cell-strong"><code>${escapeHtml(c.path)}</code></td>
+                            <td class="cell-strong">
+                                ${icon('folder', 'icon--folder icon--sm')}
+                                <code>${escapeHtml(c.path)}</code></td>
                             <td>${escapeHtml(c.kind)}</td>
                             <td class="col-num">${c.count}</td>
                             <td class="col-action">${c.relatedToSelectedAgent ? ''
@@ -1551,7 +1555,8 @@ function renderResultStep(): void {
             <span class="handoff-mark">${icon('check')}</span>
             <div class="handoff-text">
                 <div class="handoff-label">Da importare in UAT o PROD</div>
-                <code class="handoff-file">${escapeHtml(deploy?.fileName ?? '—')}</code>
+                <code class="handoff-file">${icon('archive', 'icon--archive')}
+                    ${escapeHtml(deploy?.fileName ?? '—')}</code>
             </div>
             <span class="chip chip--success">managed</span>
         </div>
@@ -1568,7 +1573,9 @@ function renderResultStep(): void {
                     </tr></thead>
                     <tbody>${set.files.map(f => `
                         <tr${f.role === 'deploy' ? ' class="row-highlight"' : ''}>
-                            <td class="cell-strong"><code>${escapeHtml(f.fileName)}</code></td>
+                            <td class="cell-strong">
+                                ${icon('archive', 'icon--archive icon--sm')}
+                                <code>${escapeHtml(f.fileName)}</code></td>
                             <td>${roleChip(f.role)}</td>
                             <td class="col-num">${f.entryCount}</td>
                             <td class="cell-muted"><code title="${escapeHtml(f.sha256)}">${escapeHtml(f.sha256.slice(0, 16))}…</code></td>
@@ -1591,9 +1598,11 @@ function renderResultStep(): void {
             </div>
             <div class="panel-body">
                 <div class="kv"><span class="kv-key">Cartella</span>
-                    <span class="kv-val"><code>${escapeHtml(set.folderPath)}</code></span></div>
+                    <span class="kv-val">${icon('folder', 'icon--folder icon--sm')}
+                    <code>${escapeHtml(set.folderPath)}</code></span></div>
                 <div class="kv"><span class="kv-key">Manifest</span>
-                    <span class="kv-val"><code>manifest.json</code> — sorgente, suffisso, operatore,
+                    <span class="kv-val">${icon('file-json', 'icon--data icon--sm')}
+                    <code>manifest.json</code> — sorgente, suffisso, operatore,
                     impronta del formato e hash di ogni file</span></div>
             </div>
         </section>
@@ -1698,7 +1707,8 @@ async function renderHistoryStep(): Promise<void> {
                 <tr class="detail-row"><td colspan="7">
                     <dl class="hist-detail">
                         <dt>Cartella</dt>
-                        <dd><code>${escapeHtml(r.artifactSetPath)}</code></dd>
+                        <dd>${icon('folder', 'icon--folder icon--sm')}
+                            <code>${escapeHtml(r.artifactSetPath)}</code></dd>
                         <dt>Export</dt>
                         <dd>${escapeHtml(r.exportMode)} · ${r.exportSeconds.toFixed(1)} s</dd>
                         <dt>File</dt>
