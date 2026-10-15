@@ -1549,11 +1549,16 @@ function renderResultStep(): void {
     });
 }
 
+/**
+ * Etichetta del ruolo. `restore` si mostra come **backup**: quei due file *sono* la copia
+ * intatta, il ripristino e' cio' che ci si fa. Il valore resta `restore` perche' finisce nel
+ * manifest e nello storico, e rinominarlo invaliderebbe i record gia' scritti.
+ */
 function roleChip(role: string): string {
     const map: Record<string, [string, string]> = {
         deploy: ['success', 'deploy'],
         source: ['warning', 'source'],
-        restore: ['muted', 'restore'],
+        restore: ['muted', 'backup'],
     };
     const [cls, label] = map[role] ?? ['muted', role];
     return `<span class="chip chip--${cls}">${label}</span>`;
