@@ -14,7 +14,7 @@
  *   └── source_unmanaged.zip                       role: restore
  */
 
-import { ensureDirectory, warnAboutDialogs, writeBinary, writeText } from './files';
+import { ensureDirectory, pathExists, warnAboutDialogs, writeBinary, writeText } from './files';
 import { log } from './log';
 import type { ArtifactFile, ArtifactSet, PackagingOptions } from '../types';
 import type { PackagingResult } from './packaging';
@@ -51,6 +51,12 @@ export interface ManifestInput {
     user: string;
     /** Conferme esplicite date dall'utente (componenti extra, occorrenze impreviste). */
     confirmations: { what: string; confirmedAt: string }[];
+    /**
+     * Chiesta quando la cartella dell'operazione esiste gia' (FR-074). Rispondere `false`
+     * annulla la scrittura senza toccare nulla. Il nome della cartella lo compone questo
+     * servizio, quindi la domanda non puo' che partire da qui.
+     */
+    confirmOverwrite?: (folderName: string) => Promise<boolean>;
 }
 
 export interface WrittenArtifactSet {
@@ -58,6 +64,14 @@ export interface WrittenArtifactSet {
     manifest: Record<string, unknown>;
     /** `false` se l'utente ha annullato uno dei salvataggi. */
     complete: boolean;
+}
+
+/** L'utente ha rifiutato di sovrascrivere: non e' un errore, e' una scelta. */
+export class OverwriteDeclined extends Error {
+    constructor(public readonly folderName: string) {
+        super(`Sovrascrittura annullata: ${folderName}`);
+        this.name = 'OverwriteDeclined';
+    }
 }
 
 /**
@@ -82,6 +96,13 @@ export async function writeArtifactSet(
     const tag = clean ? ` [${clean}]` : ' [senza suffisso]';
     const folderName = `${safeForPath(pkg.uniqueName)} ${pkg.version}${tag} - ${stamp(now)}`;
     const folderPath = `${baseFolder}/${folderName}`;
+
+    // La marca temporale si ferma al minuto, quindi due operazioni sulla stessa solution,
+    // versione e suffisso entro lo stesso minuto ricadono qui (FR-074).
+    if (await pathExists(folderPath)) {
+        const ok = input.confirmOverwrite ? await input.confirmOverwrite(folderName) : false;
+        if (!ok) throw new OverwriteDeclined(folderName);
+    }
 
     await ensureDirectory(folderPath);
 

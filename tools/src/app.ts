@@ -8,7 +8,7 @@ import {
     type FetchedData,
     type SuffixVariableHint,
 } from './services/solutions';
-import { writeArtifactSet } from './services/artifacts';
+import { OverwriteDeclined, writeArtifactSet } from './services/artifacts';
 import { describeError } from './services/dataverse';
 import { disposeShell, openFolder, saveJsonFile, saveTextFile, selectFolder } from './services/files';
 import { deployArtifact, readInstalledVersion, readTargetAgent } from './services/deploy';
@@ -1385,6 +1385,17 @@ async function saveArtifactSet(): Promise<void> {
             sourceEnvironmentUrl: state.connectionName,
             user: state.connectionName,
             confirmations: state.confirmations,
+            confirmOverwrite: folderName => askConfirm({
+                title: 'La cartella esiste già',
+                okLabel: 'Sovrascrivi',
+                danger: true,
+                bodyHtml: `<p>In <code>${escapeHtml(folder)}</code> c'è già una cartella
+                    <strong>${escapeHtml(folderName)}</strong>.</p>
+                    <p>Succede quando due artifact set della stessa solution, versione e suffisso
+                    nascono nello stesso minuto: la marca temporale si ferma lì.</p>
+                    <p>Proseguendo, <strong>gli archivi con lo stesso nome vengono rimpiazzati</strong>.
+                    Per tenerli entrambi, annulla e aspetta un minuto.</p>`,
+            }),
         });
 
         const pkg = r.managed.source;
@@ -1423,7 +1434,11 @@ async function saveArtifactSet(): Promise<void> {
             type: written.complete ? 'success' : 'warning',
         });
     } catch (err) {
-        log(`Salvataggio non riuscito: ${err}`, 'error');
+        if (err instanceof OverwriteDeclined) {
+            log('Sovrascrittura annullata: non è stato scritto nulla.');
+        } else {
+            log(`Salvataggio non riuscito: ${err}`, 'error');
+        }
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = `${icon('download', 'icon--sm')} Salva l'artifact set`;

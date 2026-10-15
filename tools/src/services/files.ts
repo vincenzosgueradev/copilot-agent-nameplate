@@ -79,6 +79,11 @@ export async function ensureDirectory(path: string): Promise<void> {
     await fs.createDirectory(path);
 }
 
+/** `true` se il percorso esiste gia'. Serve a non sovrascrivere un artifact set (FR-074). */
+export async function pathExists(path: string): Promise<boolean> {
+    return fs.exists(path);
+}
+
 export async function selectFolder(title: string): Promise<string | null> {
     return fs.selectPath({ type: 'folder', title, buttonLabel: 'Usa questa cartella' });
 }
