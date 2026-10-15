@@ -4,6 +4,10 @@ node_modules/
 # Build output
 tools/dist/
 
+# Artifact set prodotti dal tool: package di solution con dati del tenant, non sorgente.
+# Il nome e' `{Solution} {Versione} [{SUFFISSO}] - {AAAA-MM-GG hh-mm}`.
+* - 20??-??-?? ??-??/
+
 # Logs
 *.log
 npm-debug.log*
