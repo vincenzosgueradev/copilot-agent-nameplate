@@ -953,10 +953,7 @@ function renderPreviewStep(): void {
 
     els.stepPreview.innerHTML = `
         <div class="step-header step-header-row">
-            <div>
-                <h2 class="step-title">Anteprima del package</h2>
-                <div class="step-sub">${escapeHtml(sol.uniqueName)} · ${escapeHtml(agent.name)}</div>
-            </div>
+            <h2 class="step-title">Anteprima del package</h2>
             ${stepperHtml(2)}
         </div>
         <div class="card" id="preview-body">
