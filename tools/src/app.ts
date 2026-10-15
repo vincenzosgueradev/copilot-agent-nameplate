@@ -804,6 +804,21 @@ function stepperHtml(active: 1 | 2 | 3 | 4 | 5): string {
  * Stessa versione e' un **update**, superiore un **upgrade**: dirlo mostrando i due numeri
  * evita di doverlo dedurre dalla regola.
  */
+/**
+ * Un canale col suo marchio. I `channelId` noti hanno l'icona di prodotto; gli altri
+ * restano un chip col loro identificativo, perche' l'elenco dei canali lo decide Copilot
+ * Studio e non vale la pena fingere di conoscerli tutti.
+ */
+function channelChip(id: string): string {
+    const brands: Record<string, [string, string]> = {
+        MsTeams: ['teams', 'Microsoft Teams'],
+        Microsoft365Copilot: ['copilot', 'Microsoft 365 Copilot'],
+    };
+    const known = brands[id];
+    const mark = known ? `<span class="brand brand-${known[0]}" aria-hidden="true"></span>` : '';
+    return `<span class="channel-chip">${mark}${escapeHtml(known ? known[1] : id)}</span>`;
+}
+
 function versionHintHtml(current: string, bump: boolean): string {
     if (!bump) {
         return `<code>${escapeHtml(current)}</code> resta invariata — all'import sarà un
@@ -1062,7 +1077,7 @@ function renderReviewStep(): void {
 
             <section class="panel">
                 <div class="panel-head">
-                    <h3 class="panel-heading">Opzioni</h3>
+                    <h3 class="panel-heading">${icon('sliders', 'icon--head')}Opzioni</h3>
                     <span class="panel-sub">scelte allo step precedente</span>
                 </div>
                 <div class="panel-body">
@@ -1245,7 +1260,7 @@ function renderPreviewResult(r: PackagingResult): void {
                                 ? 'non specificato' : a.publishOnImport ? 'sì' : 'no'}</span></div>
                         <div class="kv"><span class="kv-key">Canali</span>
                             <span class="kv-val">${a.channels.length
-                                ? escapeHtml(a.channels.join(', '))
+                                ? `<span class="channel-row">${a.channels.map(channelChip).join('')}</span>`
                                 : '<span class="cell-muted">nessuno</span>'}</span></div>`).join('')}
                     ${pkg.agents.some(a => a.publishOnImport !== true) ? `
                     <p class="hint hint--warn" style="margin-top:12px">
