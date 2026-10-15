@@ -792,16 +792,6 @@ function stepperHtml(active: 1 | 2 | 3 | 4 | 5): string {
     return `<ol class="stepper">${withLines.join('')}</ol>`;
 }
 
-/**
- * Anteprima indicativa del nome, calcolata sul nome che Dataverse ha adesso.
- *
- * Il valore che conta è quello **nel package** (FR-071), che però esiste solo dopo l'export:
- * il Patch Plan vero arriva allo step successivo. Qui si mostra cosa aspettarsi, e lo si dice.
- */
-function previewName(current: string, suffix: string): string {
-    return buildName(current, suffix);
-}
-
 function renderSuffixStep(): void {
     const agent = state.activeAgent;
     if (!agent) { navigateTo('welcome'); return; }
@@ -815,10 +805,7 @@ function renderSuffixStep(): void {
             ${stepperHtml(1)}
         </div>
 
-        <div class="suffix-layout">
-
-            <!-- LEFT: configurazione -->
-            <div class="suffix-left">
+        <div class="two-col">
 
                 <section class="panel">
                     <div class="panel-head">
@@ -874,15 +861,6 @@ function renderSuffixStep(): void {
 
                     </div>
                 </section>
-
-            </div>
-
-            <!-- RIGHT: anteprima -->
-            <section class="panel">
-                <div class="panel-head"><h3 class="panel-heading">Anteprima del nome</h3></div>
-                <div class="panel-body" id="suffix-preview"></div>
-            </section>
-
         </div>
 
         <div class="step-footer">
@@ -899,7 +877,6 @@ function renderSuffixStep(): void {
         document.querySelectorAll<HTMLElement>('.chip-btn').forEach(b => {
             b.classList.toggle('is-active', b.dataset.preset === input.value);
         });
-        updateSuffixPreview();
     };
 
     input.addEventListener('input', sync);
@@ -921,32 +898,6 @@ function renderSuffixStep(): void {
     });
     els.stepSuffix.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('solution'));
     els.stepSuffix.querySelector('#next-btn')!.addEventListener('click', () => navigateTo('review'));
-
-    updateSuffixPreview();
-}
-
-function updateSuffixPreview(): void {
-    const host = document.getElementById('suffix-preview');
-    const agent = state.activeAgent;
-    if (!host || !agent) return;
-    const next = previewName(agent.name, state.suffix);
-    const tooLong = next.length > TEAMS_NAME_LIMIT;
-    host.innerHTML = `
-        <div class="kv"><span class="kv-key">Nome attuale</span>
-            <span class="kv-val">${escapeHtml(agent.name)}</span></div>
-        <div class="kv"><span class="kv-key">Nome risultante</span>
-            <span class="kv-val kv-val--strong">${escapeHtml(next)}</span></div>
-        <div class="kv"><span class="kv-key">Lunghezza</span>
-            <span class="kv-val ${tooLong ? 'kv-val--warn' : ''}">${next.length} / ${TEAMS_NAME_LIMIT}</span></div>
-        ${tooLong ? `
-        <p class="hint hint--warn">
-            Oltre ${TEAMS_NAME_LIMIT} caratteri. Il limite riguarda il manifest Teams, il cui nome
-            deriva da quello dell'agent. Non blocca il packaging.
-        </p>` : ''}
-        <p class="hint">
-            Calcolato sul nome che Dataverse ha adesso. Il valore che conta è quello
-            <strong>nel package</strong>: il piano definitivo compare dopo l'export.
-        </p>`;
 }
 
 // ── Step: anteprima del Patch Plan ────────────────────────────────────────────
