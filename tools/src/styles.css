@@ -731,15 +731,18 @@ mark.hl {
     .header-actions { justify-content: space-between; }
     .search-box { flex: 1; }
     .search-box input { width: 100%; }
-    /* Secondary columns drop out before the table starts scrolling sideways. The history table
-       opts out: every column there matters, so it scrolls instead. */
-    .data-table:not(.data-table--plain) th:nth-child(5), .data-table:not(.data-table--plain) td:nth-child(5),
-    .data-table:not(.data-table--plain) th:nth-child(6), .data-table:not(.data-table--plain) td:nth-child(6) { display: none; }
+    /* Le colonne secondarie escono prima che la tabella scorra in orizzontale. Storico e
+       matrice dei controlli si sfilano: li' ogni colonna e' un dato, meglio lo scorrimento. */
+    .data-table:not(.data-table--plain):not(.check-matrix) th:nth-child(5),
+    .data-table:not(.data-table--plain):not(.check-matrix) td:nth-child(5),
+    .data-table:not(.data-table--plain):not(.check-matrix) th:nth-child(6),
+    .data-table:not(.data-table--plain):not(.check-matrix) td:nth-child(6) { display: none; }
 }
 
 @media (max-width: 720px) {
     .sidebar-right { display: none; }
-    .data-table:not(.data-table--plain) th:nth-child(2), .data-table:not(.data-table--plain) td:nth-child(2) { display: none; }
+    .data-table:not(.data-table--plain):not(.check-matrix) th:nth-child(2),
+    .data-table:not(.data-table--plain):not(.check-matrix) td:nth-child(2) { display: none; }
     .stepper-label { display: none; }
     .crumb { max-width: 140px; }
 }
@@ -1216,68 +1219,24 @@ mark.hl {
     color: var(--color-text-muted);
 }
 
-/* ── Inventario del package ──
-   Lista invece di tabella: a quattro colonne il chip veniva tagliato dal bordo del
-   pannello e il tipo andava a capo a meta' parola. */
-.inv-list { list-style: none; margin: 0; padding: 0; }
-
-.inv-item {
-    padding: var(--sp-3) 0;
-    border-bottom: 1px solid var(--color-border);
+/* ── Matrice dei controlli ──
+   Un controllo per colonna, un package per riga: l'esito si legge come una griglia
+   invece che come una frase. */
+.dot {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    vertical-align: -1px;
 }
 
-.inv-item:first-child { padding-top: 0; }
-.inv-item:last-child { border-bottom: none; padding-bottom: 0; }
+.dot--ok      { background: var(--color-success); }
+.dot--partial { background: var(--color-warning); }
+.dot--ko      { background: var(--color-error); }
 
-.inv-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-3);
-    flex-wrap: wrap;
-}
-
-.inv-path {
-    color: var(--color-text-strong);
-    word-break: break-all;
-    min-width: 0;
-}
-
-.inv-meta {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    margin-top: var(--sp-1);
-    font-size: var(--fs-sm);
-    color: var(--color-text-muted);
-}
-
-.inv-count {
-    padding: 0 var(--sp-2);
-    border-radius: 10px;
-    background: var(--color-surface-2);
-    color: var(--color-text);
-    font-variant-numeric: tabular-nums;
-}
-
-.inv-item--extra .inv-path { color: var(--color-warning); }
-
-/* ── Checklist di verifica ── */
-.check-list { list-style: none; margin: 0; padding: 0; }
-
-.check-item {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--sp-3);
-    padding: var(--sp-2) 0;
-    font-size: var(--fs-sm);
-    line-height: 1.5;
-}
-
-.check-item--ok  { color: var(--color-text); }
-.check-item--ok  .icon { color: var(--color-success); }
-.check-item--ko  { color: var(--color-error); }
-.check-item--ko  .icon { color: var(--color-error); }
+.check-matrix th { white-space: normal; }
+.check-matrix td { white-space: nowrap; }
+.check-count { margin-left: var(--sp-2); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 
 /* Nota riquadrata: un avviso in mezzo al testo si legge e si dimentica */
 .note {

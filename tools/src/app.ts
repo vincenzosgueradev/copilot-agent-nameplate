@@ -1164,26 +1164,31 @@ function renderPreviewResult(r: PackagingResult): void {
     }
 }
 
+/** Pallino di esito. `partial` esiste perche' "qualche entry intatta" non e' ne' ok ne' ko. */
+function dotHtml(state: 'ok' | 'partial' | 'ko', title: string): string {
+    return `<span class="dot dot--${state}" title="${escapeHtml(title)}"></span>`;
+}
+
 /**
- * I quattro controlli come righe separate, ognuna col proprio esito.
+ * Una riga della matrice dei controlli: un package, i suoi quattro esiti in colonna.
  *
- * `describeVerification` li concatena in una frase sola: utile nel log, illeggibile in un
- * pannello stretto, dove andava a capo tre volte e non si vedeva quale controllo fosse
- * passato. Qui ogni controllo e' una riga con la sua icona.
+ * `describeVerification` concatena gli stessi quattro in una frase: va bene nel log, dove
+ * una riga sola e' quello che serve, ma a schermo nascondeva *quale* controllo fosse
+ * passato. Affiancando managed e unmanaged la differenza fra i due si vede subito.
  */
-function checkListHtml(v: VerificationResult, expectedEntries: number): string {
-    const rows: Array<[boolean, string]> = [
-        [v.archiveReadable, 'Archivio leggibile'],
-        [v.entryCountMatches, 'Numero di entry corrispondente'],
-        [v.patchedValuesConfirmed, 'Valori patchati confermati'],
-        [v.byteIdenticalEntries === expectedEntries,
-            `${v.byteIdenticalEntries}/${expectedEntries} entry non patchate byte-identiche`],
-    ];
-    return `<ul class="check-list">${rows.map(([ok, label]) => `
-        <li class="check-item check-item--${ok ? 'ok' : 'ko'}">
-            ${icon(ok ? 'check' : 'close', 'icon--sm')}
-            <span>${escapeHtml(label)}</span>
-        </li>`).join('')}</ul>`;
+function checkRowHtml(label: string, v: VerificationResult, expectedEntries: number): string {
+    const bytes = v.byteIdenticalEntries === expectedEntries ? 'ok'
+        : v.byteIdenticalEntries > 0 ? 'partial' : 'ko';
+    const yn = (b: boolean) => b ? 'sì' : 'no';
+    return `
+        <tr>
+            <td class="cell-strong">${escapeHtml(label)}</td>
+            <td>${dotHtml(v.archiveReadable ? 'ok' : 'ko', yn(v.archiveReadable))}</td>
+            <td>${dotHtml(v.entryCountMatches ? 'ok' : 'ko', yn(v.entryCountMatches))}</td>
+            <td>${dotHtml(v.patchedValuesConfirmed ? 'ok' : 'ko', yn(v.patchedValuesConfirmed))}</td>
+            <td>${dotHtml(bytes, `${v.byteIdenticalEntries} su ${expectedEntries}`)}
+                <span class="check-count">${v.byteIdenticalEntries}/${expectedEntries}</span></td>
+        </tr>`;
 }
 
 /**
@@ -1210,64 +1215,73 @@ function renderVerifyStep(): void {
             ${stepperHtml(4)}
         </div>
 
-        <div class="two-col">
-            <section class="panel">
-                <div class="panel-head">
-                    <h3 class="panel-heading">Contenuto del package</h3>
-                    <span class="panel-sub">cosa viaggia all'import</span>
-                </div>
-                <div class="panel-body">
-                    <ul class="inv-list">${pkg.inventory.map(c => `
-                        <li class="inv-item${c.relatedToSelectedAgent ? '' : ' inv-item--extra'}">
-                            <div class="inv-head">
-                                <code class="inv-path">${escapeHtml(c.path)}</code>
-                                ${c.relatedToSelectedAgent ? ''
-                                    : '<span class="chip chip--warning">oltre all\'agent</span>'}
-                            </div>
-                            <div class="inv-meta">${escapeHtml(c.kind)}
-                                <span class="inv-count">${c.count}</span></div>
-                        </li>`).join('')}</ul>
-                    ${extra.length ? `
-                    <div class="note note--warn">
-                        L'artefatto è la <strong>solution intera</strong>: all'import viaggia anche
-                        quanto sopra, non solo l'agent.
-                    </div>` : ''}
-                </div>
-            </section>
+        <section class="panel">
+            <div class="panel-head">
+                <h3 class="panel-heading">Contenuto del package</h3>
+                <span class="panel-sub">cosa viaggia all'import</span>
+            </div>
+            <div class="panel-body">
+                <table class="data-table">
+                    <thead><tr>
+                        <th>Cartella</th><th>Tipo</th><th class="col-num">Quanti</th><th></th>
+                    </tr></thead>
+                    <tbody>${pkg.inventory.map(c => `
+                        <tr>
+                            <td class="cell-strong"><code>${escapeHtml(c.path)}</code></td>
+                            <td>${escapeHtml(c.kind)}</td>
+                            <td class="col-num">${c.count}</td>
+                            <td class="col-action">${c.relatedToSelectedAgent ? ''
+                                : '<span class="chip chip--warning">oltre all\'agent</span>'}</td>
+                        </tr>`).join('')}</tbody>
+                </table>
+                ${extra.length ? `
+                <div class="note note--warn">
+                    L'artefatto è la <strong>solution intera</strong>: all'import viaggia anche
+                    quanto sopra, non solo l'agent.
+                </div>` : ''}
+            </div>
+        </section>
 
-            <section class="panel">
-                <div class="panel-head">
-                    <h3 class="panel-heading">Controlli</h3>
-                    <span class="panel-sub">managed e unmanaged</span>
-                </div>
-                <div class="panel-body">
-                    <div class="kv"><span class="kv-key">Occorrenze del nome</span>
-                        <span class="kv-val">${pkg.nameOccurrences.length} trovate,
-                        ${unexpected.length} impreviste</span></div>
+        <section class="panel">
+            <div class="panel-head">
+                <h3 class="panel-heading">Controlli</h3>
+                <span class="panel-sub">managed e unmanaged a confronto</span>
+            </div>
+            <div class="panel-body">
+                <table class="data-table check-matrix">
+                    <thead><tr>
+                        <th>Package</th>
+                        <th>Archivio leggibile</th>
+                        <th>Numero di entry</th>
+                        <th>Valori patchati</th>
+                        <th>Entry byte-identiche</th>
+                    </tr></thead>
+                    <tbody>
+                        ${checkRowHtml('Managed', v, r.managed.expectedIdenticalEntries)}
+                        ${checkRowHtml('Unmanaged', vu, r.unmanaged.expectedIdenticalEntries)}
+                    </tbody>
+                </table>
 
-                    <h4 class="section-title">Managed</h4>
-                    ${checkListHtml(v, r.managed.expectedIdenticalEntries)}
-
-                    <h4 class="section-title">Unmanaged</h4>
-                    ${checkListHtml(vu, r.unmanaged.expectedIdenticalEntries)}
-                    ${unexpected.length ? `
-                    <p class="hint hint--warn" style="margin-top:12px">
-                        Il nome compare in punti che il tool non conosce: ${unexpected.map(o =>
-                            `<code>${escapeHtml(o.file)}</code> ${escapeHtml(o.locator)}`).join(', ')}.
-                        Quei punti <strong>non</strong> verrebbero patchati.
-                    </p>` : ''}
-                    ${pkg.drift.length ? `
-                    <h4 class="section-title">Formato del package</h4>
-                    <p class="hint hint--warn">
-                        Il formato si discosta da quello di riferimento. Non blocca il packaging —
-                        Dataverse si aggiorna di continuo — ma vale la pena saperlo:
-                    </p>
+                <div class="kv" style="margin-top:var(--sp-4)">
+                    <span class="kv-key">Occorrenze del nome</span>
+                    <span class="kv-val">${pkg.nameOccurrences.length} trovate,
+                    ${unexpected.length} impreviste</span></div>
+                ${unexpected.length ? `
+                <div class="note note--warn">
+                    Il nome compare in punti che il tool non conosce: ${unexpected.map(o =>
+                        `<code>${escapeHtml(o.file)}</code> ${escapeHtml(o.locator)}`).join(', ')}.
+                    Quei punti <strong>non</strong> verrebbero patchati.
+                </div>` : ''}
+                ${pkg.drift.length ? `
+                <h4 class="section-title">Formato del package</h4>
+                <div class="note note--warn">
+                    Il formato si discosta da quello di riferimento. Non blocca il packaging —
+                    Dataverse si aggiorna di continuo — ma vale la pena saperlo:
                     <ul class="drift-list">${pkg.drift.map(d =>
                         `<li>${escapeHtml(d.what)} <span class="cell-muted">(vs ${escapeHtml(d.against)})</span></li>`).join('')}</ul>
-                    ` : ''}
-                </div>
-            </section>
-        </div>
+                </div>` : ''}
+            </div>
+        </section>
 
         <div class="result-banner result-banner--${r.valid ? 'success' : 'error'}">
             ${r.valid
