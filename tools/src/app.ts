@@ -1062,8 +1062,13 @@ function renderReviewStep(): void {
                     <h4 class="section-title">Cosa succede ora</h4>
                     <p class="hint">
                         Vengono esportate <strong>due copie</strong> della solution, managed e
-                        unmanaged, e patchate entrambe. L'export richiede da pochi secondi a
-                        qualche minuto a seconda della dimensione della solution.
+                        unmanaged, e patchate entrambe: servono anche a verificarsi a vicenda.
+                        ${state.options.keepSourceArtifacts
+                            ? `Su disco finiscono <strong>4 archivi</strong> più il manifest.`
+                            : `Su disco però finisce <strong>solo il managed</strong>, l'unico che
+                               importerai, più il manifest.`}
+                        L'export richiede da pochi secondi a qualche minuto a seconda della
+                        dimensione della solution.
                         <strong>Nulla viene scritto su Dataverse</strong>: l'artefatto nasce su disco.
                     </p>
                 </div>
