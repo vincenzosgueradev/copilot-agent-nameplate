@@ -10,7 +10,7 @@ import {
 } from './services/solutions';
 import { writeArtifactSet } from './services/artifacts';
 import { describeError } from './services/dataverse';
-import { saveJsonFile, saveTextFile, selectFolder } from './services/files';
+import { disposeShell, openFolder, saveJsonFile, saveTextFile, selectFolder } from './services/files';
 import { deployArtifact, readInstalledVersion, readTargetAgent } from './services/deploy';
 import { addRecord, deleteRecord, readHistory, updateRecord } from './services/history';
 import { askConfirm } from './services/ui';
@@ -1487,19 +1487,28 @@ function renderResultStep(): void {
         <div class="card" id="deploy-panel"></div>
 
         <div class="step-footer">
-            <button class="btn btn--secondary" id="history-nav-btn">Vedi lo storico</button>
-            <button class="btn btn--primary" id="done-btn">Fine</button>
+            <button class="btn btn--primary" id="open-folder-btn">
+                ${icon('package', 'icon--sm')} Apri cartella</button>
+            <button class="btn btn--secondary" id="history-nav-btn">
+                ${icon('history', 'icon--sm')} Vedi lo storico</button>
+            <button class="btn btn--secondary" id="done-btn">Fine</button>
         </div>`;
 
     const deployHost = document.getElementById('deploy-panel');
     if (deployHost) renderDeployPanel(deployHost);
 
-    document.getElementById('history-nav-btn')!.addEventListener('click', () => navigateTo('history'));
-    document.getElementById('done-btn')!.addEventListener('click', () => {
+    els.stepResult.querySelector('#open-folder-btn')!.addEventListener('click', () => {
+        void openFolder(set.folderPath).catch(err =>
+            log(`Non sono riuscito ad aprire la cartella: ${describeError(err)}`, 'error'));
+    });
+    els.stepResult.querySelector('#history-nav-btn')!.addEventListener('click', () => navigateTo('history'));
+    els.stepResult.querySelector('#done-btn')!.addEventListener('click', () => {
         state.packaging = null;
         state.packagingKey = '';
         state.lastSet = null;
         state.confirmations = [];
+        // Il terminale nascosto serviva a scrivere gli archivi: finita l'operazione va chiuso.
+        void disposeShell();
         navigateTo('welcome');
     });
 }
