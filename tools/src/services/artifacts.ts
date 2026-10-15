@@ -43,6 +43,18 @@ const safeForPath = (s: string) => s.replace(/[\\/:*?"<>|]/g, '').trim();
 /** `1.0.0.2` → `1_0_0_2`, perché i punti nel nome file confondono l'estensione. */
 const flat = (v: string) => v.replace(/\./g, '_');
 
+/**
+ * Unisce due pezzi di percorso col separatore che usa gia' il percorso di partenza.
+ *
+ * La cartella base arriva dal dialog nativo, quindi su Windows ha i backslash: concatenare
+ * con `/` produceva `C:\Development\...\tools/testAgentTool 1.0.0.2 [TEST]`, che funziona
+ * ma si mostra all'utente e finisce nello storico.
+ */
+function joinPath(base: string, name: string): string {
+    const sep = base.includes('\\') ? '\\' : '/';
+    return base.replace(/[\\/]+$/, '') + sep + name;
+}
+
 export interface ManifestInput {
     result: PackagingResult;
     suffix: string;
@@ -95,7 +107,7 @@ export async function writeArtifactSet(
     const clean = safeForPath(suffix);
     const tag = clean ? ` [${clean}]` : ' [senza suffisso]';
     const folderName = `${safeForPath(pkg.uniqueName)} ${pkg.version}${tag} - ${stamp(now)}`;
-    const folderPath = `${baseFolder}/${folderName}`;
+    const folderPath = joinPath(baseFolder, folderName);
 
     // La marca temporale si ferma al minuto, quindi due operazioni sulla stessa solution,
     // versione e suffisso entro lo stesso minuto ricadono qui (FR-074).
@@ -147,7 +159,7 @@ export async function writeArtifactSet(
     const files: ArtifactFile[] = [];
     let complete = true;
     for (const f of planned) {
-        const written = await writeBinary(`${folderPath}/${f.fileName}`, f.bytes);
+        const written = await writeBinary(joinPath(folderPath, f.fileName), f.bytes);
         if (!written) {
             complete = false;
             log(`Salvataggio annullato: ${f.fileName}`, 'warning');
@@ -166,7 +178,7 @@ export async function writeArtifactSet(
     }
 
     const manifest = buildManifest(input, folderName, files, now);
-    const manifestPath = `${folderPath}/manifest.json`;
+    const manifestPath = joinPath(folderPath, 'manifest.json');
     await writeText(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
     const set: ArtifactSet = {

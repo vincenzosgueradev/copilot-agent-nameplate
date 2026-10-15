@@ -755,18 +755,18 @@ mark.hl {
     .header-actions { justify-content: space-between; }
     .search-box { flex: 1; }
     .search-box input { width: 100%; }
-    /* Le colonne secondarie escono prima che la tabella scorra in orizzontale. Storico e
-       matrice dei controlli si sfilano: li' ogni colonna e' un dato, meglio lo scorrimento. */
-    .data-table:not(.data-table--plain):not(.check-matrix) th:nth-child(5),
-    .data-table:not(.data-table--plain):not(.check-matrix) td:nth-child(5),
-    .data-table:not(.data-table--plain):not(.check-matrix) th:nth-child(6),
-    .data-table:not(.data-table--plain):not(.check-matrix) td:nth-child(6) { display: none; }
+    /* Le colonne secondarie escono prima che la tabella scorra in orizzontale. La matrice dei
+       controlli si sfila: li' ogni colonna e' un esito, meglio lo scorrimento. */
+    .data-table:not(.check-matrix) th:nth-child(5),
+    .data-table:not(.check-matrix) td:nth-child(5),
+    .data-table:not(.check-matrix) th:nth-child(6),
+    .data-table:not(.check-matrix) td:nth-child(6) { display: none; }
 }
 
 @media (max-width: 720px) {
     .sidebar-right { display: none; }
-    .data-table:not(.data-table--plain):not(.check-matrix) th:nth-child(2),
-    .data-table:not(.data-table--plain):not(.check-matrix) td:nth-child(2) { display: none; }
+    .data-table:not(.check-matrix) th:nth-child(2),
+    .data-table:not(.check-matrix) td:nth-child(2) { display: none; }
     .stepper-label { display: none; }
     .crumb { max-width: 140px; }
 }
@@ -1023,8 +1023,6 @@ mark.hl {
     word-break: break-word;
 }
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
-.data-table--plain td { white-space: normal; max-width: none; vertical-align: top; }
-.data-table--plain .col-action { white-space: nowrap; }
 
 /* Shown only while a silent background refresh is running */
 .refresh-indicator {
@@ -1275,8 +1273,7 @@ mark.hl {
 
 /* Icona davanti a un nome di file o cartella */
 .cell-strong > .icon,
-.kv-val > .icon,
-.hist-detail dd > .icon { margin-right: var(--sp-2); }
+.kv-val > .icon { margin-right: var(--sp-2); }
 
 .art-desc {
     margin: var(--sp-1) 0 0;
@@ -1417,35 +1414,90 @@ mark.hl {
 
 .note--warn strong { color: var(--color-warning); }
 
-/* ── Storico: riga di dettaglio ──
-   Era una sola stringa separata da punti; ogni dato ha la sua etichetta e la sua riga. */
-.detail-row > td {
-    padding: 0 var(--sp-4) var(--sp-4) !important;
+/* ── Storico: una scheda per operazione ──
+   Era una tabella a sette colonne con una riga di dettaglio che la attraversava: la data
+   andava a capo, i pulsanti uscivano dal bordo e gli hash finivano in fila indiana. Una
+   scheda tiene insieme cio' che riguarda la stessa operazione. */
+.rec-list { list-style: none; margin: 0; padding: 0; }
+
+.rec {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    margin-bottom: var(--sp-4);
+    overflow: hidden;
+}
+
+.rec:last-child { margin-bottom: 0; }
+
+.rec-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-5);
+    background: var(--color-surface-2);
     border-bottom: 1px solid var(--color-border);
 }
 
-.hist-detail {
-    display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
-    gap: var(--sp-2) var(--sp-4);
+.rec-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.rec-solution { font-weight: 600; color: var(--color-text-strong); }
+.rec-version { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+
+.rec-actions { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+
+.rec-body { padding: var(--sp-4) var(--sp-5); }
+
+.rec-rename {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-3);
+}
+
+.rec-rename strong { color: var(--color-text-strong); }
+
+.rec-path {
+    display: flex;
     align-items: baseline;
-    margin: 0;
+    gap: var(--sp-2);
     font-size: var(--fs-sm);
+    word-break: break-all;
 }
 
-.hist-detail dt {
+.rec-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2) var(--sp-4);
+    margin-top: var(--sp-3);
+    font-size: var(--fs-sm);
     color: var(--color-text-muted);
-    text-transform: uppercase;
-    font-size: var(--fs-xs);
-    letter-spacing: 0.4px;
 }
 
-.hist-detail dd { margin: 0; min-width: 0; word-break: break-word; }
+/* Ogni voce separata dalla successiva, invece di una fila continua di hash */
+.rec-files { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
 
-.hist-files { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
+.rec-file {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    padding: 2px var(--sp-3);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    font-size: var(--fs-xs);
+    color: var(--color-text-muted);
+}
 
-.hist-file { color: var(--color-text-muted); white-space: nowrap; }
-.hist-file code { color: var(--color-text); }
+.rec-file code { color: var(--color-text); }
 
 /* Due pannelli affiancati che condividono l'altezza della riga. Sotto i 1000px la
    seconda colonna va a capo invece di comprimere le tabelle. */

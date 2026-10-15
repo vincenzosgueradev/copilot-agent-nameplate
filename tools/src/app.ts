@@ -1714,40 +1714,51 @@ async function renderHistoryStep(): Promise<void> {
     }
 
     body.innerHTML = `
-        <table class="data-table">
-            <thead><tr>
-                <th>Quando</th><th>Solution</th><th>Versione</th><th>Suffisso</th>
-                <th>Agent</th><th>Esito</th><th></th>
-            </tr></thead>
-            <tbody>${list.map(r => `
-                <tr>
-                    <td class="cell-muted" title="${escapeHtml(formatAbsoluteDate(r.timestamp))}">
-                        ${escapeHtml(formatRelativeDate(r.timestamp))}</td>
-                    <td class="cell-strong">${escapeHtml(r.solutionUniqueName)}</td>
-                    <td>${escapeHtml(r.version)}</td>
-                    <td>${escapeHtml(r.suffix || '—')}</td>
-                    <td class="cell-muted">${r.agents.map(a =>
-                        `${escapeHtml(a.before)} → ${escapeHtml(a.after)}`).join('<br>')}</td>
-                    <td><span class="chip chip--${r.status === 'ok' ? 'success' : 'error'}">${r.status}</span></td>
-                    <td>
+        <ul class="rec-list">${list.map(r => `
+            <li class="rec">
+                <div class="rec-head">
+                    <div class="rec-title">
+                        ${icon('package', 'icon--head icon--sm')}
+                        <span class="rec-solution">${escapeHtml(r.solutionUniqueName)}</span>
+                        <span class="rec-version">${escapeHtml(r.version)}</span>
+                        ${r.suffix
+                            ? `<span class="chip chip--muted">${escapeHtml(r.suffix)}</span>`
+                            : '<span class="chip chip--muted">senza suffisso</span>'}
+                    </div>
+                    <div class="rec-actions">
+                        <span class="chip chip--${r.status === 'ok' ? 'success' : 'error'}">${escapeHtml(r.status)}</span>
                         <button class="btn btn--secondary btn--sm" data-export="${escapeHtml(r.id)}">Esporta</button>
                         <button class="btn btn--secondary btn--sm" data-delete="${escapeHtml(r.id)}">Elimina</button>
-                    </td>
-                </tr>
-                <tr class="detail-row"><td colspan="7">
-                    <dl class="hist-detail">
-                        <dt>Cartella</dt>
-                        <dd>${icon('folder', 'icon--folder icon--sm')}
-                            <code>${escapeHtml(r.artifactSetPath)}</code></dd>
-                        <dt>Export</dt>
-                        <dd>${escapeHtml(r.exportMode)} · ${r.exportSeconds.toFixed(1)} s</dd>
-                        <dt>File</dt>
-                        <dd class="hist-files">${r.files.map(f => `
-                            <span class="hist-file">${escapeHtml(f.role)}
-                                <code>${escapeHtml(f.sha256.slice(0, 12))}…</code></span>`).join('')}</dd>
-                    </dl>
-                </td></tr>`).join('')}</tbody>
-        </table>`;
+                    </div>
+                </div>
+
+                <div class="rec-body">
+                    ${r.agents.map(a => `
+                        <div class="rec-rename">
+                            <span class="cell-muted">${escapeHtml(a.before)}</span>
+                            ${icon('arrow-right', 'icon--xs')}
+                            <strong>${escapeHtml(a.after)}</strong>
+                        </div>`).join('')}
+
+                    <div class="rec-path">
+                        ${icon('folder', 'icon--folder icon--sm')}
+                        <code>${escapeHtml(r.artifactSetPath)}</code>
+                    </div>
+
+                    <div class="rec-meta">
+                        <span title="${escapeHtml(formatAbsoluteDate(r.timestamp))}">
+                            ${escapeHtml(formatRelativeDate(r.timestamp))}</span>
+                        <span>export ${escapeHtml(r.exportMode)} · ${r.exportSeconds.toFixed(1)} s</span>
+                        <span>${r.files.length} file</span>
+                    </div>
+
+                    <div class="rec-files">${r.files.map(f => `
+                        <span class="rec-file" title="${escapeHtml(f.sha256)}">
+                            ${escapeHtml(f.role === 'restore' ? 'backup' : f.role)}
+                            <code>${escapeHtml(f.sha256.slice(0, 8))}</code>
+                        </span>`).join('')}</div>
+                </div>
+            </li>`).join('')}</ul>`;
 
     body.querySelectorAll<HTMLElement>('[data-export]').forEach(b => {
         b.addEventListener('click', async () => {
