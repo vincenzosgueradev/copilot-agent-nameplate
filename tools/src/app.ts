@@ -570,12 +570,14 @@ function renderSolutionDetail(keepScroll = false): void {
             </div>
             <div id="solution-notices">${sol ? notExportableBannerHtml(sol) : ''}</div>
             ${sol ? `
-            <div class="detail-meta detail-meta--flat">
-                <div><span class="meta-label">Version</span><span>${escapeHtml(sol.version || '—')}</span></div>
-                <div><span class="meta-label">Publisher</span><span>${escapeHtml(sol.publisherName || sol.publisherPrefix)}</span></div>
-                <div><span class="meta-label">Prefix</span><span>${escapeHtml(sol.publisherPrefix)}</span></div>
-                <div><span class="meta-label">Created</span>
-                    <span title="${escapeHtml(formatAbsoluteDate(sol.createdOn))}">${escapeHtml(formatRelativeDate(sol.createdOn))}</span></div>
+            <div class="strip strip--flush">
+                <div class="stat"><dt>Versione</dt><dd>${escapeHtml(sol.version || '—')}</dd></div>
+                <div class="stat"><dt>Publisher</dt>
+                    <dd>${escapeHtml(sol.publisherName || sol.publisherPrefix)}
+                    <span class="stat-sub">${escapeHtml(sol.publisherPrefix)}</span></dd></div>
+                <div class="stat"><dt>Agent</dt><dd>${agents.length}</dd></div>
+                <div class="stat"><dt>Creata</dt>
+                    <dd title="${escapeHtml(formatAbsoluteDate(sol.createdOn))}">${escapeHtml(formatRelativeDate(sol.createdOn))}</dd></div>
             </div>` : `
             <div class="panel-note">
                 These agents don't belong to any visible solution. Packaging works on a solution,
@@ -885,7 +887,7 @@ function renderSuffixStep(): void {
     const pub = state.options.publishOnImport;
     els.stepSuffix.innerHTML = `
         <div class="step-header step-header-row">
-            <h2 class="step-title">Suffisso per l'ambiente di destinazione</h2>
+            <div class="step-id">${icon('tag')}<h2 class="step-title">Suffisso per l'ambiente di destinazione</h2></div>
             ${stepperHtml(1)}
         </div>
 
@@ -1046,7 +1048,7 @@ function renderReviewStep(): void {
 
     els.stepReview.innerHTML = `
         <div class="step-header step-header-row">
-            <h2 class="step-title">Riepilogo prima dell'export</h2>
+            <div class="step-id">${icon('check')}<h2 class="step-title">Riepilogo prima dell'export</h2></div>
             ${stepperHtml(2)}
         </div>
 
@@ -1135,10 +1137,10 @@ function renderPreviewStep(): void {
 
     els.stepPreview.innerHTML = `
         <div class="step-header step-header-row">
-            <h2 class="step-title">Anteprima del package</h2>
+            <div class="step-id">${icon('package')}<h2 class="step-title">Anteprima del package</h2></div>
             ${stepperHtml(3)}
         </div>
-        <div class="card" id="preview-body">
+        <div class="strip" id="preview-body">
             <div class="progress-line"><span class="spinner"></span>
                 <span id="preview-progress">avvio dell'export…</span></div>
         </div>
@@ -1228,13 +1230,14 @@ function renderPreviewResult(r: PackagingResult): void {
         </tr>`).join('') : `<tr><td colspan="5" class="cell-muted">Nessuna modifica da applicare.</td></tr>`;
 
     body.innerHTML = `
-        <div class="detail-meta detail-meta--flat">
-            <div><span class="meta-label">Solution</span><span>${escapeHtml(pkg.uniqueName)}</span></div>
-            <div><span class="meta-label">Versione</span><span>${escapeHtml(pkg.version)}</span></div>
-            <div><span class="meta-label">Publisher</span><span>${escapeHtml(pkg.publisherUniqueName)} (${escapeHtml(pkg.publisherPrefix)})</span></div>
-            <div><span class="meta-label">Entry</span><span>${pkg.entries.length}</span></div>
-            <div><span class="meta-label">Export</span><span>${r.exportMode} · ${r.exportSeconds.toFixed(1)} s</span></div>
-        </div>`;
+        <div class="stat"><dt>Solution</dt><dd>${escapeHtml(pkg.uniqueName)}</dd></div>
+        <div class="stat"><dt>Versione</dt><dd>${escapeHtml(pkg.version)}</dd></div>
+        <div class="stat"><dt>Publisher</dt>
+            <dd>${escapeHtml(pkg.publisherUniqueName)}
+            <span class="stat-sub">${escapeHtml(pkg.publisherPrefix)}</span></dd></div>
+        <div class="stat"><dt>Entry</dt><dd>${pkg.entries.length}</dd></div>
+        <div class="stat"><dt>Export</dt>
+            <dd>${r.exportSeconds.toFixed(1)}<span class="stat-sub">s ${escapeHtml(r.exportMode)}</span></dd></div>`;
 
     // Il contenuto vero sta nei pannelli sotto la card: la card tiene solo il riepilogo
     const panels = document.getElementById('preview-panels');
@@ -1339,7 +1342,7 @@ function renderVerifyStep(): void {
 
     els.stepVerify.innerHTML = `
         <div class="step-header step-header-row">
-            <h2 class="step-title">Verifica dell'artefatto</h2>
+            <div class="step-id">${icon('shield')}<h2 class="step-title">Verifica dell'artefatto</h2></div>
             ${stepperHtml(4)}
         </div>
 
@@ -1587,7 +1590,7 @@ function renderResultStep(): void {
     const deploy = set.files.find(f => f.role === 'deploy');
     els.stepResult.innerHTML = `
         <div class="step-header step-header-row">
-            <h2 class="step-title">Artifact set pronto</h2>
+            <div class="step-id">${icon('archive')}<h2 class="step-title">Artifact set pronto</h2></div>
             ${stepperHtml(5)}
         </div>
 
