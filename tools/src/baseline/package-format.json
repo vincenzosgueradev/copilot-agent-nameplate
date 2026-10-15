@@ -42,13 +42,16 @@
         ],
         "elements": [
             "componenttype",
-            "description",
             "iscustomizable",
             "name",
             "parentbotid",
             "statecode",
             "statuscode"
-        ]
+        ],
+        "optionalElements": [
+            "description"
+        ],
+        "$comment": "description e' una colonna nullable preesistente (non un campo nuovo di piattaforma): l'export la serializza solo quando ha un valore. Documentata su learn.microsoft.com/power-apps/developer/data-platform/reference/entities/botcomponent."
     },
     "configurationJson": {
         "path": "bots/<schemaname>/configuration.json",

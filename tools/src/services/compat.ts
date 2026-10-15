@@ -135,15 +135,23 @@ export function findNameOccurrences(
  * Volutamente testuale: serve a far leggere all'utente *che cosa* è cambiato, non a essere
  * processato da altro codice.
  */
-function diffList(label: string, before: string[], after: string[], against: FormatDrift['against']): FormatDrift[] {
+function diffList(
+    label: string,
+    before: string[],
+    after: string[],
+    against: FormatDrift['against'],
+    optional: string[] = [],
+): FormatDrift[] {
     const out: FormatDrift[] = [];
     for (const x of after) {
-        if (!before.includes(x)) {
+        if (!before.includes(x) && !optional.includes(x)) {
             out.push({ against, kind: 'added', what: `${label}: comparso "${x}"`, blocking: false });
         }
     }
     for (const x of before) {
-        if (!after.includes(x)) {
+        // Un elemento opzionale e' serializzato solo quando ha un valore: la sua assenza
+        // non e' uno scostamento di formato.
+        if (!after.includes(x) && !optional.includes(x)) {
             out.push({ against, kind: 'removed', what: `${label}: sparito "${x}"`, blocking: false });
         }
     }
@@ -158,6 +166,8 @@ function compare(
         botComponentElements: string[];
         configurationKeys: string[];
         platformStamps?: FormatFingerprint['platformStamps'];
+        optionalBotComponentElements?: string[];
+        optionalConfigurationKeys?: string[];
     },
     actual: FormatFingerprint,
     against: FormatDrift['against'],
@@ -171,8 +181,8 @@ function compare(
     }
     out.push(...diffList('cartelle di primo livello', ref.topLevelPaths, actual.topLevelPaths, against));
     out.push(...diffList('elementi di bot.xml', ref.botElements, actual.botElements, against));
-    out.push(...diffList('elementi di botcomponent.xml', ref.botComponentElements, actual.botComponentElements, against));
-    out.push(...diffList('chiavi di configuration.json', ref.configurationKeys, actual.configurationKeys, against));
+    out.push(...diffList('elementi di botcomponent.xml', ref.botComponentElements, actual.botComponentElements, against, ref.optionalBotComponentElements));
+    out.push(...diffList('chiavi di configuration.json', ref.configurationKeys, actual.configurationKeys, against, ref.optionalConfigurationKeys));
 
     // I timbri di versione cambiano a ogni aggiornamento di Dataverse: si segnalano, mai si bloccano
     if (ref.platformStamps && ref.platformStamps.version !== actual.platformStamps.version) {
@@ -201,6 +211,8 @@ export function detectDrift(
         botElements: baseline.botXml.elements,
         botComponentElements: baseline.botComponentXml.elements,
         configurationKeys: baseline.configurationJson.keys,
+        optionalBotComponentElements: baseline.botComponentXml.optionalElements,
+        optionalConfigurationKeys: baseline.configurationJson.optionalKeys,
     }, actual, 'baseline');
 
     if (previous) out.push(...compare(previous, actual, 'previous'));
