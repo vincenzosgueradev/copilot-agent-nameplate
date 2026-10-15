@@ -35,7 +35,7 @@ import {
 const toolbox = globalThis.toolboxAPI;
 
 // ── State ────────────────────────────────────────────────────────────────────
-type AppStep = 'welcome' | 'solution' | 'suffix' | 'preview' | 'verify' | 'result' | 'history';
+type AppStep = 'welcome' | 'solution' | 'suffix' | 'review' | 'preview' | 'verify' | 'result' | 'history';
 
 const state = {
     connectionName: '',
@@ -75,6 +75,7 @@ const els = {
     breadcrumb: document.getElementById('breadcrumb')!,
     stepSolution: document.getElementById('step-solution')!,
     stepSuffix: document.getElementById('step-suffix')!,
+    stepReview: document.getElementById('step-review')!,
     stepPreview: document.getElementById('step-preview')!,
     stepVerify: document.getElementById('step-verify')!,
     stepResult: document.getElementById('step-result')!,
@@ -700,6 +701,9 @@ function buildBreadcrumb(): Crumb[] {
     if (state.activeAgent) trail.push({ label: state.activeAgent.name, step: 'suffix' });
     if (state.currentStep === 'suffix') return trail;
 
+    trail.push({ label: 'Riepilogo', step: 'review' });
+    if (state.currentStep === 'review') return trail;
+
     trail.push({ label: 'Anteprima', step: 'preview' });
     if (state.currentStep === 'preview') return trail;
 
@@ -743,6 +747,7 @@ function navigateTo(step: AppStep): void {
     els.welcomeScreen.style.display = 'none';
     els.stepSolution.style.display = 'none';
     els.stepSuffix.style.display = 'none';
+    els.stepReview.style.display = 'none';
     els.stepPreview.style.display = 'none';
     els.stepVerify.style.display = 'none';
     els.stepResult.style.display = 'none';
@@ -761,6 +766,7 @@ function navigateTo(step: AppStep): void {
             void refreshData();
             break;
         case 'suffix':  els.stepSuffix.style.display  = ''; renderSuffixStep();  break;
+        case 'review':  els.stepReview.style.display  = ''; renderReviewStep();  break;
         case 'preview': els.stepPreview.style.display = ''; renderPreviewStep(); break;
         case 'verify':  els.stepVerify.style.display  = ''; renderVerifyStep();  break;
         case 'result':  els.stepResult.style.display  = ''; renderResultStep();  break;
@@ -772,8 +778,8 @@ function navigateTo(step: AppStep): void {
 
 const SUFFIX_PRESETS = ['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'];
 
-function stepperHtml(active: 1 | 2 | 3 | 4): string {
-    const steps = ['Suffisso', 'Anteprima', 'Verifica', 'Risultato'];
+function stepperHtml(active: 1 | 2 | 3 | 4 | 5): string {
+    const steps = ['Suffisso', 'Riepilogo', 'Anteprima', 'Verifica', 'Risultato'];
     const items = steps.map((label, i) => {
         const n = i + 1;
         const cls = n === active ? 'active' : n < active ? 'done' : '';
@@ -881,7 +887,7 @@ function renderSuffixStep(): void {
 
         <div class="step-footer">
             <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
-            <button class="btn btn--primary" id="next-btn">${icon('package', 'icon--sm')} Genera il package</button>
+            <button class="btn btn--primary" id="next-btn">Riepilogo ${icon('arrow-right', 'icon--sm')}</button>
         </div>`;
 
     const input = document.getElementById('suffix-input') as HTMLInputElement;
@@ -914,7 +920,7 @@ function renderSuffixStep(): void {
         });
     });
     document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('solution'));
-    document.getElementById('next-btn')!.addEventListener('click', () => navigateTo('preview'));
+    document.getElementById('next-btn')!.addEventListener('click', () => navigateTo('review'));
 
     updateSuffixPreview();
 }
@@ -945,6 +951,103 @@ function updateSuffixPreview(): void {
 
 // ── Step: anteprima del Patch Plan ────────────────────────────────────────────
 
+/**
+ * Step 2: l'ultima schermata prima che parta l'export.
+ *
+ * L'export di managed e unmanaged costa da 13 secondi a 5 minuti (research.md §13), quindi
+ * la revisione va fatta *prima* di pagarlo, non dopo. Qui non si chiama Dataverse: si mostra
+ * solo quello che si sa gia' dalla scelta dell'agent e dalle opzioni dello step precedente.
+ */
+function renderReviewStep(): void {
+    const agent = state.activeAgent;
+    const sol = state.activeSolution;
+    if (!agent || !sol) { navigateTo('welcome'); return; }
+    renderBreadcrumb();
+
+    const nextName = buildName(agent.name, state.suffix);
+    const tooLong = nextName.length > TEAMS_NAME_LIMIT;
+    const unchanged = nextName === agent.name;
+    const publishLabel = {
+        'keep': 'Non modificare',
+        'force-true': 'Forza Sì',
+        'force-false': 'Forza No',
+    }[state.options.publishOnImport];
+
+    els.stepReview.innerHTML = `
+        <div class="step-header step-header-row">
+            <h2 class="step-title">Riepilogo prima dell'export</h2>
+            ${stepperHtml(2)}
+        </div>
+
+        <div class="two-col">
+            <section class="panel">
+                <div class="panel-head">
+                    <h3 class="panel-heading">Rinomina</h3>
+                    <span class="panel-sub">cosa stai per cambiare</span>
+                </div>
+                <div class="panel-body">
+                    <div class="kv"><span class="kv-key">Agent</span>
+                        <span class="kv-val kv-val--strong">${escapeHtml(agent.name)}</span></div>
+                    <div class="kv"><span class="kv-key">Schema</span>
+                        <span class="kv-val"><code>${escapeHtml(agent.schemaName)}</code></span></div>
+                    <div class="kv"><span class="kv-key">Solution</span>
+                        <span class="kv-val">${escapeHtml(sol.friendlyName || sol.uniqueName)}
+                        <span class="cell-muted">${escapeHtml(sol.version)}</span></span></div>
+                    <div class="kv"><span class="kv-key">Suffisso</span>
+                        <span class="kv-val">${state.suffix
+                            ? `<strong>[${escapeHtml(state.suffix)}]</strong>`
+                            : '<span class="cell-muted">nessuno — rimuove quello esistente</span>'}</span></div>
+                    <div class="kv"><span class="kv-key">Nome risultante</span>
+                        <span class="kv-val kv-val--strong">${escapeHtml(nextName)}</span></div>
+                    <div class="kv"><span class="kv-key">Lunghezza</span>
+                        <span class="kv-val ${tooLong ? 'kv-val--warn' : ''}">${nextName.length} / ${TEAMS_NAME_LIMIT}</span></div>
+                    ${unchanged ? `
+                    <p class="hint hint--warn" style="margin-top:12px">
+                        Il nome non cambia: l'agent si chiama già così. Il package verrà prodotto
+                        lo stesso, ma senza alcuna rinomina effettiva.
+                    </p>` : ''}
+                    ${tooLong ? `
+                    <p class="hint hint--warn" style="margin-top:12px">
+                        Oltre ${TEAMS_NAME_LIMIT} caratteri. Il limite riguarda il manifest Teams,
+                        il cui nome deriva da quello dell'agent. Non blocca il packaging.
+                    </p>` : ''}
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h3 class="panel-heading">Opzioni</h3>
+                    <span class="panel-sub">scelte allo step precedente</span>
+                </div>
+                <div class="panel-body">
+                    <div class="kv"><span class="kv-key">Incrementa la versione</span>
+                        <span class="kv-val">${state.options.bumpVersion
+                            ? `Sì <span class="cell-muted">— il package sarà un upgrade</span>`
+                            : `No <span class="cell-muted">— stessa versione, sarà un update</span>`}</span></div>
+                    <div class="kv"><span class="kv-key">Publish all'import</span>
+                        <span class="kv-val">${escapeHtml(publishLabel)}</span></div>
+
+                    <h4 class="section-title">Cosa succede ora</h4>
+                    <p class="hint">
+                        Vengono esportate <strong>due copie</strong> della solution, managed e
+                        unmanaged, e patchate entrambe. L'export richiede da pochi secondi a
+                        qualche minuto a seconda della dimensione della solution.
+                        <strong>Nulla viene scritto su Dataverse</strong>: l'artefatto nasce su disco.
+                    </p>
+                </div>
+            </section>
+        </div>
+
+        <div class="step-footer">
+            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
+            <button class="btn btn--primary" id="next-btn">
+                ${icon('package', 'icon--sm')} Genera il package</button>
+        </div>`;
+
+    document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('suffix'));
+    document.getElementById('next-btn')!.addEventListener('click', () => navigateTo('preview'));
+}
+
 function renderPreviewStep(): void {
     const agent = state.activeAgent;
     const sol = state.activeSolution;
@@ -954,7 +1057,7 @@ function renderPreviewStep(): void {
     els.stepPreview.innerHTML = `
         <div class="step-header step-header-row">
             <h2 class="step-title">Anteprima del package</h2>
-            ${stepperHtml(2)}
+            ${stepperHtml(3)}
         </div>
         <div class="card" id="preview-body">
             <div class="progress-line"><span class="spinner"></span>
@@ -964,7 +1067,7 @@ function renderPreviewStep(): void {
         <div class="step-footer" id="preview-footer">
             <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
         </div>`;
-    document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('suffix'));
+    document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('review'));
 
     // Tornare indietro e riavanzare non deve rifare l'export: sulla solution piu' pesante
     // dell'environment di riferimento la coppia costa 111 secondi (research.md §13).
@@ -1077,14 +1180,19 @@ function renderPreviewResult(r: PackagingResult): void {
             </section>
 
             <section class="panel">
-                <div class="panel-head"><h3 class="panel-heading">Agent nel package</h3></div>
+                <div class="panel-head">
+                    <h3 class="panel-heading">Publish e canali</h3>
+                    <span class="panel-sub">letti dal package appena esportato</span>
+                </div>
                 <div class="panel-body">
                     ${pkg.agents.map(a => `
-                        <div class="kv"><span class="kv-key">${escapeHtml(a.schemaName)}</span>
-                            <span class="kv-val">${escapeHtml(a.name)} ·
-                            publish all'import: <strong>${a.publishOnImport === null
-                                ? 'non specificato' : a.publishOnImport ? 'sì' : 'no'}</strong>
-                            ${a.channels.length ? `· canali: ${escapeHtml(a.channels.join(', '))}` : ''}</span></div>`).join('')}
+                        <div class="kv"><span class="kv-key">Publish all'import</span>
+                            <span class="kv-val kv-val--strong">${a.publishOnImport === null
+                                ? 'non specificato' : a.publishOnImport ? 'sì' : 'no'}</span></div>
+                        <div class="kv"><span class="kv-key">Canali</span>
+                            <span class="kv-val">${a.channels.length
+                                ? escapeHtml(a.channels.join(', '))
+                                : '<span class="cell-muted">nessuno</span>'}</span></div>`).join('')}
                     ${pkg.agents.some(a => a.publishOnImport !== true) ? `
                     <p class="hint hint--warn" style="margin-top:12px">
                         Senza publish nell'ambiente di destinazione il nome cambia solo in Copilot
@@ -1100,7 +1208,7 @@ function renderPreviewResult(r: PackagingResult): void {
             <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
             <button class="btn btn--primary" id="to-verify-btn">
                 Verifica ${icon('arrow-right', 'icon--sm')}</button>`;
-        footer.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('suffix'));
+        footer.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('review'));
         footer.querySelector('#to-verify-btn')!.addEventListener('click', () => navigateTo('verify'));
     }
 }
@@ -1126,7 +1234,7 @@ function renderVerifyStep(): void {
     els.stepVerify.innerHTML = `
         <div class="step-header step-header-row">
             <h2 class="step-title">Verifica dell'artefatto</h2>
-            ${stepperHtml(3)}
+            ${stepperHtml(4)}
         </div>
 
         <div class="two-col">
@@ -1349,7 +1457,7 @@ function renderResultStep(): void {
                 <h2 class="step-title">Artifact set pronto</h2>
                 <div class="step-sub">${escapeHtml(set.folderName)}</div>
             </div>
-            ${stepperHtml(4)}
+            ${stepperHtml(5)}
         </div>
 
         <div class="card">
