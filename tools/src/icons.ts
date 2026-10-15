@@ -31,7 +31,12 @@ export type IconName =
     | 'alert'
     | 'folder'
     | 'archive'
-    | 'file-json';
+    | 'file-json'
+    | 'tag'
+    | 'sliders'
+    | 'shield'
+    | 'send'
+    | 'layers';
 
 /** Markup dell'icona, pronto da concatenare in un template string. */
 export function icon(name: IconName, cls = ''): string {

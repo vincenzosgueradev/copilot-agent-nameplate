@@ -852,7 +852,7 @@ function renderSuffixStep(): void {
         <div class="stack">
                 <section class="panel">
                     <div class="panel-head">
-                        <h3 class="panel-heading">Suffisso</h3>
+                        <h3 class="panel-heading">${icon('tag', 'icon--head')}Suffisso</h3>
                         <span class="panel-sub">aggiunto tra parentesi quadre dopo il nome</span>
                     </div>
                     <div class="panel-body">
@@ -879,7 +879,7 @@ function renderSuffixStep(): void {
 
 
                 <section class="panel">
-                    <div class="panel-head"><h3 class="panel-heading">Opzioni</h3></div>
+                    <div class="panel-head"><h3 class="panel-heading">${icon('sliders', 'icon--head')}Opzioni</h3></div>
                     <div class="panel-body" style="padding:0">
 
                         <div class="opt-row" style="padding:12px 16px">
@@ -912,7 +912,7 @@ function renderSuffixStep(): void {
                 <section class="panel">
                     <div class="panel-head">
                         <div>
-                            <h3 class="panel-heading">Artefatti</h3>
+                            <h3 class="panel-heading">${icon('package', 'icon--head')}Artefatti</h3>
                             <span class="panel-sub">cosa finisce su disco</span>
                         </div>
                         <label class="switch" for="opt-keep"
@@ -1011,7 +1011,7 @@ function renderReviewStep(): void {
         <div class="two-col">
             <section class="panel">
                 <div class="panel-head">
-                    <h3 class="panel-heading">Rinomina</h3>
+                    <h3 class="panel-heading">${icon('pencil', 'icon--head')}Rinomina</h3>
                     <span class="panel-sub">cosa stai per cambiare</span>
                 </div>
                 <div class="panel-body">
@@ -1202,7 +1202,7 @@ function renderPreviewResult(r: PackagingResult): void {
         panels.innerHTML = `
             <section class="panel">
                 <div class="panel-head">
-                    <h3 class="panel-heading">Cosa viene modificato</h3>
+                    <h3 class="panel-heading">${icon('pencil', 'icon--head')}Cosa viene modificato</h3>
                     <span class="panel-sub">l'unico punto toccato nel package</span>
                 </div>
                 <div class="panel-body">
@@ -1220,7 +1220,7 @@ function renderPreviewResult(r: PackagingResult): void {
 
             <section class="panel">
                 <div class="panel-head">
-                    <h3 class="panel-heading">Publish e canali</h3>
+                    <h3 class="panel-heading">${icon('send', 'icon--head')}Publish e canali</h3>
                     <span class="panel-sub">letti dal package appena esportato</span>
                 </div>
                 <div class="panel-body">
@@ -1305,7 +1305,7 @@ function renderVerifyStep(): void {
 
         <section class="panel">
             <div class="panel-head">
-                <h3 class="panel-heading">Contenuto del package</h3>
+                <h3 class="panel-heading">${icon('package', 'icon--head')}Contenuto del package</h3>
                 <span class="panel-sub">cosa viaggia all'import</span>
             </div>
             <div class="panel-body">
@@ -1334,7 +1334,7 @@ function renderVerifyStep(): void {
 
         <section class="panel">
             <div class="panel-head">
-                <h3 class="panel-heading">Controlli</h3>
+                <h3 class="panel-heading">${icon('shield', 'icon--head')}Controlli</h3>
                 <span class="panel-sub">managed e unmanaged a confronto</span>
             </div>
             <div class="panel-body">
@@ -1563,7 +1563,7 @@ function renderResultStep(): void {
 
         <section class="panel">
             <div class="panel-head">
-                <h3 class="panel-heading">File prodotti</h3>
+                <h3 class="panel-heading">${icon('archive', 'icon--head')}File prodotti</h3>
                 <span class="panel-sub">${set.files.length} archivi · ${(set.totalBytes / 1024).toFixed(0)} KB</span>
             </div>
             <div class="panel-body">
@@ -1594,7 +1594,7 @@ function renderResultStep(): void {
 
         <section class="panel">
             <div class="panel-head">
-                <h3 class="panel-heading">Dove si trova</h3>
+                <h3 class="panel-heading">${icon('folder', 'icon--head')}Dove si trova</h3>
             </div>
             <div class="panel-body">
                 <div class="kv"><span class="kv-key">Cartella</span>
@@ -1663,7 +1663,7 @@ async function renderHistoryStep(): Promise<void> {
     els.stepHistory.innerHTML = `
         <section class="panel panel--fill">
             <div class="panel-head panel-head--lg">
-                <div><h2 class="panel-heading">Storico dei packaging</h2>
+                <div><h2 class="panel-heading">${icon('history', 'icon--head')}Storico dei packaging</h2>
                     <div class="panel-sub">conservato 30 giorni, solo su questo dispositivo</div></div>
             </div>
             <div class="panel-table" id="history-body">
