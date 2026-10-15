@@ -765,11 +765,15 @@ const SUFFIX_PRESETS = ['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'];
 
 function stepperHtml(active: 1 | 2 | 3): string {
     const steps = ['Suffisso', 'Anteprima', 'Risultato'];
-    return `<ol class="stepper">${steps.map((label, i) => {
+    const items = steps.map((label, i) => {
         const n = i + 1;
         const cls = n === active ? 'active' : n < active ? 'done' : '';
-        return `<li class="stepper-item ${cls}"><span class="stepper-dot">${n < active ? '✓' : n}</span>${label}</li>`;
-    }).join('')}</ol>`;
+        return `<li class="stepper-item ${cls}"><span class="stepper-dot">${n < active ? '✓' : n}</span><span class="stepper-label">${label}</span></li>`;
+    });
+    const withLines = items.flatMap((item, i) =>
+        i < items.length - 1 ? [item, '<li class="stepper-line" aria-hidden="true"></li>'] : [item]
+    );
+    return `<ol class="stepper">${withLines.join('')}</ol>`;
 }
 
 /**
@@ -789,7 +793,7 @@ function renderSuffixStep(): void {
 
     const draft = state.suffix;
     els.stepSuffix.innerHTML = `
-        <div class="step-header">
+        <div class="step-header step-header-row">
             <div>
                 <h2 class="step-title">Suffisso per l'ambiente di destinazione</h2>
                 <div class="step-sub">${escapeHtml(agent.name)}</div>
@@ -816,7 +820,7 @@ function renderSuffixStep(): void {
                         Un suffisso vuoto <strong>rimuove</strong> quello esistente e lascia il nome base.
                     </p>
 
-                    <div class="panel-head" style="margin-top:18px"><h3 class="panel-heading">Opzioni</h3></div>
+                    <h3 class="section-title">Opzioni</h3>
                     <label class="opt-row">
                         <input type="checkbox" id="opt-bump" ${state.options.bumpVersion ? 'checked' : ''}>
                         <span><strong>Incrementa la versione</strong> della solution
@@ -908,7 +912,7 @@ function renderPreviewStep(): void {
     renderBreadcrumb();
 
     els.stepPreview.innerHTML = `
-        <div class="step-header">
+        <div class="step-header step-header-row">
             <div>
                 <h2 class="step-title">Anteprima del package</h2>
                 <div class="step-sub">${escapeHtml(sol.uniqueName)} · ${escapeHtml(agent.name)}</div>
@@ -1235,7 +1239,7 @@ function renderResultStep(): void {
 
     const deploy = set.files.find(f => f.role === 'deploy');
     els.stepResult.innerHTML = `
-        <div class="step-header">
+        <div class="step-header step-header-row">
             <div>
                 <h2 class="step-title">Artifact set pronto</h2>
                 <div class="step-sub">${escapeHtml(set.folderName)}</div>
