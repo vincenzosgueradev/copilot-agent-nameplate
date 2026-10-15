@@ -8,14 +8,16 @@
  * può durare da 13 secondi a 5 minuti e non può essere uno spinner muto (FR-094).
  */
 
+import { icon } from '../icons';
+
 export type DotState = 'pending' | 'running' | 'success' | 'error' | 'skipped';
 
 const DOT_GLYPH: Record<DotState, string> = {
     pending: '',
     running: '',
-    success: '✓',
-    error: '✕',
-    skipped: '–',
+    success: icon('check'),
+    error: icon('close'),
+    skipped: icon('minus'),
 };
 
 export function statusDotHtml(id: string, s: DotState = 'pending'): string {
@@ -26,7 +28,7 @@ export function setStatusDot(id: string, s: DotState): void {
     const el = document.getElementById(id);
     if (!el) return;
     el.className = `status-dot status-dot--${s}`;
-    el.textContent = DOT_GLYPH[s];
+    el.innerHTML = DOT_GLYPH[s];
     el.setAttribute('aria-label', s);
 }
 

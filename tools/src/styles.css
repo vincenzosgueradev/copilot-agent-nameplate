@@ -237,8 +237,7 @@ body {
 .search-icon {
     position: absolute;
     left: 9px;
-    font-size: 11px;
-    opacity: 0.6;
+    color: var(--color-text-muted);
     pointer-events: none;
 }
 
@@ -499,7 +498,7 @@ mark.hl {
 }
 
 .panel-table .data-table td.cell-strong { max-width: 520px; white-space: nowrap; }
-.cell-icon { margin-right: 8px; opacity: 0.85; }
+.cell-icon { margin-right: 8px; color: var(--color-text-muted); }
 .cell-never { font-style: italic; opacity: 0.7; }
 
 .col-action { width: 1%; white-space: nowrap; text-align: right; }
@@ -1276,6 +1275,27 @@ mark.hl {
     font-size: 12px;
     line-height: 1.6;
     color: var(--color-text-muted);
+}
+
+/* ── Icone SVG ── */
+.icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    vertical-align: -0.17em;
+}
+
+.icon--sm { width: 13px; height: 13px; }
+.icon--xs { width: 11px; height: 11px; vertical-align: -0.1em; }
+.icon--lg { width: 20px; height: 20px; }
+
+/* Dentro un marcatore circolare pieno il tratto va ingrossato per restare leggibile */
+.status-dot .icon,
+.stepper-dot .icon {
+    width: 12px;
+    height: 12px;
+    vertical-align: 0;
+    stroke-width: 2.2;
 }
 
 /* ── Dark-themed native inputs ── */

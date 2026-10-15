@@ -17,6 +17,7 @@ import { askConfirm } from './services/ui';
 import { runPackaging, type PackagingResult } from './services/packaging';
 import { buildName } from './services/patch';
 import { describeVerification } from './services/rezip';
+import { icon } from './icons';
 import {
     DEFAULT_OPTIONS,
     SUFFIX_MAX,
@@ -440,7 +441,7 @@ function renderSolutionsTable(): void {
                 <div class="match-list">
                     ${agents.map(a => `
                     <span class="match-chip" data-agent="${escapeHtml(a.id)}">
-                        🤖 ${highlight(a.name, q)}
+                        ${icon('bot', 'icon--sm')} ${highlight(a.name, q)}
                     </span>`).join('')}
                 </div>
             </td>
@@ -448,7 +449,9 @@ function renderSolutionsTable(): void {
 
     const th = (col: SortColumn, label: string, extraClass = '') => {
         const active = state.sortColumn === col;
-        const arrow = active ? (state.sortDir === 'asc' ? '▲' : '▼') : '';
+        const arrow = active
+            ? icon(state.sortDir === 'asc' ? 'chevron-up' : 'chevron-down', 'icon--xs')
+            : '';
         return `<th class="sortable ${extraClass}${active ? ' sorted' : ''}"
                     data-sort="${col}"
                     aria-sort="${active ? (state.sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}">
@@ -583,12 +586,12 @@ function renderSolutionDetail(keepScroll = false): void {
                     <tbody>
                         ${agents.map(a => `
                         <tr class="data-row" data-agent="${escapeHtml(a.id)}">
-                            <td class="cell-strong" title="${escapeHtml(a.name)}"><span class="cell-icon">🤖</span>${escapeHtml(a.name)}</td>
+                            <td class="cell-strong" title="${escapeHtml(a.name)}"><span class="cell-icon">${icon('bot', 'icon--sm')}</span>${escapeHtml(a.name)}</td>
                             <td><span class="chip chip--${a.isActive ? 'success' : 'muted'}">${a.isActive ? 'Active' : 'Inactive'}</span></td>
                             ${dateCell(a.publishedOn, '<span class="cell-never">Never published</span>')}
                             ${dateCell(a.modifiedOn, '—')}
                             ${dateCell(a.createdOn, '—')}
-                            <td class="col-action"><span class="row-cta">Rename →</span></td>
+                            <td class="col-action"><span class="row-cta">Rename ${icon('arrow-right', 'icon--xs')}</span></td>
                         </tr>`).join('')}
                     </tbody>
                 </table>` : `
@@ -768,7 +771,8 @@ function stepperHtml(active: 1 | 2 | 3): string {
     const items = steps.map((label, i) => {
         const n = i + 1;
         const cls = n === active ? 'active' : n < active ? 'done' : '';
-        return `<li class="stepper-item ${cls}"><span class="stepper-dot">${n < active ? '✓' : n}</span><span class="stepper-label">${label}</span></li>`;
+        const mark = n < active ? icon('check') : String(n);
+        return `<li class="stepper-item ${cls}"><span class="stepper-dot">${mark}</span><span class="stepper-label">${label}</span></li>`;
     });
     const withLines = items.flatMap((item, i) =>
         i < items.length - 1 ? [item, '<li class="stepper-line" aria-hidden="true"></li>'] : [item]
@@ -870,8 +874,8 @@ function renderSuffixStep(): void {
         </div>
 
         <div class="step-footer">
-            <button class="btn btn--secondary" id="back-btn">← Indietro</button>
-            <button class="btn btn--primary" id="next-btn">Genera il package →</button>
+            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
+            <button class="btn btn--primary" id="next-btn">${icon('package', 'icon--sm')} Genera il package</button>
         </div>`;
 
     const input = document.getElementById('suffix-input') as HTMLInputElement;
@@ -954,7 +958,7 @@ function renderPreviewStep(): void {
                 <span id="preview-progress">avvio dell'export…</span></div>
         </div>
         <div class="step-footer" id="preview-footer">
-            <button class="btn btn--secondary" id="back-btn">← Indietro</button>
+            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
         </div>`;
     document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('suffix'));
 
@@ -1128,9 +1132,9 @@ function renderPreviewResult(r: PackagingResult): void {
     const footer = document.getElementById('preview-footer');
     if (footer) {
         footer.innerHTML = `
-            <button class="btn btn--secondary" id="back-btn">← Indietro</button>
+            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
             <button class="btn btn--primary" id="save-btn" ${r.valid ? '' : 'disabled'}>
-                Salva l'artifact set</button>`;
+                ${icon('download', 'icon--sm')} Salva l'artifact set</button>`;
         footer.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('suffix'));
     }
 
@@ -1262,7 +1266,10 @@ async function saveArtifactSet(): Promise<void> {
         });
     } catch (err) {
         log(`Salvataggio non riuscito: ${err}`, 'error');
-        if (btn) { btn.disabled = false; btn.textContent = 'Salva l\'artifact set'; }
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `${icon('download', 'icon--sm')} Salva l'artifact set`;
+        }
     }
 }
 
