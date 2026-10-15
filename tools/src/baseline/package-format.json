@@ -1,6 +1,6 @@
 {
     "$comment": "Impronta di riferimento del formato di un solution package contenente agent Copilot Studio. Confrontata a ogni export (FR-097, FR-098). Uno scostamento produce un avviso NON bloccante: Dataverse si aggiorna di continuo e i timbri di versione cambiano da soli. Aggiornare questo file consapevolmente, mai in automatico.",
-    "verifiedOn": "2026-10-15",
+    "verifiedOn": "2026-10-16",
     "verifiedAgainst": "testAgentTool 1.0.0.2 (publisher Avanade, prefix ava, agent ava_agenteTool1)",
     "source": "specs/001-agent-rename-manager/research.md §9, §14",
     "solutionPackageVersion": "9.2",
@@ -42,6 +42,7 @@
         ],
         "elements": [
             "componenttype",
+            "description",
             "iscustomizable",
             "name",
             "parentbotid",
