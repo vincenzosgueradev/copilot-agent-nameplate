@@ -1,0 +1,89 @@
+{
+    "$comment": "Impronta di riferimento del formato di un solution package contenente agent Copilot Studio. Confrontata a ogni export (FR-097, FR-098). Uno scostamento produce un avviso NON bloccante: Dataverse si aggiorna di continuo e i timbri di versione cambiano da soli. Aggiornare questo file consapevolmente, mai in automatico.",
+    "verifiedOn": "2026-10-15",
+    "verifiedAgainst": "testAgentTool 1.0.0.2 (publisher Avanade, prefix ava, agent ava_agenteTool1)",
+    "source": "specs/001-agent-rename-manager/research.md §9, §14",
+    "solutionPackageVersion": "9.2",
+    "platformStampAttributes": [
+        "version",
+        "OrganizationVersion",
+        "CRMServerServiceabilityVersion"
+    ],
+    "topLevelPaths": [
+        "bots/",
+        "botcomponents/",
+        "environmentvariabledefinitions/",
+        "solution.xml",
+        "customizations.xml",
+        "[Content_Types].xml"
+    ],
+    "botXml": {
+        "rootElement": "bot",
+        "rootAttributes": [
+            "schemaname"
+        ],
+        "displayNameElement": "name",
+        "elements": [
+            "authenticationmode",
+            "authenticationtrigger",
+            "iconbase64",
+            "iscustomizable",
+            "language",
+            "name",
+            "runtimeprovider",
+            "template",
+            "timezoneruleversionnumber"
+        ]
+    },
+    "botComponentXml": {
+        "rootElement": "botcomponent",
+        "rootAttributes": [
+            "schemaname"
+        ],
+        "elements": [
+            "componenttype",
+            "iscustomizable",
+            "name",
+            "parentbotid",
+            "statecode",
+            "statuscode"
+        ]
+    },
+    "configurationJson": {
+        "path": "bots/<schemaname>/configuration.json",
+        "keys": [
+            "$kind",
+            "channels",
+            "settings",
+            "isAgentConnectable",
+            "publishOnImport",
+            "gPTSettings",
+            "isLightweightBot",
+            "aISettings",
+            "recognizer",
+            "deferredProvisioning"
+        ],
+        "optionalKeys": [
+            "publishOnImport",
+            "publishOnCreate",
+            "deferredProvisioning"
+        ],
+        "$comment": "publishOnImport e' assente su 28 agent su 40 nell'environment di riferimento. Assente significa 'non specificato': il comportamento di default all'import non e' documentato da Microsoft (research.md §12)."
+    },
+    "knownNameOccurrences": [
+        {
+            "file": "bots/<schemaname>/bot.xml",
+            "locator": "bot/name",
+            "holds": "displayName",
+            "patched": true
+        },
+        {
+            "file": "botcomponents/<schemaname>.gpt.default/botcomponent.xml",
+            "locator": "botcomponent/name",
+            "holds": "baseName",
+            "patched": false,
+            "$comment": "Contiene il nome base senza suffisso. Non va patchato, ma va riconosciuto per non segnalarlo come anomalia quando il suffisso e' vuoto e i due valori coincidono (FR-096)."
+        }
+    ],
+    "expectedDisplayNameOccurrences": 1
+}

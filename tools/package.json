@@ -2,7 +2,7 @@
     "name": "agent-rename-manager",
     "version": "0.1.0",
     "displayName": "Agent Rename Manager",
-    "description": "Rename Copilot Studio agents across environments using a per-solution environment variable",
+    "description": "Produce the solution package with Copilot Studio agent display names already set for the target environment. No unmanaged layer, ever.",
     "main": "index.html",
     "author": "Power Platform ToolBox",
     "license": "MIT",
@@ -10,23 +10,57 @@
         "node": ">=18.0.0"
     },
     "scripts": {
-        "build": "tsc && vite build",
+        "build": "tsc && vite build && vite build --config vite.headless.config.ts",
         "dev": "vite",
         "watch": "vite build --watch",
         "dev-watch": "vite build --mode development --watch",
         "preview": "vite preview",
+        "smoke": "tsx scripts/smoke-package.mts",
         "finalize-package": "npm shrinkwrap",
         "validate": "pptb-validate",
         "version-stable": "npm version patch --no-git-tag-version",
-        "publish-package": "npm run build && npm run version-stable && npm publish --access public"
+        "publish-package": "npm run build && npm run version-stable && npm publish --access public",
+        "build-headless": "vite build --config vite.headless.config.ts"
     },
     "devDependencies": {
         "@pptb/types": "^1.2.0",
+        "@xmldom/xmldom": "^0.9.12",
+        "tsx": "^4.19.2",
         "typescript": "^5.0.0",
         "vite": "^8.0.3"
     },
     "files": [
         "dist",
         "npm-shrinkwrap.json"
-    ]
+    ],
+    "dependencies": {
+        "fflate": "0.8.2"
+    },
+    "contributors": [
+        {
+            "name": "Vincenzo Sguera"
+        }
+    ],
+    "keywords": [
+        "pptb",
+        "power-platform",
+        "copilot-studio",
+        "agents",
+        "alm",
+        "solution",
+        "package",
+        "rename",
+        "managed-layer"
+    ],
+    "configurations": {
+        "repository": "https://dev.azure.com/vsgueradeveloper/PPTB%20-%20Agent%20Rename/_git/PPTB%20-%20Agent%20Rename",
+        "readmeUrl": "https://dev.azure.com/vsgueradeveloper/PPTB%20-%20Agent%20Rename/_git/PPTB%20-%20Agent%20Rename?path=/tools/README.md",
+        "category": "Copilot Studio"
+    },
+    "features": {
+        "connections": {
+            "min": 1,
+            "max": 2
+        }
+    }
 }

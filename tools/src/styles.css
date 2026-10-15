@@ -450,6 +450,14 @@ mark.hl {
     border-bottom: 1px solid var(--color-border);
 }
 
+/* Una nota che l'utente non deve poter scorrere con lo sguardo: la solution managed non e'
+   esportabile, quindi il packaging da li' non parte proprio (FR-068). */
+.panel-note--warning {
+    color: var(--color-text);
+    background: var(--color-warning-bg, rgba(255, 180, 0, .10));
+    border-left: 3px solid var(--color-warning, #d9900a);
+}
+
 /* A panel that fills the whole step area; its table scrolls inside it, so the step itself
    neither scrolls nor needs the scrollbar spacing. */
 #step-solution {
@@ -1130,3 +1138,125 @@ mark.hl {
 .gap-8 { gap: 8px; }
 .mt-8 { margin-top: 8px; }
 .mt-16 { margin-top: 16px; }
+
+/* ── Packaging: suffisso, anteprima, esito ────────────────────────────────── */
+
+.step-sub {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.hint {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+}
+
+.hint--warn {
+    color: #ff9800;
+}
+
+.chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.chip-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.chip-btn:hover { color: var(--color-text-strong); }
+
+.chip-btn.is-active {
+    color: var(--color-text-strong);
+    background: var(--color-accent-soft, rgba(120, 150, 255, .18));
+    border-color: var(--color-accent, #7896ff);
+}
+
+/* Riga di opzione: etichetta a sinistra, controllo a destra. */
+.opt-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.opt-row:last-child { border-bottom: none; }
+.opt-row .hint { margin: 2px 0 0; display: block; }
+
+/* Coppia chiave/valore, per i riepiloghi che non meritano una tabella. */
+.kv {
+    display: flex;
+    gap: 12px;
+    padding: 5px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.kv:last-child { border-bottom: none; }
+
+.kv-key {
+    flex: 0 0 180px;
+    color: var(--color-text-muted);
+}
+
+.kv-val { flex: 1; min-width: 0; word-break: break-word; }
+.kv-val--strong { color: var(--color-text-strong); font-weight: 500; }
+.kv-val--warn { color: #ff9800; }
+
+.section-title {
+    margin: 18px 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-strong);
+}
+
+.progress-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 0;
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+/* Esito del packaging: deve essere leggibile senza leggere il resto. */
+.result-banner {
+    margin-top: 16px;
+    padding: 12px 14px;
+    font-size: 13px;
+    border-radius: 4px;
+    border-left: 3px solid;
+}
+
+.result-banner--success {
+    color: #4caf50;
+    background: #1a2d1a;
+    border-color: #4caf50;
+}
+
+.result-banner--error {
+    color: #ef5350;
+    background: #3a1a1a;
+    border-color: #ef5350;
+}
+
+.drift-list {
+    margin: 6px 0 0 18px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--color-text-muted);
+}

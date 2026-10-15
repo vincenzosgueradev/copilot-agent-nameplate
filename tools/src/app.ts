@@ -1,61 +1,40 @@
 /// <reference types="@pptb/types" />
 
+import { attachLog, clearLog, getEntries, log, toCsv, toJson } from './services/log';
 import {
-    describeStep,
-    mutateBackups,
-    newBackupId,
-    planRollback,
-    readBackups,
-    RETENTION_DAYS,
-    summarizeVariable,
-    type BackupEntry,
-    type RollbackStep,
-} from './backups';
+    fetchAgentsAndSolutions,
+    findSuffixVariable,
+    isSystemSolution,
+    type FetchedData,
+    type SuffixVariableHint,
+} from './services/solutions';
+import { writeArtifactSet } from './services/artifacts';
+import { describeError } from './services/dataverse';
+import { saveJsonFile, saveTextFile, selectFolder } from './services/files';
+import { deployArtifact, readInstalledVersion, readTargetAgent } from './services/deploy';
+import { addRecord, deleteRecord, readHistory, updateRecord } from './services/history';
+import { askConfirm } from './services/ui';
+import { runPackaging, type PackagingResult } from './services/packaging';
+import { buildName } from './services/patch';
+import { describeVerification } from './services/rezip';
+import {
+    DEFAULT_OPTIONS,
+    SUFFIX_MAX,
+    TEAMS_NAME_LIMIT,
+    type AgentListItem,
+    type ArtifactSet,
+    type NameOccurrence,
+    type PackageComponent,
+    type PackagingOptions,
+    type PackagingRecord,
+    type Solution,
+} from './types';
 
-const toolbox = window.toolboxAPI;
-const dataverse = window.dataverseAPI;
+
+const toolbox = globalThis.toolboxAPI;
 
 // ── State ────────────────────────────────────────────────────────────────────
-interface Solution {
-    solutionId: string;
-    uniqueName: string;
-    friendlyName: string;
-    isManaged: boolean;
-    isVisible: boolean;
-    publisherPrefix: string;
-    publisherName: string;
-    version: string;
-    createdOn: string;
-    agentCount: number;
-}
-
-interface AgentRecord {
-    id: string;
-    currentName: string;
-    baseName: string;     // name with current suffix stripped
-    newName: string;      // baseName + new suffix
-    warnLength: boolean;  // newName > 30 chars
-    renameState: 'no-change' | 'suffix-added' | 'suffix-changed' | 'suffix-removed';
-}
-
-/** An agent as listed in the left panel. Sourced from the `bot` table (authoritative). */
-interface AgentListItem {
-    id: string;
-    name: string;
-    solution: Solution | null;   // resolved via solutioncomponent, may be null
-    isActive: boolean;           // bot.statecode === 0
-    createdOn: string;
-    modifiedOn: string;
-    publishedOn: string;         // empty when the agent was never published
-    /**
-     * True when the agent belongs to a managed solution whose publisher turned off the
-     * "Can be customized" managed property, so Dataverse refuses to edit it here.
-     * Null when it couldn't be determined; nothing is blocked on that basis.
-     */
-    isLocked: boolean | null;
-}
-
-type AppStep = 'welcome' | 'solution' | 'suffix' | 'preview' | 'apply' | 'history';
+type AppStep = 'welcome' | 'solution' | 'suffix' | 'preview' | 'result' | 'history';
 
 const state = {
     connectionName: '',
@@ -69,23 +48,21 @@ const state = {
     sortDir: 'desc' as 'asc' | 'desc',
     isLoading: false,
     currentStep: 'welcome' as AppStep,
-    // Suffix flow
-    envVarDefId: null as string | null,      // existing definition GUID
-    envVarValueId: null as string | null,    // existing value GUID (for PATCH vs POST)
-    envVarSchemaName: '',
-    currentSuffix: '',    // value stored in env variable now
-    pendingSuffix: '',    // value confirmed with "Preview rename"
-    suffixDraft: null as string | null,   // what is typed right now; null = untouched, so going back restores it
-    // Where the effective value comes from. 'default' means no current value is stored in this
-    // environment and the variable's default value is being used instead.
-    envVarSource: 'none' as 'value' | 'default' | 'none',
-    // A suffix the user told us the agent's name carries even though the variable doesn't
-    // (e.g. the stored value was deleted). Null = trust the variable.
-    nameSuffixOverride: null as string | null,
+    // Packaging
+    /** Suffisso scelto, senza parentesi quadre. Vuoto = rimuove il suffisso esistente. */
+    suffix: '',
+    options: { ...DEFAULT_OPTIONS } as PackagingOptions,
+    /** Esito dell'ultimo packaging preparato, tenuto in memoria finché non viene salvato. */
+    packaging: null as PackagingResult | null,
+    /** Da cosa è stato generato: se non cambia, non si riesporta (l'export costa 13-110 s). */
+    packagingKey: '',
+    /** Artifact set appena scritto su disco. */
+    lastSet: null as ArtifactSet | null,
+    /** Conferme esplicite date in questa sessione, finiscono nel manifest. */
+    confirmations: [] as { what: string; confirmedAt: string }[],
     // Agents
     agents: [] as AgentListItem[],           // ALL agents in the environment
     activeAgent: null as AgentListItem | null,
-    agentRecords: [] as AgentRecord[],
 };
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -96,14 +73,14 @@ const els = {
     welcomeScreen: document.getElementById('welcome-screen')!,
     breadcrumb: document.getElementById('breadcrumb')!,
     stepSolution: document.getElementById('step-solution')!,
-    stepHistory: document.getElementById('step-history')!,
-    historyBtn: document.getElementById('history-btn') as HTMLButtonElement,
     stepSuffix: document.getElementById('step-suffix')!,
     stepPreview: document.getElementById('step-preview')!,
-    stepApply: document.getElementById('step-apply')!,
-    stepPublish: document.getElementById('step-publish')!,
+    stepResult: document.getElementById('step-result')!,
+    stepHistory: document.getElementById('step-history')!,
+    historyBtn: document.getElementById('history-btn') as HTMLButtonElement,
     logEntries: document.getElementById('log-entries')!,
     clearLogBtn: document.getElementById('clear-log-btn') as HTMLButtonElement,
+    exportLogBtn: document.getElementById('export-log-btn') as HTMLButtonElement,
     confirmOverlay: document.getElementById('confirm-overlay')!,
     confirmTitle: document.getElementById('confirm-title')!,
     confirmBody: document.getElementById('confirm-body')!,
@@ -112,17 +89,6 @@ const els = {
 };
 
 // ── Logging ──────────────────────────────────────────────────────────────────
-type LogLevel = 'info' | 'success' | 'warning' | 'error';
-
-function log(message: string, level: LogLevel = 'info'): void {
-    const ts = new Date().toTimeString().slice(0, 8);
-    const entry = document.createElement('div');
-    entry.className = `log-entry log-entry--${level}`;
-    entry.innerHTML = `<span class="log-timestamp">${ts}</span>${escapeHtml(message)}`;
-    els.logEntries.appendChild(entry);
-    els.logEntries.scrollTop = els.logEntries.scrollHeight;
-}
-
 function escapeHtml(s: string): string {
     return String(s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -161,88 +127,6 @@ async function initConnection(): Promise<void> {
  * Solution membership is resolved separately and is purely decorative — an agent
  * that belongs to no visible solution still gets listed.
  */
-interface FetchedData { agents: AgentListItem[]; solutions: Solution[]; }
-
-/**
- * Which agents Dataverse will refuse to edit. A component is locked only when it is part of a
- * managed solution (`ismanaged`) AND its `iscustomizable` managed property is off — the managed
- * properties are not enforced on unmanaged components. `iscustomizable` is a managed property,
- * so the Web API returns it as `{ Value, CanBeChanged, ManagedPropertyLogicalName }`.
- *
- * Best effort: returns null if it can't be read, and callers then treat every agent as unknown
- * instead of blocking anything on a guess.
- */
-async function readLockedAgents(): Promise<Map<string, boolean> | null> {
-    try {
-        const res = await dataverse.queryData('bots?$select=botid,ismanaged,iscustomizable&$top=5000');
-        const map = new Map<string, boolean>();
-        for (const row of res.value as Record<string, unknown>[]) {
-            const prop = row.iscustomizable;
-            const value = typeof prop === 'object' && prop !== null
-                ? (prop as { Value?: unknown }).Value
-                : prop;
-            if (typeof value !== 'boolean') continue;      // shape not understood: leave it unknown
-            map.set(row.botid as string, row.ismanaged === true && value === false);
-        }
-        return map;
-    } catch (err) {
-        log(`Could not read which agents are locked (nothing will be blocked): ${err}`, 'warning');
-        return null;
-    }
-}
-
-/**
- * Reads agents and solutions from Dataverse without touching the UI or the state, so the
- * same code serves the initial load and the silent refreshes.
- * `strict` makes a failed solution lookup throw instead of degrading to "no solution":
- * a background refresh must keep the last good data rather than blank the table.
- */
-async function fetchAgents(strict: boolean): Promise<FetchedData> {
-    type Row = Record<string, unknown>;
-
-    const botResult = await dataverse.fetchXmlQuery(`
-        <fetch>
-          <entity name="bot">
-            <attribute name="botid"/>
-            <attribute name="name"/>
-            <attribute name="solutionid"/>
-            <attribute name="statecode"/>
-            <attribute name="createdon"/>
-            <attribute name="modifiedon"/>
-            <attribute name="publishedon"/>
-            <order attribute="name"/>
-          </entity>
-        </fetch>`);
-    const bots = botResult.value as Row[];
-    if (!bots.length) return { agents: [], solutions: [] };
-
-    const botIds = bots.map(b => b.botid as string).filter(Boolean);
-    const [{ byBotId, bySolutionId, ok }, lockedById] = await Promise.all([
-        buildSolutionMap(botIds),
-        readLockedAgents(),
-    ]);
-    if (strict && !ok) throw new Error('the solution lookup failed');
-
-    const agents = bots.map((b): AgentListItem => {
-        const botId = b.botid as string;
-        return {
-            id: botId,
-            name: (b.name as string) ?? '(unnamed)',
-            solution: byBotId.get(botId) ?? bySolutionId.get(b.solutionid as string) ?? null,
-            isActive: (b.statecode as number | undefined) !== 1,
-            createdOn: (b.createdon as string) ?? '',
-            modifiedOn: (b.modifiedon as string) ?? '',
-            publishedOn: (b.publishedon as string) ?? '',
-            isLocked: lockedById ? (lockedById.get(botId) ?? null) : null,
-        };
-    });
-    for (const a of agents) {
-        if (a.solution) a.solution.agentCount++;
-    }
-    return { agents, solutions: [...bySolutionId.values()] };
-}
-
-/** Swaps in fresh data and re-points selections, which hold object references, at it. */
 function applyFetched(data: FetchedData): void {
     state.agents = data.agents;
     state.solutions = data.solutions;
@@ -259,7 +143,7 @@ function applyFetched(data: FetchedData): void {
 /** Cheap fingerprint of everything the lists display, to log only real changes. */
 function dataSignature(): string {
     return state.agents
-        .map(a => [a.id, a.name, a.isActive, a.modifiedOn, a.publishedOn, a.isLocked, a.solution?.solutionId ?? ''].join('|'))
+        .map(a => [a.id, a.name, a.isActive, a.modifiedOn, a.publishedOn, a.solution?.solutionId ?? ''].join('|'))
         .join('\n');
 }
 
@@ -275,7 +159,7 @@ async function loadAgents(): Promise<void> {
     renderSolutionsTable();
     log('Loading agents...');
     try {
-        applyFetched(await fetchAgents(false));
+        applyFetched(await fetchAgentsAndSolutions(false));
         log(`Found ${state.agents.length} agent(s) in the environment.`, 'success');
         if (state.agents.length) {
             const resolved = state.agents.filter(a => a.solution).length;
@@ -305,7 +189,7 @@ async function refreshData(force = false): Promise<void> {
     document.body.classList.add('is-refreshing');
     try {
         const before = dataSignature();
-        const data = await fetchAgents(true);
+        const data = await fetchAgentsAndSolutions(true);
         if (seq !== refreshSeq) return;
         applyFetched(data);
         if (dataSignature() !== before) log('Data refreshed — changes detected.', 'info');
@@ -335,85 +219,6 @@ function rerenderCurrentView(): void {
     renderBreadcrumb();
 }
 
-const SYSTEM_SOLUTIONS = new Set(['Default', 'Active', 'Basic']);
-
-/**
- * System/default containers that shouldn't appear as pickable solutions.
- * Checks the display name too: "Common Data Services Default Solution" carries an
- * auto-generated uniquename, so matching on uniquename alone misses it.
- */
-function isSystemSolution(s: Solution): boolean {
-    if (SYSTEM_SOLUTIONS.has(s.uniqueName)) return true;
-    return /default solution/i.test(s.friendlyName);
-}
-
-/**
- * Resolves which solution each agent belongs to. Best-effort: failures here
- * must never hide an agent from the list.
- *
- * Matches solutioncomponent rows by objectid against the known bot ids rather
- * than filtering on componenttype — the documented componenttype enum has no
- * value for Bot, so filtering on a guessed number silently returns nothing.
- */
-async function buildSolutionMap(botIds: string[]): Promise<{
-    byBotId: Map<string, Solution>;
-    bySolutionId: Map<string, Solution>;
-    ok: boolean;
-}> {
-    type Row = Record<string, unknown>;
-    const byBotId = new Map<string, Solution>();
-    const bySolutionId = new Map<string, Solution>();
-    let ok = true;
-    try {
-        const solResult = await dataverse.queryData(
-            'solutions?$select=solutionid,uniquename,friendlyname,ismanaged,isvisible,version,createdon'
-            + '&$expand=publisherid($select=customizationprefix,friendlyname)&$top=5000'
-        );
-        for (const sol of solResult.value as Row[]) {
-            const pub = sol.publisherid as Row | undefined;
-            bySolutionId.set(sol.solutionid as string, {
-                solutionId: sol.solutionid as string,
-                uniqueName: (sol.uniquename as string) ?? '',
-                friendlyName: (sol.friendlyname as string) ?? '',
-                isManaged: (sol.ismanaged as boolean) ?? false,
-                isVisible: (sol.isvisible as boolean) ?? false,
-                publisherPrefix: (pub?.customizationprefix as string) ?? 'new',
-                publisherName: (pub?.friendlyname as string) ?? '',
-                version: (sol.version as string) ?? '',
-                createdOn: (sol.createdon as string) ?? '',
-                agentCount: 0,
-            });
-        }
-
-        const idValues = botIds.map(id => `<value>${escapeHtml(id)}</value>`).join('');
-        const scResult = await dataverse.fetchXmlQuery(`
-            <fetch top="5000">
-              <entity name="solutioncomponent">
-                <attribute name="objectid"/>
-                <attribute name="solutionid"/>
-                <filter>
-                  <condition attribute="objectid" operator="in">${idValues}</condition>
-                </filter>
-              </entity>
-            </fetch>`);
-
-        // Prefer a real solution over Default/Active when a bot sits in several
-        for (const row of scResult.value as Row[]) {
-            const botId = row.objectid as string;
-            const solId = (row['_solutionid_value'] ?? row.solutionid) as string;
-            const sol = bySolutionId.get(solId);
-            if (!botId || !sol) continue;
-            const existing = byBotId.get(botId);
-            if (!existing || isSystemSolution(existing)) byBotId.set(botId, sol);
-        }
-    } catch (err) {
-        ok = false;
-        log(`Could not resolve solutions (agents still listed): ${err}`, 'warning');
-    }
-    return { byBotId, bySolutionId, ok };
-}
-
-/** Escapes first, then wraps the matched span — never interpolates raw input. */
 function highlight(text: string, query: string): string {
     const safe = escapeHtml(text);
     if (!query) return safe;
@@ -728,6 +533,7 @@ function renderSolutionDetail(keepScroll = false): void {
     if (!solId) { navigateTo('welcome'); return; }
     const prevScroll = keepScroll
         ? container.querySelector<HTMLElement>('.panel-table')?.scrollTop ?? 0 : 0;
+    const seq = ++solutionDetailSeq;
 
     const sol = state.activeSolution;
     const agents = agentsInSolution(solId).sort((a, b) => a.name.localeCompare(b.name));
@@ -748,6 +554,7 @@ function renderSolutionDetail(keepScroll = false): void {
                 </div>
                 <span class="refresh-indicator" role="status"><span class="spinner"></span> Updating…</span>
             </div>
+            <div id="solution-notices">${sol ? notExportableBannerHtml(sol) : ''}</div>
             ${sol ? `
             <div class="detail-meta detail-meta--flat">
                 <div><span class="meta-label">Version</span><span>${escapeHtml(sol.version || '—')}</span></div>
@@ -757,7 +564,8 @@ function renderSolutionDetail(keepScroll = false): void {
                     <span title="${escapeHtml(formatAbsoluteDate(sol.createdOn))}">${escapeHtml(formatRelativeDate(sol.createdOn))}</span></div>
             </div>` : `
             <div class="panel-note">
-                These agents aren't part of any unmanaged solution. You can still rename them.
+                These agents don't belong to any visible solution. Packaging works on a solution,
+                so add the agent to one before producing a package.
             </div>`}
             <div class="panel-table">
                 ${agents.length ? `
@@ -776,9 +584,7 @@ function renderSolutionDetail(keepScroll = false): void {
                         ${agents.map(a => `
                         <tr class="data-row" data-agent="${escapeHtml(a.id)}">
                             <td class="cell-strong" title="${escapeHtml(a.name)}"><span class="cell-icon">🤖</span>${escapeHtml(a.name)}</td>
-                            <td><span class="chip chip--${a.isActive ? 'success' : 'muted'}">${a.isActive ? 'Active' : 'Inactive'}</span>${a.isLocked
-                                ? ' <span class="chip chip--error" title="Managed property &quot;Can be customized&quot; is off: this agent can\'t be renamed in this environment">Locked</span>'
-                                : ''}</td>
+                            <td><span class="chip chip--${a.isActive ? 'success' : 'muted'}">${a.isActive ? 'Active' : 'Inactive'}</span></td>
                             ${dateCell(a.publishedOn, '<span class="cell-never">Never published</span>')}
                             ${dateCell(a.modifiedOn, '—')}
                             ${dateCell(a.createdOn, '—')}
@@ -786,7 +592,11 @@ function renderSolutionDetail(keepScroll = false): void {
                         </tr>`).join('')}
                     </tbody>
                 </table>` : `
-                <div class="empty-state"><p>This solution has no agents.</p></div>`}
+                <div class="empty-state">
+                    <p>Questa solution non contiene agent.</p>
+                    <p class="empty-hint">Il packaging parte da un agent: aggiungine uno alla
+                    solution, oppure scegli una solution che ne contenga.</p>
+                </div>`}
             </div>
         </section>`;
 
@@ -795,15 +605,63 @@ function renderSolutionDetail(keepScroll = false): void {
     });
     const table = container.querySelector<HTMLElement>('.panel-table');
     if (table) table.scrollTop = prevScroll;
+    if (sol) void loadSuffixHint(sol, seq);
 }
+
+/**
+ * Una managed solution non e' esportabile ("You can't export managed solutions"), quindi non
+ * puo' essere sorgente di un packaging. Si dice subito e si indica dove operare (FR-068).
+ */
+function notExportableBannerHtml(sol: Solution): string {
+    if (sol.exportable) return '';
+    return `
+        <div class="panel-note panel-note--warning">
+            <strong>Questa solution e' managed e non puo' essere esportata.</strong>
+            Microsoft non consente l'export di una solution managed, quindi non puo' essere la
+            sorgente di un package. Apri il tool sull'environment in cui
+            <code>${escapeHtml(sol.uniqueName)}</code> e' <strong>unmanaged</strong> — di norma DEV —
+            e fai il packaging da li'.
+        </div>`;
+}
+
+/**
+ * Segnala, in sola lettura, una environment variable di tipo String nella solution.
+ *
+ * Non serve al rename: il nome sui canali deriva gia' da `bot.name` al publish. Serve ad
+ * avvisare che un *Channel display name suffix* nativo si sommerebbe al suffisso del nome,
+ * producendo `agenteTool1 [UAT] (UAT)` (FR-089).
+ */
+async function loadSuffixHint(sol: Solution, seq: number): Promise<void> {
+    const hint: SuffixVariableHint | null = await findSuffixVariable(sol.solutionId);
+    if (seq !== solutionDetailSeq) return;   // l'utente e' gia' passato ad altro
+    const host = document.getElementById('solution-notices');
+    if (!host || !hint) return;
+    host.insertAdjacentHTML('beforeend', `
+        <div class="panel-note">
+            Questa solution contiene la environment variable
+            <code>${escapeHtml(hint.schemaName)}</code> (String), utilizzabile come
+            <em>Channel display name suffix</em> nativo di Copilot Studio.
+            <strong>Il tool non la tocca.</strong> Riguarda solo Teams e M365 Copilot e, se
+            configurata, il suo valore si <strong>somma</strong> al suffisso nel nome
+            dell'agent: usane uno solo.
+        </div>`);
+}
+
+let solutionDetailSeq = 0;
 
 function selectAgent(agentId: string): void {
     const agent = state.agents.find(a => a.id === agentId);
     if (!agent) return;
-    // Opening an agent from a list always starts from what Dataverse holds now. The draft only
-    // survives stepping back from Preview or via the breadcrumb, which don't go through here.
-    state.suffixDraft = null;
-    state.nameSuffixOverride = null;
+    if (agent.solution && !agent.solution.exportable) {
+        log(`"${agent.solution.friendlyName || agent.solution.uniqueName}" e' managed: non e' `
+            + `esportabile, quindi non puo' essere sorgente di un package. Opera `
+            + `sull'environment in cui e' unmanaged.`, 'warning');
+        return;
+    }
+    // Aprire un agent dalla lista azzera il lavoro precedente: il suffisso digitato
+    // sopravvive solo al passo indietro, che non passa di qui.
+    state.suffix = '';
+    state.packaging = null;
     state.activeAgent = agent;
     state.activeSolution = agent.solution;
     // Keep the solution level populated even when the agent was picked straight from
@@ -824,8 +682,7 @@ interface Crumb { label: string; step: AppStep; }
 function buildBreadcrumb(): Crumb[] {
     const trail: Crumb[] = [{ label: 'Solutions', step: 'welcome' }];
     if (state.currentStep === 'welcome') return trail;
-    if (state.currentStep === 'history') return [...trail, { label: 'History', step: 'history' }];
-
+    if (state.currentStep === 'history') return [...trail, { label: 'Storico', step: 'history' }];
     if (state.browsingSolutionId) {
         trail.push({
             label: state.activeSolution
@@ -839,10 +696,10 @@ function buildBreadcrumb(): Crumb[] {
     if (state.activeAgent) trail.push({ label: state.activeAgent.name, step: 'suffix' });
     if (state.currentStep === 'suffix') return trail;
 
-    trail.push({ label: 'Preview', step: 'preview' });
+    trail.push({ label: 'Anteprima', step: 'preview' });
     if (state.currentStep === 'preview') return trail;
 
-    trail.push({ label: 'Apply', step: 'apply' });
+    trail.push({ label: 'Risultato', step: 'result' });
     return trail;
 }
 
@@ -878,11 +735,10 @@ function navigateTo(step: AppStep): void {
     renderBreadcrumb();
     els.welcomeScreen.style.display = 'none';
     els.stepSolution.style.display = 'none';
-    els.stepHistory.style.display = 'none';
     els.stepSuffix.style.display = 'none';
     els.stepPreview.style.display = 'none';
-    els.stepApply.style.display = 'none';
-    els.stepPublish.style.display = 'none';
+    els.stepResult.style.display = 'none';
+    els.stepHistory.style.display = 'none';
 
     switch (step) {
         // List views paint from the cache at once, then update in place from a silent refresh
@@ -890,11 +746,6 @@ function navigateTo(step: AppStep): void {
             els.welcomeScreen.style.display = '';
             renderSolutionsTable();
             void refreshData();
-            void updateHistoryButton();
-            break;
-        case 'history':
-            els.stepHistory.style.display = '';
-            void renderHistory();
             break;
         case 'solution':
             els.stepSolution.style.display = '';
@@ -903,1400 +754,807 @@ function navigateTo(step: AppStep): void {
             break;
         case 'suffix':  els.stepSuffix.style.display  = ''; renderSuffixStep();  break;
         case 'preview': els.stepPreview.style.display = ''; renderPreviewStep(); break;
-        case 'apply':   els.stepApply.style.display   = ''; renderApplyStep();   break;
+        case 'result':  els.stepResult.style.display  = ''; renderResultStep();  break;
+        case 'history': els.stepHistory.style.display = ''; void renderHistoryStep(); break;
     }
 }
 
-// ── Rename math ────────────────────────────────────────────────────────────────
-function stripSuffix(name: string, suffix: string): string {
-    if (!suffix) return name;
-    const tagged = ` [${suffix}]`;
-    if (name.endsWith(tagged)) return name.slice(0, -tagged.length);
-    const parenD = ` (${suffix})`;
-    if (name.endsWith(parenD)) return name.slice(0, -parenD.length);
-    return name;
-}
+// ── Step: suffisso e opzioni ──────────────────────────────────────────────────
 
-/**
- * The suffix to strip from the agent's current name. Normally it is the one stored in the
- * variable, but the two can drift apart (value deleted, name edited by hand), so the user can
- * declare which suffix the name really carries.
- */
-function suffixInName(): string {
-    return state.nameSuffixOverride ?? state.currentSuffix;
-}
-
-/**
- * A trailing " [X]" on the agent's name that the stored variable doesn't account for.
- * Only square brackets are considered: that is the exact format this tool writes, which keeps
- * ordinary names like "Helpdesk (IT)" from being flagged. It is a hint, never applied silently.
- */
-function findUnrecognisedSuffix(name: string): string | null {
-    const m = /\s\[([^\[\]]{1,20})\]\s*$/.exec(name);
-    if (!m) return null;
-    return m[1] === state.currentSuffix ? null : m[1];
-}
-
-function buildAgentRecord(bot: { id: string; name: string }, currentSuffix: string, newSuffix: string): AgentRecord {
-    const baseName = stripSuffix(bot.name, currentSuffix);
-    const newName = newSuffix ? `${baseName} [${newSuffix}]` : baseName;
-    const changed = newName !== bot.name;
-    let renameState: AgentRecord['renameState'] = 'no-change';
-    if (changed) {
-        if (!currentSuffix && newSuffix) renameState = 'suffix-added';
-        else if (currentSuffix && !newSuffix) renameState = 'suffix-removed';
-        else renameState = 'suffix-changed';
-    }
-    return { id: bot.id, currentName: bot.name, baseName, newName, warnLength: newName.length > 30, renameState };
-}
-
-// ── Step: Suffix ──────────────────────────────────────────────────────────────
 const SUFFIX_PRESETS = ['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'];
-const SUFFIX_MAX = 20;
-/** Teams manifest short-name limit; exceeding it only warns, it never blocks. */
-const NAME_LIMIT = 30;
-
-/** Guards against a slow env-variable lookup landing after the user moved to another agent. */
-let suffixLoadSeq = 0;
 
 function stepperHtml(active: 1 | 2 | 3): string {
-    const labels = ['Suffix', 'Preview', 'Apply'];
-    return `<ol class="stepper" aria-label="Progress">${labels.map((label, i) => {
+    const steps = ['Suffisso', 'Anteprima', 'Risultato'];
+    return `<ol class="stepper">${steps.map((label, i) => {
         const n = i + 1;
-        const cls = n < active ? 'done' : n === active ? 'active' : '';
-        return `<li class="stepper-item ${cls}"${n === active ? ' aria-current="step"' : ''}>
-                    <span class="stepper-dot">${n < active ? '✓' : n}</span>
-                    <span class="stepper-label">${label}</span>
-                </li>`;
-    }).join('<li class="stepper-line" aria-hidden="true"></li>')}</ol>`;
+        const cls = n === active ? 'active' : n < active ? 'done' : '';
+        return `<li class="stepper-item ${cls}"><span class="stepper-dot">${n < active ? '✓' : n}</span>${label}</li>`;
+    }).join('')}</ol>`;
+}
+
+/**
+ * Anteprima indicativa del nome, calcolata sul nome che Dataverse ha adesso.
+ *
+ * Il valore che conta è quello **nel package** (FR-071), che però esiste solo dopo l'export:
+ * il Patch Plan vero arriva allo step successivo. Qui si mostra cosa aspettarsi, e lo si dice.
+ */
+function previewName(current: string, suffix: string): string {
+    return buildName(current, suffix);
 }
 
 function renderSuffixStep(): void {
-    const sol = state.activeSolution;
-    const agent = state.activeAgent!;
-    els.stepSuffix.innerHTML = `
-        <div class="step-header">
-            <div class="step-header-row">
-                <div>
-                    <div class="step-title">Configure environment suffix</div>
-                    <div class="step-subtitle">
-                        Agent <strong id="suffix-agent-name">${escapeHtml(agent.name)}</strong>
-                        · ${escapeHtml(sol ? (sol.friendlyName || sol.uniqueName) : 'No solution')}
-                    </div>
-                </div>
-                ${stepperHtml(1)}
-            </div>
-        </div>
-        <div id="suffix-body">
-            <div class="empty-state">
-                <span class="spinner"></span>
-                <p style="margin-top:12px">Checking the suffix variable...</p>
-            </div>
-        </div>`;
-
-    void loadEnvVar(sol, ++suffixLoadSeq);
-}
-
-function renderSuffixError(message: string, retry: () => void): void {
-    const body = document.getElementById('suffix-body');
-    if (!body) return;
-    body.innerHTML = `
-        <div class="banner banner--error">Could not check the suffix variable: ${escapeHtml(message)}</div>
-        <div class="step-footer">
-            <button class="btn btn--secondary" id="back-btn">← Back</button>
-            <button class="btn btn--primary" id="retry-btn">Retry</button>
-        </div>`;
-    document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('solution'));
-    document.getElementById('retry-btn')!.addEventListener('click', retry);
-}
-
-/** Says where the value in the field was read from, so a fallback never looks like a stored value. */
-function sourceNoteHtml(): string {
-    const cur = state.currentSuffix;
-    const q = (s: string) => `<strong>"${escapeHtml(s)}"</strong>`;
-    switch (state.envVarSource) {
-        case 'value':
-            return cur
-                ? `Current value stored in this environment: ${q(cur)}.`
-                : 'The current value stored in this environment is empty.';
-        case 'default':
-            return `No current value is stored in this environment, so the variable's
-                <strong>default value</strong>${cur ? ` ${q(cur)}` : ' (empty)'} is shown.
-                Applying saves a current value that takes precedence.`;
-        default:
-            return 'The variable does not exist in this environment yet — it is created when you apply.';
-    }
-}
-
-/** Builds the interactive form once the variable lookup has finished. */
-function renderSuffixBody(found: boolean): void {
-    const body = document.getElementById('suffix-body');
-    if (!body) return;
-    const initial = state.suffixDraft ?? state.currentSuffix;
-
-    // The name was re-read from Dataverse during the lookup; bring header and breadcrumb along
-    const nameEl = document.getElementById('suffix-agent-name');
-    if (nameEl && state.activeAgent) nameEl.textContent = state.activeAgent.name;
+    const agent = state.activeAgent;
+    if (!agent) { navigateTo('welcome'); return; }
     renderBreadcrumb();
 
-    const locked = state.activeAgent?.isLocked === true;
+    const draft = state.suffix;
+    els.stepSuffix.innerHTML = `
+        <div class="step-header">
+            <div>
+                <h2 class="step-title">Suffisso per l'ambiente di destinazione</h2>
+                <div class="step-sub">${escapeHtml(agent.name)}</div>
+            </div>
+            ${stepperHtml(1)}
+        </div>
 
-    body.innerHTML = `
-        ${locked ? lockedBannerHtml() : ''}
-        <div id="orphan-suffix"></div>
         <div class="suffix-layout">
             <section class="panel">
-                <div class="panel-head">
-                    <span class="panel-title">Suffix for ${escapeHtml(state.connectionName || 'this environment')}</span>
-                </div>
+                <div class="panel-head"><h3 class="panel-heading">Suffisso</h3></div>
                 <div class="panel-body">
-                    <label class="field-label" for="suffix-input">Suffix value</label>
                     <div class="input-row">
-                        <input id="suffix-input" class="text-input" type="text" autocomplete="off"
-                            spellcheck="false" maxlength="${SUFFIX_MAX}" placeholder="e.g. DEV, UAT, PROD"
-                            value="${escapeHtml(initial)}">
-                        <button id="clear-suffix-btn" class="btn btn--secondary" type="button">✕ Clear</button>
+                        <input id="suffix-input" type="text" maxlength="${SUFFIX_MAX}"
+                            autocomplete="off" placeholder="es. UAT" value="${escapeHtml(draft)}">
+                        <button id="clear-suffix-btn" class="btn btn--secondary btn--sm"
+                            ${draft ? '' : 'disabled'}>Clear</button>
                     </div>
-                    <div class="field-hint">
-                        <span id="suffix-count">0</span> / ${SUFFIX_MAX} characters ·
-                        added in square brackets after the agent name
+                    <div class="chip-row">
+                        ${SUFFIX_PRESETS.map(p => `
+                            <button class="chip-btn ${p === draft ? 'is-active' : ''}"
+                                data-preset="${p}">${p}</button>`).join('')}
                     </div>
-                    <div class="source-note source-note--${state.envVarSource}">${sourceNoteHtml()}</div>
-
-                    <div class="field-label field-label--spaced">Quick pick</div>
-                    <div class="preset-row" id="suffix-presets">
-                        ${SUFFIX_PRESETS.map(p =>
-                            `<button type="button" class="preset" data-value="${p}">${p}</button>`).join('')}
-                    </div>
-                    <p class="field-hint field-hint--block">
-                        Each environment keeps its own value — set <strong>DEV</strong> here, and
-                        <strong>UAT</strong> or <strong>PROD</strong> when you open the tool there.
+                    <p class="hint">
+                        Un suffisso vuoto <strong>rimuove</strong> quello esistente e lascia il nome base.
                     </p>
+
+                    <div class="panel-head" style="margin-top:18px"><h3 class="panel-heading">Opzioni</h3></div>
+                    <label class="opt-row">
+                        <input type="checkbox" id="opt-bump" ${state.options.bumpVersion ? 'checked' : ''}>
+                        <span><strong>Incrementa la versione</strong> della solution
+                        <span class="hint">stessa versione = update, versione superiore = upgrade</span></span>
+                    </label>
+                    <div class="opt-row">
+                        <span><strong>Publish all'import</strong>
+                        <span class="hint">è il publish che porta il nome su Teams e M365 Copilot</span></span>
+                        <select id="opt-publish">
+                            <option value="keep" ${state.options.publishOnImport === 'keep' ? 'selected' : ''}>Lascia com'è</option>
+                            <option value="force-true" ${state.options.publishOnImport === 'force-true' ? 'selected' : ''}>Forza Sì</option>
+                            <option value="force-false" ${state.options.publishOnImport === 'force-false' ? 'selected' : ''}>Forza No</option>
+                        </select>
+                    </div>
                 </div>
             </section>
 
             <section class="panel">
-                <div class="panel-head">
-                    <span class="panel-title">Live preview</span>
-                    <span id="pv-state"></span>
-                </div>
-                <div class="panel-body">
-                    <div class="pv-label">Current name</div>
-                    <div class="pv-current" id="pv-current"></div>
-                    <div class="pv-base" id="pv-base"></div>
-                    <div class="pv-arrow" aria-hidden="true">↓</div>
-                    <div class="pv-label">New name</div>
-                    <div class="pv-card">
-                        <span class="pv-avatar" aria-hidden="true">🤖</span>
-                        <div class="pv-card-text">
-                            <div class="pv-new" id="pv-new"></div>
-                            <div class="pv-card-sub">How the agent will be named in Copilot Studio</div>
-                        </div>
-                    </div>
-                    <div class="pv-meter">
-                        <div class="pv-meter-bar"><div id="pv-bar" class="pv-meter-fill"></div></div>
-                        <span id="pv-count" class="pv-meter-text"></span>
-                    </div>
-                    <div id="pv-warning"></div>
-                </div>
+                <div class="panel-head"><h3 class="panel-heading">Anteprima del nome</h3></div>
+                <div class="panel-body" id="suffix-preview"></div>
             </section>
         </div>
 
-        <section class="panel">
-            <div class="panel-head">
-                <span class="panel-title">What happens when you apply</span>
-                <span class="chip chip--${found ? 'success' : 'warning'}">
-                    Variable ${found ? 'exists' : 'not created yet'}
-                </span>
-            </div>
-            <div class="panel-body">
-                <ul class="effects" id="pv-effects"></ul>
-            </div>
-        </section>
-
         <div class="step-footer">
-            <button class="btn btn--secondary" id="back-btn">← Back</button>
-            <button class="btn btn--primary" id="next-btn">${locked ? 'Try anyway' : 'Preview rename'} →</button>
+            <button class="btn btn--secondary" id="back-btn">← Indietro</button>
+            <button class="btn btn--primary" id="next-btn">Genera il package →</button>
         </div>`;
 
     const input = document.getElementById('suffix-input') as HTMLInputElement;
     const clearBtn = document.getElementById('clear-suffix-btn') as HTMLButtonElement;
 
-    input.addEventListener('input', updateSuffixPreview);
-    input.addEventListener('keydown', ev => {
-        if (ev.key === 'Enter') document.getElementById('next-btn')!.click();
-    });
-    clearBtn.addEventListener('click', () => {
-        input.value = '';
+    const sync = () => {
+        state.suffix = input.value;
+        clearBtn.disabled = !input.value;
+        document.querySelectorAll<HTMLElement>('.chip-btn').forEach(b => {
+            b.classList.toggle('is-active', b.dataset.preset === input.value);
+        });
         updateSuffixPreview();
-        input.focus();
+    };
+
+    input.addEventListener('input', sync);
+    clearBtn.addEventListener('click', () => { input.value = ''; sync(); input.focus(); });
+    document.querySelectorAll<HTMLElement>('.chip-btn').forEach(b => {
+        b.addEventListener('click', () => { input.value = b.dataset.preset!; sync(); });
     });
-    document.getElementById('suffix-presets')!.addEventListener('click', ev => {
-        const btn = (ev.target as HTMLElement).closest<HTMLElement>('.preset');
-        if (!btn) return;
-        input.value = btn.dataset.value!;
-        updateSuffixPreview();
-        input.focus();
+    (document.getElementById('opt-bump') as HTMLInputElement).addEventListener('change', ev => {
+        state.options.bumpVersion = (ev.target as HTMLInputElement).checked;
+    });
+    (document.getElementById('opt-publish') as HTMLSelectElement).addEventListener('change', ev => {
+        state.options.publishOnImport =
+            (ev.target as HTMLSelectElement).value as PackagingOptions['publishOnImport'];
     });
     document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('solution'));
-    document.getElementById('next-btn')!.addEventListener('click', () => {
-        state.pendingSuffix = input.value.trim();
-        navigateTo('preview');
-    });
+    document.getElementById('next-btn')!.addEventListener('click', () => navigateTo('preview'));
 
-    renderOrphanSuffixBanner();
     updateSuffixPreview();
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
 }
 
-/**
- * Handles the name and the variable disagreeing — typically the stored value was deleted while
- * the agent still carries it. Without this, typing a new suffix would stack a second one behind
- * the old: "Agent [DEVS] [DEV]". The user picks how to reconcile; nothing is changed silently.
- */
-function renderOrphanSuffixBanner(): void {
-    const host = document.getElementById('orphan-suffix');
+function updateSuffixPreview(): void {
+    const host = document.getElementById('suffix-preview');
     const agent = state.activeAgent;
     if (!host || !agent) return;
-
-    const found = findUnrecognisedSuffix(agent.name);
-    if (!found) { host.innerHTML = ''; return; }
-
-    const tag = `<strong>[${escapeHtml(found)}]</strong>`;
-
-    if (state.nameSuffixOverride === found) {
-        host.innerHTML = `
-            <div class="banner banner--success banner-row">
-                <div>✓ ${tag} is treated as this agent's current suffix. The value you enter replaces it;
-                    leave the field empty to remove it from the name.</div>
-                <div class="banner-actions">
-                    <button type="button" class="btn btn--secondary btn--sm" id="orphan-undo">Undo</button>
-                </div>
-            </div>`;
-        document.getElementById('orphan-undo')!.addEventListener('click', () => {
-            state.nameSuffixOverride = null;
-            renderOrphanSuffixBanner();
-            updateSuffixPreview();
-        });
-        return;
-    }
-
-    const stored = state.currentSuffix
-        ? `<strong>"${escapeHtml(state.currentSuffix)}"</strong>` : 'no value';
+    const next = previewName(agent.name, state.suffix);
+    const tooLong = next.length > TEAMS_NAME_LIMIT;
     host.innerHTML = `
-        <div class="banner banner--warning banner-row">
-            <div><strong>Suffix out of sync.</strong> The agent name ends with ${tag}, but the variable stores
-                ${stored}, so the tool doesn't recognise it as a suffix. A new one would be added after it:
-                <em>"… ${tag} [NEW]"</em>.</div>
-            <div class="banner-actions">
-                <button type="button" class="btn btn--secondary btn--sm" id="orphan-replace">Replace ${tag}</button>
-                <button type="button" class="btn btn--secondary btn--sm" id="orphan-adopt">Keep ${tag} and save it to the variable</button>
-            </div>
-        </div>`;
-
-    document.getElementById('orphan-replace')!.addEventListener('click', () => {
-        state.nameSuffixOverride = found;
-        renderOrphanSuffixBanner();
-        updateSuffixPreview();
-    });
-    document.getElementById('orphan-adopt')!.addEventListener('click', () => {
-        state.nameSuffixOverride = found;
-        (document.getElementById('suffix-input') as HTMLInputElement).value = found;
-        renderOrphanSuffixBanner();
-        updateSuffixPreview();
-    });
+        <div class="kv"><span class="kv-key">Nome attuale</span>
+            <span class="kv-val">${escapeHtml(agent.name)}</span></div>
+        <div class="kv"><span class="kv-key">Nome risultante</span>
+            <span class="kv-val kv-val--strong">${escapeHtml(next)}</span></div>
+        <div class="kv"><span class="kv-key">Lunghezza</span>
+            <span class="kv-val ${tooLong ? 'kv-val--warn' : ''}">${next.length} / ${TEAMS_NAME_LIMIT}</span></div>
+        ${tooLong ? `
+        <p class="hint hint--warn">
+            Oltre ${TEAMS_NAME_LIMIT} caratteri. Il limite riguarda il manifest Teams, il cui nome
+            deriva da quello dell'agent. Non blocca il packaging.
+        </p>` : ''}
+        <p class="hint">
+            Calcolato sul nome che Dataverse ha adesso. Il valore che conta è quello
+            <strong>nel package</strong>: il piano definitivo compare dopo l'export.
+        </p>`;
 }
 
-/** Recomputes everything derived from the input; runs on every keystroke. */
-function updateSuffixPreview(): void {
-    const agent = state.activeAgent;
-    const input = document.getElementById('suffix-input') as HTMLInputElement | null;
-    if (!agent || !input) return;
+// ── Step: anteprima del Patch Plan ────────────────────────────────────────────
 
-    const value = input.value.trim();
-    state.suffixDraft = input.value;
-    const rec = buildAgentRecord({ id: agent.id, name: agent.name }, suffixInName(), value);
-
-    (document.getElementById('clear-suffix-btn') as HTMLButtonElement).disabled = input.value === '';
-    document.getElementById('suffix-count')!.textContent = String(input.value.length);
-    document.querySelectorAll<HTMLElement>('#suffix-presets .preset').forEach(p =>
-        p.classList.toggle('active', p.dataset.value === value));
-
-    // Names
-    document.getElementById('pv-current')!.textContent = rec.currentName;
-    document.getElementById('pv-base')!.textContent = rec.baseName !== rec.currentName
-        ? `Base name without the current suffix: ${rec.baseName}` : '';
-    document.getElementById('pv-new')!.innerHTML = value
-        ? `${escapeHtml(rec.baseName)} <span class="pv-suffix">[${escapeHtml(value)}]</span>`
-        : escapeHtml(rec.baseName);
-
-    // Rename state chip
-    const stateChip: Record<AgentRecord['renameState'], [string, string]> = {
-        'no-change':      ['muted',   'No change'],
-        'suffix-added':   ['success', 'Suffix added'],
-        'suffix-changed': ['warning', 'Suffix changed'],
-        'suffix-removed': ['error',   'Suffix removed'],
-    };
-    const [chipClass, chipLabel] = stateChip[rec.renameState];
-    document.getElementById('pv-state')!.innerHTML =
-        `<span class="chip chip--${chipClass}">${chipLabel}</span>`;
-
-    // Length meter against the Teams limit
-    const len = rec.newName.length;
-    const bar = document.getElementById('pv-bar')!;
-    bar.style.width = `${Math.min(100, (len / NAME_LIMIT) * 100)}%`;
-    bar.classList.toggle('over', rec.warnLength);
-    const count = document.getElementById('pv-count')!;
-    count.textContent = `${len} / ${NAME_LIMIT} chars`;
-    count.classList.toggle('over', rec.warnLength);
-    document.getElementById('pv-warning')!.innerHTML = rec.warnLength
-        ? `<div class="banner banner--warning pv-banner">
-               ⚠ ${len} characters is over the ${NAME_LIMIT}-character limit of the Teams short name.
-               You can still continue, but consider a shorter suffix.
-           </div>`
-        : '';
-
-    renderSuffixEffects(rec, value);
-}
-
-/** Plain-language list of the two writes the apply step performs. */
-function renderSuffixEffects(rec: AgentRecord, value: string): void {
-    const list = document.getElementById('pv-effects');
-    if (!list) return;
-    const sol = state.activeSolution;
-    const cur = state.currentSuffix;
-    const q = (s: string) => `<strong>"${escapeHtml(s)}"</strong>`;
-
-    let varKind: 'create' | 'update' | 'same';
-    let varText: string;
-    if (!state.envVarDefId) {
-        varKind = 'create';
-        varText = value
-            ? `Create the variable and set it to ${q(value)}`
-            : 'Create the variable with an empty value';
-    } else if (state.envVarSource === 'default') {
-        // No current value exists, so applying always writes one, even if the text matches
-        varKind = 'update';
-        const fallback = cur ? ` (this environment now falls back to the default ${q(cur)})` : '';
-        varText = value
-            ? `Save ${q(value)} as the current value${fallback}`
-            : `Save an empty current value${fallback}`;
-    } else if (value === cur) {
-        varKind = 'same';
-        varText = cur ? `Already set to ${q(cur)} — nothing to change` : 'Already empty — nothing to change';
-    } else {
-        varKind = 'update';
-        varText = !value ? `Clear the value (currently ${q(cur)})`
-            : cur ? `Change the value from ${q(cur)} to ${q(value)}`
-            : `Set the value to ${q(value)}`;
-    }
-    const varIcon = { create: '＋', update: '✎', same: '✓' }[varKind];
-    const solName = sol ? escapeHtml(sol.friendlyName || sol.uniqueName) : '';
-    const where = !sol ? 'outside any solution'
-        : sol.isManaged && varKind === 'create'
-            ? `created outside the managed solution <strong>${solName}</strong>, which can't take new components`
-            : `in solution <strong>${solName}</strong>`;
-
-    const renamed = rec.renameState !== 'no-change';
-    list.innerHTML = `
-        <li class="effect">
-            <span class="effect-icon effect-icon--${varKind}">${varIcon}</span>
-            <div class="effect-main">
-                <div class="effect-title">Environment variable</div>
-                <div class="effect-detail">${varText}</div>
-                <div class="effect-detail"><code>${escapeHtml(state.envVarSchemaName)}</code> · ${where}</div>
-            </div>
-        </li>
-        <li class="effect">
-            <span class="effect-icon effect-icon--${renamed ? 'update' : 'same'}">${renamed ? '✎' : '✓'}</span>
-            <div class="effect-main">
-                <div class="effect-title">Agent name</div>
-                <div class="effect-detail">${renamed
-                    ? `Rename ${q(rec.currentName)} to ${q(rec.newName)}`
-                    : 'The name already matches — nothing to change'}</div>
-            </div>
-        </li>`;
-}
-
-async function loadEnvVar(sol: Solution | null, seq: number): Promise<void> {
-    try {
-        // Agents outside any solution get an environment-wide suffix variable
-        const schemaName = sol
-            ? `${sol.publisherPrefix}_AgentSuffix_${sol.uniqueName}`
-            : 'new_AgentSuffix_Environment';
-
-        type Row = Record<string, unknown>;
-        const agentId = state.activeAgent!.id;
-
-        // The agent's name is re-read alongside the variable: the cached name can be stale if
-        // the agent was renamed elsewhere, and the preview is computed from it.
-        const [defResult, botResult] = await Promise.all([
-            dataverse.fetchXmlQuery(`
-                <fetch top="1">
-                  <entity name="environmentvariabledefinition">
-                    <attribute name="environmentvariabledefinitionid"/>
-                    <attribute name="defaultvalue"/>
-                    <filter>
-                      <condition attribute="schemaname" operator="eq" value="${schemaName}"/>
-                    </filter>
-                  </entity>
-                </fetch>`),
-            dataverse.fetchXmlQuery(`
-                <fetch top="1">
-                  <entity name="bot">
-                    <attribute name="botid"/>
-                    <attribute name="name"/>
-                    <filter>
-                      <condition attribute="botid" operator="eq" value="${agentId}"/>
-                    </filter>
-                  </entity>
-                </fetch>`),
-        ]);
-
-        const freshBot = (botResult.value as Row[])[0];
-        if (!freshBot) throw new Error('this agent no longer exists in the environment');
-
-        const def = (defResult.value as Row[])[0];
-        const defId = def ? (def.environmentvariabledefinitionid as string) : null;
-        let valueId: string | null = null;
-        let currentSuffix = '';
-        let source: 'value' | 'default' | 'none' = 'none';
-
-        if (def && defId) {
-            const valResult = await dataverse.fetchXmlQuery(`
-                <fetch top="1">
-                  <entity name="environmentvariablevalue">
-                    <attribute name="environmentvariablevalueid"/>
-                    <attribute name="value"/>
-                    <filter>
-                      <condition attribute="environmentvariabledefinitionid" operator="eq"
-                        value="${defId}"/>
-                    </filter>
-                  </entity>
-                </fetch>`);
-            const val = (valResult.value as Row[])[0];
-            if (val) {
-                valueId = val.environmentvariablevalueid as string;
-                currentSuffix = (val.value as string) ?? '';
-                source = 'value';
-            } else {
-                currentSuffix = (def.defaultvalue as string) ?? '';
-                source = 'default';
-            }
-        }
-
-        // The user may have opened another agent while this lookup was in flight
-        if (seq !== suffixLoadSeq) return;
-
-        state.activeAgent!.name = (freshBot.name as string) ?? state.activeAgent!.name;
-        state.envVarSchemaName = schemaName;
-        state.envVarDefId = defId;
-        state.envVarValueId = valueId;
-        state.envVarSource = source;
-        state.currentSuffix = currentSuffix;
-
-        const found = !!def;
-        renderSuffixBody(found);
-
-        log(!found
-            ? `Env variable not found: "${schemaName}" — will create on apply.`
-            : source === 'default'
-                ? `Env variable "${schemaName}": no current value, using default "${state.currentSuffix}".`
-                : `Env variable found: "${schemaName}" = "${state.currentSuffix}"`,
-            found ? (source === 'default' ? 'warning' : 'success') : 'warning');
-    } catch (err) {
-        if (seq !== suffixLoadSeq) return;
-        renderSuffixError(String(err), () => {
-            const body = document.getElementById('suffix-body');
-            if (body) body.innerHTML = `<div class="empty-state"><span class="spinner"></span>
-                <p style="margin-top:12px">Checking the suffix variable...</p></div>`;
-            void loadEnvVar(sol, ++suffixLoadSeq);
-        });
-        log(`Env variable check failed: ${err}`, 'error');
-    }
-}
-
-// ── Step: Preview ─────────────────────────────────────────────────────────────
 function renderPreviewStep(): void {
-    const agent = state.activeAgent!;
-    const newSuffix = state.pendingSuffix;
+    const agent = state.activeAgent;
+    const sol = state.activeSolution;
+    if (!agent || !sol) { navigateTo('welcome'); return; }
+    renderBreadcrumb();
 
     els.stepPreview.innerHTML = `
         <div class="step-header">
-            <div class="step-header-row">
-                <div>
-                    <div class="step-title">Preview rename</div>
-                    <div class="step-subtitle">
-                        Suffix <strong>${escapeHtml(newSuffix) || '(empty)'}</strong>
-                        · ${escapeHtml(agent.name)}
-                    </div>
-                </div>
-                ${stepperHtml(2)}
+            <div>
+                <h2 class="step-title">Anteprima del package</h2>
+                <div class="step-sub">${escapeHtml(sol.uniqueName)} · ${escapeHtml(agent.name)}</div>
             </div>
+            ${stepperHtml(2)}
         </div>
-        ${agent.isLocked ? lockedBannerHtml() : ''}
-        <div class="card">
-            <div id="preview-table"><span class="spinner"></span> Loading agents...</div>
+        <div class="card" id="preview-body">
+            <div class="progress-line"><span class="spinner"></span>
+                <span id="preview-progress">avvio dell'export…</span></div>
         </div>
         <div class="step-footer">
-            <button class="btn btn--secondary" id="back-btn">← Back</button>
-            <button class="btn btn--primary" id="apply-btn" disabled>Apply →</button>
+            <button class="btn btn--secondary" id="back-btn">← Indietro</button>
         </div>`;
-
     document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('suffix'));
-    document.getElementById('apply-btn')!.addEventListener('click', () => showConfirmDialog());
 
-    loadPreviewAgents();
+    // Tornare indietro e riavanzare non deve rifare l'export: sulla solution piu' pesante
+    // dell'environment di riferimento la coppia costa 111 secondi (research.md §13).
+    const key = packagingKey(sol, agent);
+    if (state.packaging && state.packagingKey === key) {
+        renderPreviewResult(state.packaging);
+        return;
+    }
+    state.packaging = null;
+    void runPreview(sol, agent, ++previewSeq, key);
 }
 
-async function loadPreviewAgents(): Promise<void> {
-    const container = document.getElementById('preview-table');
-    if (!container) return;
+/** Tutto ciò che, cambiando, rende obsoleto il package già preparato. */
+function packagingKey(sol: Solution, agent: AgentListItem): string {
+    return JSON.stringify([sol.uniqueName, agent.schemaName, state.suffix, state.options]);
+}
+
+let previewSeq = 0;
+
+async function runPreview(
+    sol: Solution, agent: AgentListItem, seq: number, key: string,
+): Promise<void> {
+    const startedAt = Date.now();
+    let lastText = "avvio dell'export…";
+    const paint = () => {
+        if (seq !== previewSeq) return;
+        const el = document.getElementById('preview-progress');
+        if (!el) return;
+        const s = Math.round((Date.now() - startedAt) / 1000);
+        el.textContent = `${lastText} — ${s} s`;
+    };
+    // Il tempo trascorso va mostrato sempre: l'export sincrono costa 13-111 s sulle solution
+    // misurate, il fallback asincrono ~154 s per archivio. Senza un contatore sembra bloccato.
+    const ticker = window.setInterval(paint, 1000);
+    const setProgress = (text: string) => {
+        lastText = text;
+        paint();
+    };
     try {
-        type Row = Record<string, unknown>;
-
-        const agent = state.activeAgent!;
-        // Refresh current name from Dataverse in case it changed
-        const botResult = await dataverse.fetchXmlQuery(`
-            <fetch top="1">
-              <entity name="bot">
-                <attribute name="botid"/>
-                <attribute name="name"/>
-                <filter>
-                  <condition attribute="botid" operator="eq" value="${agent.id}"/>
-                </filter>
-              </entity>
-            </fetch>`);
-        const bot = (botResult.value as Row[])[0] ?? { botid: agent.id, name: agent.name };
-
-        state.agentRecords = [
-            buildAgentRecord(
-                { id: bot.botid as string, name: bot.name as string },
-                suffixInName(),
-                state.pendingSuffix
-            )
-        ];
-
-        const stateColors: Record<string, string> = {
-            'no-change': 'var(--color-text-muted)',
-            'suffix-added': 'var(--color-success)',
-            'suffix-changed': 'var(--color-warning)',
-            'suffix-removed': 'var(--color-error)',
-        };
-        const stateLabels: Record<string, string> = {
-            'no-change': '— no change',
-            'suffix-added': '+ added',
-            'suffix-changed': '~ changed',
-            'suffix-removed': '- removed',
-        };
-
-        const hasChanges = state.agentRecords.some(a => a.renameState !== 'no-change');
-
-        container.innerHTML = `
-            <table style="width:100%;border-collapse:collapse">
-                <thead>
-                    <tr style="border-bottom:1px solid var(--color-border)">
-                        <th style="text-align:left;padding:6px 8px;color:var(--color-text-muted);font-size:11px;text-transform:uppercase">Current Name</th>
-                        <th style="text-align:left;padding:6px 8px;color:var(--color-text-muted);font-size:11px;text-transform:uppercase">→ New Name</th>
-                        <th style="text-align:left;padding:6px 8px;color:var(--color-text-muted);font-size:11px;text-transform:uppercase">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${state.agentRecords.map(a => `
-                        <tr style="border-bottom:1px solid var(--color-border)">
-                            <td style="padding:8px;color:var(--color-text-muted)">${escapeHtml(a.currentName)}</td>
-                            <td style="padding:8px;color:var(--color-text-strong);font-weight:500">
-                                ${escapeHtml(a.newName)}
-                                ${a.warnLength ? `<span class="badge badge--warning" title="Teams display name exceeds 30 chars (${a.newName.length} chars)" style="margin-left:4px">⚠ ${a.newName.length}</span>` : ''}
-                            </td>
-                            <td style="padding:8px;font-size:12px;color:${stateColors[a.renameState]}">
-                                ${stateLabels[a.renameState]}
-                            </td>
-                        </tr>`).join('')}
-                </tbody>
-            </table>
-            ${!hasChanges ? '<div class="banner banner--info" style="margin-top:12px">ℹ️ All agents already have this suffix — nothing to change.</div>' : ''}`;
-
-        (document.getElementById('apply-btn') as HTMLButtonElement).disabled = !hasChanges;
-
-        const warns = state.agentRecords.filter(a => a.warnLength).length;
-        log(`Preview: ${state.agentRecords.length} agents. ${state.agentRecords.filter(a => a.renameState !== 'no-change').length} will change.${warns ? ` ⚠ ${warns} exceed 30 chars.` : ''}`,
-            warns ? 'warning' : 'info');
+        const result = await runPackaging(
+            sol.uniqueName, state.suffix, [agent.schemaName], state.options, setProgress)
+            .finally(() => window.clearInterval(ticker));
+        if (seq !== previewSeq) return;     // l'utente è già andato altrove
+        state.packaging = result;
+        state.packagingKey = key;
+        renderPreviewResult(result);
     } catch (err) {
-        container.innerHTML = `<span class="text-error">Failed: ${escapeHtml(String(err))}</span>`;
-        log(`Preview failed: ${err}`, 'error');
+        window.clearInterval(ticker);
+        if (seq !== previewSeq) return;
+        state.packaging = null;
+        state.packagingKey = '';
+        const body = document.getElementById('preview-body');
+        if (body) {
+            body.innerHTML = `
+                <div class="empty-state">
+                    <p><strong>Non è stato possibile preparare il package.</strong></p>
+                    <p class="hint">${escapeHtml(describeError(err))}</p>
+                    <button class="btn btn--secondary" id="retry-btn">Riprova</button>
+                </div>`;
+            document.getElementById('retry-btn')!.addEventListener('click', () => renderPreviewStep());
+        }
+        log(`Packaging non riuscito: ${describeError(err)}`, 'error');
     }
 }
 
-// ── Confirm dialog ────────────────────────────────────────────────────────────
-interface ConfirmOptions {
-    title: string;
-    bodyHtml: string;
-    okLabel?: string;
-    /** Styles the confirm button as destructive. */
-    danger?: boolean;
-}
+function renderPreviewResult(r: PackagingResult): void {
+    const body = document.getElementById('preview-body');
+    if (!body) return;
+    const pkg = r.managed.source;
+    const unexpected = pkg.nameOccurrences.filter(o => !o.expected);
+    const extra = pkg.inventory.filter(c => !c.relatedToSelectedAgent);
 
-/** Resolves true on confirm; false on cancel or Escape. */
-function askConfirm(opts: ConfirmOptions): Promise<boolean> {
-    return new Promise(resolve => {
-        els.confirmTitle.textContent = opts.title;
-        els.confirmBody.innerHTML = opts.bodyHtml;
-        els.confirmOkBtn.textContent = opts.okLabel ?? 'Confirm';
-        els.confirmOkBtn.className = opts.danger ? 'btn btn--danger' : 'btn btn--primary';
-        els.confirmOverlay.style.display = 'flex';
-        els.confirmOkBtn.focus();
+    const planRows = r.plan.length ? r.plan.map(c => `
+        <tr>
+            <td><code>${escapeHtml(c.file)}</code></td>
+            <td><code>&lt;${escapeHtml(c.element)}&gt;</code></td>
+            <td class="cell-muted">${escapeHtml(c.before ?? '—')}</td>
+            <td class="cell-strong">${escapeHtml(c.after)}</td>
+            <td><span class="chip chip--${c.state === 'no-change' ? 'muted' : 'success'}">${c.state}</span>
+                ${c.exceedsTeamsLimit ? '<span class="chip chip--warning">&gt; 30 char</span>' : ''}</td>
+        </tr>`).join('') : `<tr><td colspan="5" class="cell-muted">Nessuna modifica da applicare.</td></tr>`;
 
-        const finish = (result: boolean) => {
-            els.confirmOverlay.style.display = 'none';
-            els.confirmOkBtn.removeEventListener('click', onOk);
-            els.confirmCancelBtn.removeEventListener('click', onCancel);
-            document.removeEventListener('keydown', onKey);
-            resolve(result);
-        };
-        const onOk = () => finish(true);
-        const onCancel = () => finish(false);
-        const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') finish(false); };
+    const v = r.managed.verification;
+    const vu = r.unmanaged.verification;
 
-        els.confirmOkBtn.addEventListener('click', onOk);
-        els.confirmCancelBtn.addEventListener('click', onCancel);
-        document.addEventListener('keydown', onKey);
-    });
-}
-
-async function showConfirmDialog(): Promise<void> {
-    const toChange = state.agentRecords.filter(a => a.renameState !== 'no-change');
-    const ok = await askConfirm({
-        title: 'Confirm rename',
-        okLabel: 'Apply',
-        bodyHtml: `
-        <p style="margin-bottom:12px">
-            This will rename <strong>${toChange.length}</strong> agent${toChange.length !== 1 ? 's' : ''}
-            in <strong>${escapeHtml(state.activeSolution?.friendlyName ?? "No solution")}</strong>.
-        </p>
-        <div style="background:var(--color-surface-2);border-radius:4px;padding:10px;font-size:12px;max-height:200px;overflow-y:auto">
-            ${toChange.map(a => `
-                <div style="padding:4px 0;border-bottom:1px solid var(--color-border)">
-                    <span style="color:var(--color-text-muted)">${escapeHtml(a.currentName)}</span>
-                    → <span style="color:var(--color-text-strong)">${escapeHtml(a.newName)}</span>
-                </div>`).join('')}
+    body.innerHTML = `
+        <div class="detail-meta detail-meta--flat">
+            <div><span class="meta-label">Solution</span><span>${escapeHtml(pkg.uniqueName)}</span></div>
+            <div><span class="meta-label">Versione</span><span>${escapeHtml(pkg.version)}</span></div>
+            <div><span class="meta-label">Publisher</span><span>${escapeHtml(pkg.publisherUniqueName)} (${escapeHtml(pkg.publisherPrefix)})</span></div>
+            <div><span class="meta-label">Entry</span><span>${pkg.entries.length}</span></div>
+            <div><span class="meta-label">Export</span><span>${r.exportMode} · ${r.exportSeconds.toFixed(1)} s</span></div>
         </div>
-        <p style="margin-top:12px;color:var(--color-text-muted);font-size:12px">
-            The env variable <code>${escapeHtml(state.envVarSchemaName)}</code>
-            will be ${state.envVarDefId ? 'updated' : 'created'} with value
-            "<strong>${escapeHtml(state.pendingSuffix)}</strong>".
+
+        <h3 class="section-title">Cosa viene modificato</h3>
+        <table class="data-table">
+            <thead><tr><th>File</th><th>Elemento</th><th>Prima</th><th>Dopo</th><th>Stato</th></tr></thead>
+            <tbody>${planRows}</tbody>
+        </table>
+        <p class="hint">
+            <strong>Non</strong> vengono toccati: <code>schemaname</code>, nomi di cartella e di file,
+            GUID, <code>[Content_Types].xml</code>, <code>customizations.xml</code>. Nessuna
+            sostituzione testuale globale.
         </p>
-        <p style="margin-top:10px;color:var(--color-text-muted);font-size:12px">
-            <strong>Backup:</strong> the current state is saved first, so you can undo this from the
-            result screen or from <strong>History</strong>.
-        </p>`,
-    });
-    if (ok) navigateTo('apply');
-}
 
-// ── Step: Apply ───────────────────────────────────────────────────────────────
-type DotState = 'pending' | 'running' | 'success' | 'error' | 'skipped';
+        <h3 class="section-title">Agent nel package</h3>
+        ${pkg.agents.map(a => `
+            <div class="kv"><span class="kv-key">${escapeHtml(a.schemaName)}</span>
+                <span class="kv-val">${escapeHtml(a.name)} ·
+                publish all'import: <strong>${a.publishOnImport === null
+                    ? 'non specificato' : a.publishOnImport ? 'sì' : 'no'}</strong>
+                ${a.channels.length ? `· canali: ${escapeHtml(a.channels.join(', '))}` : ''}</span></div>`).join('')}
+        ${pkg.agents.some(a => a.publishOnImport !== true) ? `
+        <p class="hint hint--warn">
+            Senza publish nell'ambiente di destinazione il nome cambia solo in Copilot Studio e
+            <strong>resta quello vecchio su Teams e M365</strong>.
+        </p>` : ''}
 
-const DOT_GLYPH: Record<DotState, string> = { pending: '', running: '', success: '✓', error: '✕', skipped: '–' };
+        <h3 class="section-title">Contenuto del package</h3>
+        <table class="data-table">
+            <thead><tr><th>Cartella</th><th>Tipo</th><th>Quanti</th><th></th></tr></thead>
+            <tbody>${pkg.inventory.map(c => `
+                <tr>
+                    <td><code>${escapeHtml(c.path)}</code></td>
+                    <td>${escapeHtml(c.kind)}</td>
+                    <td>${c.count}</td>
+                    <td>${c.relatedToSelectedAgent ? '' : '<span class="chip chip--warning">oltre all\'agent</span>'}</td>
+                </tr>`).join('')}</tbody>
+        </table>
+        ${extra.length ? `
+        <p class="hint hint--warn">
+            L'artefatto è la <strong>solution intera</strong>: all'import viaggia anche quanto sopra,
+            non solo l'agent.
+        </p>` : ''}
 
-/** A round status marker, matching the circles of the stepper. */
-function statusDotHtml(id: string, s: DotState = 'pending'): string {
-    return `<span class="status-dot status-dot--${s}" id="${escapeHtml(id)}" role="img"
-                aria-label="${s}">${DOT_GLYPH[s]}</span>`;
-}
+        ${pkg.drift.length ? `
+        <h3 class="section-title">Formato del package</h3>
+        <p class="hint hint--warn">
+            Il formato si discosta da quello di riferimento. Non blocca il packaging — Dataverse
+            si aggiorna di continuo — ma vale la pena saperlo:
+        </p>
+        <ul class="drift-list">${pkg.drift.map(d =>
+            `<li>${escapeHtml(d.what)} <span class="cell-muted">(vs ${escapeHtml(d.against)})</span></li>`).join('')}</ul>
+        ` : ''}
 
-function setStatusDot(id: string, s: DotState): void {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.className = `status-dot status-dot--${s}`;
-    el.textContent = DOT_GLYPH[s];
-    el.setAttribute('aria-label', s);
-}
+        <h3 class="section-title">Controlli</h3>
+        <div class="kv"><span class="kv-key">Occorrenze del nome</span>
+            <span class="kv-val">${pkg.nameOccurrences.length} trovate,
+            ${unexpected.length} impreviste</span></div>
+        ${unexpected.length ? `
+        <p class="hint hint--warn">
+            Il nome compare in punti che il tool non conosce: ${unexpected.map(o =>
+                `<code>${escapeHtml(o.file)}</code> ${escapeHtml(o.locator)}`).join(', ')}.
+            Quei punti <strong>non</strong> verrebbero patchati.
+        </p>` : ''}
+        <div class="kv"><span class="kv-key">Verifica managed</span>
+            <span class="kv-val">${escapeHtml(describeVerification(v, r.managed.expectedIdenticalEntries))}</span></div>
+        <div class="kv"><span class="kv-key">Verifica unmanaged</span>
+            <span class="kv-val">${escapeHtml(describeVerification(vu, r.unmanaged.expectedIdenticalEntries))}</span></div>
 
-function renderApplyStep(): void {
-    const toChange = state.agentRecords.filter(a => a.renameState !== 'no-change');
-    els.stepApply.innerHTML = `
-        <div class="step-header">
-            <div class="step-header-row">
-                <div>
-                    <div class="step-title">Applying rename</div>
-                    <div class="step-subtitle">
-                        Renaming ${toChange.length} agent${toChange.length !== 1 ? 's' : ''}
-                        in ${escapeHtml(state.activeSolution?.friendlyName ?? "No solution")}
-                    </div>
-                </div>
-                ${stepperHtml(3)}
-            </div>
+        <div class="result-banner result-banner--${r.valid ? 'success' : 'error'}">
+            ${r.valid
+                ? 'Package pronti e verificati: managed e unmanaged, con una sola entry modificata.'
+                : 'La verifica non è passata: l\'artefatto non è utilizzabile. Gli export originali restano importabili.'}
         </div>
-        <section class="panel">
-            <div class="panel-head"><span class="panel-title">Progress</span></div>
-            <div class="panel-body">
-                <ul class="effects" id="apply-progress">
-                    ${toChange.map(a => `
-                    <li class="effect">
-                        ${statusDotHtml(`agent-icon-${a.id}`)}
-                        <div class="effect-main">
-                            <div class="effect-title">${escapeHtml(a.newName)}</div>
-                            <div class="effect-detail">was ${escapeHtml(a.currentName)}</div>
-                        </div>
-                    </li>`).join('')}
-                    <li class="effect">
-                        ${statusDotHtml('apply-env-icon')}
-                        <div class="effect-main">
-                            <div class="effect-title">Environment variable</div>
-                            <div class="effect-detail">
-                                <code>${escapeHtml(state.envVarSchemaName)}</code>
-                                → <strong>"${escapeHtml(state.pendingSuffix)}"</strong>
-                            </div>
-                        </div>
-                    </li>
-                </ul>
-            </div>
-        </section>
-        <div id="apply-result"></div>
-        <div class="step-footer">
-            <button class="btn btn--secondary" id="done-btn" disabled>← Back to Solutions</button>
+        <div class="step-footer" style="margin-top:16px">
+            <button class="btn btn--primary" id="save-btn" ${r.valid ? '' : 'disabled'}>
+                Salva l'artifact set</button>
         </div>`;
 
-    runApply(toChange);
+    const saveBtn = document.getElementById('save-btn');
+    if (saveBtn) saveBtn.addEventListener('click', () => void confirmThenSave(unexpected, extra));
+}
+/**
+ * I due casi che richiedono un assenso esplicito prima di produrre un artefatto.
+ *
+ * Non sono avvisi: un avviso si ignora senza accorgersene, e qui si rischia o un package
+ * patchato a meta' (FR-096) o un import che porta con se' componenti che nessuno si aspettava
+ * (FR-091). Ogni conferma finisce nel manifest.
+ */
+async function confirmThenSave(
+    unexpected: NameOccurrence[],
+    extra: PackageComponent[],
+): Promise<void> {
+    if (unexpected.length) {
+        const ok = await askConfirm({
+            title: 'Il nome compare in punti non previsti',
+            okLabel: 'Ho capito, procedi',
+            danger: true,
+            bodyHtml: `
+                <p>Il display name dell'agent e' stato trovato anche qui, dove il tool
+                <strong>non</strong> lo patchera':</p>
+                <ul>${unexpected.map(o =>
+                    `<li><code>${escapeHtml(o.file)}</code> ${escapeHtml(o.locator)}</li>`).join('')}</ul>
+                <p class="hint">Di norma il nome sta in un punto solo. Se ne compaiono altri, il
+                formato del package potrebbe essere cambiato e il patch resterebbe
+                <strong>incompleto</strong>.</p>`,
+        });
+        if (!ok) { log('Salvataggio annullato: occorrenze impreviste non confermate.', 'warning'); return; }
+        state.confirmations.push({
+            what: `occorrenze impreviste del nome: ${unexpected.map(o => o.file).join(', ')}`,
+            confirmedAt: new Date().toISOString(),
+        });
+    }
+
+    if (extra.length) {
+        const ok = await askConfirm({
+            title: 'Il package contiene altro oltre all\'agent',
+            okLabel: 'Procedi',
+            bodyHtml: `
+                <p>L'artefatto e' la <strong>solution intera</strong>: all'import viaggia anche
+                quanto segue.</p>
+                <ul>${extra.map(c =>
+                    `<li>${escapeHtml(c.kind)} — ${c.count}</li>`).join('')}</ul>
+                <p class="hint">Microsoft avverte che componenti non modificati inclusi in un
+                update creano layer sopra quelli esistenti e possono disattivarne le
+                customization.</p>`,
+        });
+        if (!ok) { log('Salvataggio annullato: componenti extra non confermati.', 'warning'); return; }
+        state.confirmations.push({
+            what: `componenti oltre all'agent: ${extra.map(c => `${c.kind} x${c.count}`).join(', ')}`,
+            confirmedAt: new Date().toISOString(),
+        });
+    }
+
+    await saveArtifactSet();
 }
 
-/** Everything an apply is about to overwrite, captured before the first write. */
-function buildBackupEntry(agents: AgentRecord[]): BackupEntry {
-    const hadValue = state.envVarValueId !== null;
+// ── Salvataggio dell'artifact set ─────────────────────────────────────────────
+
+/**
+ * Chiede dove scrivere, produce l'artifact set e lo registra nello storico.
+ *
+ * Il salvataggio parte solo se **entrambi** gli archivi hanno superato la verifica: consegnare
+ * un set in cui managed e unmanaged non concordano sarebbe peggio che non consegnarlo (FR-085).
+ */
+async function saveArtifactSet(): Promise<void> {
+    const r = state.packaging;
     const sol = state.activeSolution;
-    return {
-        id: newBackupId(),
-        createdAt: new Date().toISOString(),
-        environment: state.connectionName,
-        solution: sol ? (sol.friendlyName || sol.uniqueName) : null,
-        agents: agents.map(a => ({ id: a.id, nameBefore: a.currentName, nameAfter: a.newName })),
-        variable: {
-            schemaName: state.envVarSchemaName,
-            definitionExisted: state.envVarDefId !== null,
-            valueRecordExisted: hadValue,
-            valueBefore: hadValue ? state.currentSuffix : null,
-            valueAfter: state.pendingSuffix,
-            definitionId: state.envVarDefId,
-            valueId: state.envVarValueId,
-        },
-        status: 'pending',
-    };
+    if (!r || !sol) return;
+    if (!r.valid) {
+        log('La verifica non è passata: non viene scritto nessun artefatto.', 'error');
+        return;
+    }
+
+    const folder = await selectFolder('Dove salvare l\'artifact set');
+    if (!folder) { log('Salvataggio annullato.'); return; }
+
+    const btn = document.getElementById('save-btn') as HTMLButtonElement | null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Salvataggio…'; }
+
+    try {
+        const written = await writeArtifactSet(folder, {
+            result: r,
+            suffix: state.suffix,
+            options: state.options,
+            sourceEnvironmentUrl: state.connectionName,
+            user: state.connectionName,
+            confirmations: state.confirmations,
+        });
+
+        const pkg = r.managed.source;
+        const record: PackagingRecord = {
+            id: written.set.folderName,
+            timestamp: new Date().toISOString(),
+            user: state.connectionName,
+            sourceEnvironmentUrl: state.connectionName,
+            solutionUniqueName: pkg.uniqueName,
+            version: pkg.version,
+            managed: true,
+            suffix: state.suffix,
+            agents: r.plan.filter(c => c.element === 'name').map(c => ({
+                schemaName: pkg.agents.find(a => a.file === c.file)?.schemaName ?? '',
+                before: c.before ?? '',
+                after: c.after,
+            })),
+            options: { ...state.options },
+            artifactSetPath: written.set.folderPath,
+            files: written.set.files.map(f => ({ fileName: f.fileName, role: f.role, sha256: f.sha256 })),
+            verification: { managed: r.managed.verification, unmanaged: r.unmanaged.verification },
+            exportMode: r.exportMode,
+            exportSeconds: r.exportSeconds,
+            fingerprint: pkg.fingerprint,
+            drift: pkg.drift,
+            confirmations: state.confirmations,
+            status: written.complete ? 'ok' : 'failed',
+            deployments: [],
+        };
+        await addRecord(record);
+        state.lastSet = written.set;
+        navigateTo('result');
+        toolbox.utils.showNotification({
+            title: 'Agent Rename Manager',
+            body: `Artifact set pronto in ${written.set.folderName}`,
+            type: written.complete ? 'success' : 'warning',
+        });
+    } catch (err) {
+        log(`Salvataggio non riuscito: ${err}`, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Salva l\'artifact set'; }
+    }
 }
 
-const saveBackup = (entry: BackupEntry) =>
-    mutateBackups(toolbox.settings, list => [entry, ...list.filter(e => e.id !== entry.id)]);
+// ── Step: esito ───────────────────────────────────────────────────────────────
 
-async function runApply(agents: AgentRecord[]): Promise<void> {
-    const doneBtn = document.getElementById('done-btn') as HTMLButtonElement;
-    doneBtn.addEventListener('click', () => {
-        state.agentRecords = [];
-        state.activeAgent = null;
+function renderResultStep(): void {
+    const set = state.lastSet;
+    const r = state.packaging;
+    renderBreadcrumb();
+    if (!set || !r) { navigateTo('welcome'); return; }
+
+    const deploy = set.files.find(f => f.role === 'deploy');
+    els.stepResult.innerHTML = `
+        <div class="step-header">
+            <div>
+                <h2 class="step-title">Artifact set pronto</h2>
+                <div class="step-sub">${escapeHtml(set.folderName)}</div>
+            </div>
+            ${stepperHtml(3)}
+        </div>
+
+        <div class="card">
+            <div class="result-banner result-banner--success">
+                Da importare in UAT/PROD: <strong>${escapeHtml(deploy?.fileName ?? '—')}</strong>
+            </div>
+
+            <h3 class="section-title">File prodotti</h3>
+            <table class="data-table">
+                <thead><tr><th>File</th><th>Ruolo</th><th>Entry</th><th>SHA-256</th></tr></thead>
+                <tbody>${set.files.map(f => `
+                    <tr>
+                        <td><code>${escapeHtml(f.fileName)}</code></td>
+                        <td>${roleChip(f.role)}</td>
+                        <td>${f.entryCount}</td>
+                        <td class="cell-muted"><code title="${escapeHtml(f.sha256)}">${escapeHtml(f.sha256.slice(0, 16))}…</code></td>
+                    </tr>`).join('')}</tbody>
+            </table>
+            <p class="hint">
+                Due artefatti della stessa versione si distinguono dall'<strong>hash</strong>, non
+                dalla <code>&lt;Version&gt;</code>: per questo non serve forzare un bump.
+            </p>
+            <p class="hint hint--warn">
+                L'archivio <strong>unmanaged</strong> non va importato in UAT/PROD: creerebbe una
+                solution unmanaged, cioè il problema che questo flusso elimina.
+            </p>
+
+            <h3 class="section-title">Cartella</h3>
+            <div class="kv"><span class="kv-key">Percorso</span>
+                <span class="kv-val"><code>${escapeHtml(set.folderPath)}</code></span></div>
+            <div class="kv"><span class="kv-key">Manifest</span>
+                <span class="kv-val"><code>manifest.json</code> — sorgente, suffisso, operatore,
+                impronta del formato e hash di ogni file</span></div>
+            <div class="kv"><span class="kv-key">Spazio occupato</span>
+                <span class="kv-val">${(set.totalBytes / 1024).toFixed(0)} KB</span></div>
+        </div>
+
+        <div class="card" id="deploy-panel"></div>
+
+        <div class="step-footer">
+            <button class="btn btn--secondary" id="history-nav-btn">Vedi lo storico</button>
+            <button class="btn btn--primary" id="done-btn">Fine</button>
+        </div>`;
+
+    const deployHost = document.getElementById('deploy-panel');
+    if (deployHost) renderDeployPanel(deployHost);
+
+    document.getElementById('history-nav-btn')!.addEventListener('click', () => navigateTo('history'));
+    document.getElementById('done-btn')!.addEventListener('click', () => {
+        state.packaging = null;
+        state.packagingKey = '';
+        state.lastSet = null;
+        state.confirmations = [];
         navigateTo('welcome');
     });
-
-    // No backup, no write: if the snapshot can't be stored, nothing is touched.
-    const entry = buildBackupEntry(agents);
-    try {
-        await saveBackup(entry);
-        log(`Backup saved before applying (${entry.id}).`, 'info');
-    } catch (err) {
-        log(`Could not save a backup, so nothing was changed: ${err}`, 'error');
-        renderApplyResult(null, { kind: 'no-backup', message: String(err) });
-        doneBtn.disabled = false;
-        return;
-    }
-
-    let successCount = 0;
-    let errorCount = 0;
-    const renamed = new Set<string>();
-    let firstError: unknown = null;
-
-    for (const agent of agents) {
-        const dotId = `agent-icon-${agent.id}`;
-        setStatusDot(dotId, 'running');
-        try {
-            await dataverse.update('bot', agent.id, { name: agent.newName });
-            const cached = state.agents.find(a => a.id === agent.id);
-            if (cached) cached.name = agent.newName;
-            setStatusDot(dotId, 'success');
-            log(`Renamed "${agent.currentName}" → "${agent.newName}"`, 'success');
-            renamed.add(agent.id);
-            successCount++;
-        } catch (err) {
-            setStatusDot(dotId, 'error');
-            log(`Failed to rename "${agent.currentName}": ${err}`, 'error');
-            firstError ??= err;
-            errorCount++;
-        }
-    }
-    for (const a of entry.agents) a.renamed = renamed.has(a.id);
-
-    // A refused rename must not leave the variable ahead of the name. When no agent could be
-    // renamed the variable stays as it was, so a failed apply changes nothing at all.
-    const skipVariable = agents.length > 0 && renamed.size === 0;
-    let envOk = false;
-    if (skipVariable) {
-        entry.variable.written = false;
-        setStatusDot('apply-env-icon', 'skipped');
-        log('The variable was left untouched because no agent could be renamed.', 'warning');
-    } else {
-        setStatusDot('apply-env-icon', 'running');
-        entry.variable.written = true;
-        try {
-            await upsertEnvVariable();
-            envOk = true;
-            setStatusDot('apply-env-icon', 'success');
-            log(`Env variable "${state.envVarSchemaName}" set to "${state.pendingSuffix}"`, 'success');
-            state.currentSuffix = state.pendingSuffix;
-            state.envVarSource = 'value';
-            state.suffixDraft = null;   // reopening the agent reads the stored value back
-            state.nameSuffixOverride = null;
-        } catch (err) {
-            setStatusDot('apply-env-icon', 'error');
-            log(`Failed to update env variable: ${err}`, 'error');
-            errorCount++;
-        }
-    }
-
-    if (skipVariable) {
-        // Nothing was written, so there is nothing to undo: don't leave a pointless backup behind.
-        try {
-            await mutateBackups(toolbox.settings, list => list.filter(e => e.id !== entry.id));
-        } catch (err) {
-            log(`The unused backup could not be removed: ${err}`, 'warning');
-        }
-        void updateHistoryButton();
-        doneBtn.disabled = false;
-        toolbox.utils.showNotification({
-            title: 'Agent Rename Manager',
-            body: 'Nothing was changed: Dataverse refused the rename.',
-            type: 'error',
-        });
-        renderApplyResult(null, {
-            kind: 'refused',
-            locked: isManagedPropertyError(firstError),
-            message: String(firstError),
-        });
-        return;
-    }
-
-    // Records created along the way go into the backup, even if a later step failed, so the
-    // change stays fully reversible.
-    entry.variable.definitionId = state.envVarDefId;
-    entry.variable.valueId = state.envVarValueId;
-    entry.status = errorCount === 0 ? 'applied' : (renamed.size > 0 || envOk ? 'partial' : 'failed');
-    try {
-        await saveBackup(entry);
-    } catch (err) {
-        log(`The backup could not be updated with the result — undo may be incomplete: ${err}`, 'warning');
-    }
-
-    // Only agents that were actually renamed count as done
-    state.agentRecords = state.agentRecords.map(a =>
-        renamed.has(a.id) ? { ...a, currentName: a.newName, renameState: 'no-change' as const } : a);
-    // Re-read in the background so the lists reflect what was just written
-    void refreshData(true);
-    void updateHistoryButton();
-
-    doneBtn.disabled = false;
-
-    if (errorCount === 0) {
-        log(`Done! ${successCount} agent(s) renamed successfully.`, 'success');
-        toolbox.utils.showNotification({
-            title: 'Agent Rename Manager',
-            body: `${successCount} agent(s) renamed successfully.`,
-            type: 'success',
-        });
-        renderApplyResult(entry, { kind: 'success' });
-    } else {
-        log(`Completed with errors: ${successCount} ok, ${errorCount} failed.`, 'warning');
-        toolbox.utils.showNotification({
-            title: 'Agent Rename Manager',
-            body: `${successCount} renamed, ${errorCount} failed — check the log.`,
-            type: 'warning',
-        });
-        renderApplyResult(entry, { kind: 'errors', failed: errorCount });
-    }
 }
 
-// ── Result panel, rollback ────────────────────────────────────────────────────
-/** Dataverse refuses to edit a managed component whose publisher turned off "Can be customized". */
-const isManagedPropertyError = (err: unknown) => /0x8004f026|managed property|iscustomizable/i.test(String(err));
-
-/** Shared by every place that has to tell the user an agent can't be edited here. */
-const LOCKED_EXPLANATION = `This agent comes from a managed solution whose publisher turned off the
-    managed property <strong>Can be customized</strong>, so it can't be edited in this environment.
-    Ask the publisher to turn it on in the source environment (managed properties are set before
-    exporting as managed) and import the updated solution here.`;
-
-function lockedBannerHtml(): string {
-    return `
-        <div class="banner banner--error banner-row">
-            <div><strong>This agent can't be renamed here.</strong> ${LOCKED_EXPLANATION}</div>
-        </div>`;
+function roleChip(role: string): string {
+    const map: Record<string, [string, string]> = {
+        deploy: ['success', 'deploy'],
+        source: ['warning', 'source'],
+        restore: ['muted', 'restore'],
+    };
+    const [cls, label] = map[role] ?? ['muted', role];
+    return `<span class="chip chip--${cls}">${label}</span>`;
 }
 
-type ApplyOutcome =
-    | { kind: 'success' }
-    | { kind: 'errors'; failed: number }
-    | { kind: 'refused'; locked: boolean; message: string }
-    | { kind: 'no-backup'; message: string }
-    | { kind: 'rolled-back' }
-    | { kind: 'kept' }
-    | { kind: 'rollback-failed'; errors: string[] };
+// ── Step: storico ─────────────────────────────────────────────────────────────
 
-function renderApplyResult(entry: BackupEntry | null, outcome: ApplyOutcome): void {
-    const host = document.getElementById('apply-result');
-    if (!host) return;
-    const btn = (id: string, label: string, cls = 'btn--secondary') =>
-        `<button type="button" class="btn ${cls} btn--sm" id="${id}">${label}</button>`;
-
-    let tone: 'success' | 'warning' | 'error' | 'info';
-    let text: string;
-    let actions = '';
-    switch (outcome.kind) {
-        case 'success':
-            tone = 'success';
-            text = '<strong>Done.</strong> The previous state was saved as a backup, so you can undo this change.';
-            actions = btn('res-undo', 'Undo this change') + btn('res-history', 'View history');
-            break;
-        case 'errors':
-            tone = 'warning';
-            text = `<strong>${outcome.failed} step${outcome.failed === 1 ? '' : 's'} failed.</strong>
-                Your previous state is backed up. Roll back everything, or keep what was applied.`;
-            actions = btn('res-rollback', 'Roll back everything', 'btn--danger') + btn('res-keep', 'Keep current state');
-            break;
-        case 'refused': {
-            tone = 'error';
-            const reason = outcome.locked
-                ? LOCKED_EXPLANATION
-                : `Dataverse said: ${escapeHtml(outcome.message.slice(0, 300))}`;
-            text = `<strong>Nothing was changed.</strong> Dataverse refused the rename. ${reason}`;
-            break;
-        }
-        case 'no-backup':
-            tone = 'error';
-            text = `<strong>Nothing was changed.</strong> The backup could not be saved
-                (${escapeHtml(outcome.message)}), and no change is made without one.`;
-            break;
-        case 'rolled-back':
-            tone = 'info';
-            text = '<strong>Rolled back.</strong> The agent and the variable are back to how they were.';
-            actions = btn('res-history', 'View history');
-            break;
-        case 'kept':
-            tone = 'info';
-            text = '<strong>Current state kept.</strong> The backup stays available in History.';
-            actions = btn('res-history', 'View history');
-            break;
-        case 'rollback-failed':
-            tone = 'error';
-            text = `<strong>Rollback incomplete.</strong> Some steps could not be undone:
-                <ul class="result-errors">${outcome.errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`;
-            actions = btn('res-rollback', 'Try again') + btn('res-history', 'View history');
-            break;
-    }
-
-    host.innerHTML = `
-        <div class="banner banner--${tone} banner-row">
-            <div>${text}</div>
-            <div class="banner-actions">${actions}</div>
-        </div>`;
-
-    const on = (id: string, fn: () => void) =>
-        document.getElementById(id)?.addEventListener('click', fn);
-    on('res-history', () => navigateTo('history'));
-    if (entry) {
-        on('res-keep', () => renderApplyResult(entry, { kind: 'kept' }));
-        const undo = async () => {
-            const res = await performRollback(entry);
-            if (res.status === 'done') renderApplyResult(entry, { kind: 'rolled-back' });
-            else if (res.status === 'failed') renderApplyResult(entry, { kind: 'rollback-failed', errors: res.errors });
-        };
-        on('res-undo', () => void undo());
-        on('res-rollback', () => void undo());
-    }
-}
-
-/** "Already gone" is the outcome a delete step wants, so it isn't an error. */
-const isMissingRecord = (err: unknown) => /does not exist|not found|404/i.test(String(err));
-
-async function runRollbackStep(step: RollbackStep): Promise<void> {
-    switch (step.kind) {
-        case 'rename':
-            await dataverse.update('bot', step.agentId, { name: step.to });
-            break;
-        case 'restore-value':
-            await dataverse.update('environmentvariablevalue', step.valueId, { value: step.value });
-            break;
-        case 'delete-value':
-            try { await dataverse.delete('environmentvariablevalue', step.valueId); }
-            catch (err) { if (!isMissingRecord(err)) throw err; }
-            break;
-        case 'delete-definition':
-            try { await dataverse.delete('environmentvariabledefinition', step.definitionId); }
-            catch (err) { if (!isMissingRecord(err)) throw err; }
-            break;
-    }
-}
-
-type RenameStep = Extract<RollbackStep, { kind: 'rename' }>;
-const isRenameStep = (s: RollbackStep): s is RenameStep => s.kind === 'rename';
-
-/** Current names of the given agents; null when they couldn't be read. A missing id means deleted. */
-async function readAgentNames(ids: string[]): Promise<Map<string, string> | null> {
-    if (!ids.length) return new Map();
-    try {
-        const values = ids.map(id => `<value>${escapeHtml(id)}</value>`).join('');
-        const res = await dataverse.fetchXmlQuery(`
-            <fetch>
-              <entity name="bot">
-                <attribute name="botid"/>
-                <attribute name="name"/>
-                <filter><condition attribute="botid" operator="in">${values}</condition></filter>
-              </entity>
-            </fetch>`);
-        return new Map((res.value as Record<string, unknown>[])
-            .map(r => [r.botid as string, r.name as string]));
-    } catch {
-        return null;
-    }
-}
-
-/** Warnings about things that changed since the backup, which a rollback would overwrite. */
-function rollbackWarnings(
-    entry: BackupEntry,
-    steps: RollbackStep[],
-    current: Map<string, string> | null,
-): string[] {
-    const warnings: string[] = [];
-    const renames = steps.filter(isRenameStep);
-
-    if (renames.length) {
-        if (!current) {
-            warnings.push("The agents' current names couldn't be checked, so changes made since can't be ruled out.");
-        } else {
-            for (const s of renames) {
-                const now = current.get(s.agentId);
-                if (now === undefined) {
-                    warnings.push(`The agent "${s.from}" no longer exists, so its name can't be restored.`);
-                } else if (now !== s.from) {
-                    warnings.push(`The agent is now named "${now}", not "${s.from}" — it was renamed again after this change. Undoing overwrites that name.`);
-                }
-            }
-        }
-    }
-    if (steps.some(s => s.kind === 'delete-definition')) {
-        warnings.push(`Deleting the variable "${entry.variable.schemaName}" also removes it from its solution. Anything that started using it since will lose its value.`);
-    }
-    return warnings;
-}
-
-interface RollbackResult { status: 'done' | 'failed' | 'cancelled'; errors: string[]; }
-
-async function markRolledBack(entry: BackupEntry): Promise<void> {
-    try {
-        await mutateBackups(toolbox.settings, list => list.map(e =>
-            e.id === entry.id ? { ...e, status: 'rolled-back', rolledBackAt: new Date().toISOString() } : e));
-    } catch (err) {
-        log(`The change was undone, but the backup couldn't be marked as such: ${err}`, 'warning');
-    }
-    entry.status = 'rolled-back';
-}
-
-async function performRollback(entry: BackupEntry): Promise<RollbackResult> {
-    if (entry.environment !== state.connectionName) {
-        toolbox.utils.showNotification({
-            title: 'Agent Rename Manager',
-            body: `This backup belongs to ${entry.environment}. Connect to it to restore.`,
-            type: 'warning',
-        });
-        return { status: 'cancelled', errors: [] };
-    }
-
-    const planned = planRollback(entry);
-    if (!planned.length) {
-        toolbox.utils.showNotification({
-            title: 'Agent Rename Manager',
-            body: 'This change did not alter anything, so there is nothing to undo.',
-            type: 'info',
-        });
-        return { status: 'cancelled', errors: [] };
-    }
-
-    // A name that already matches the target needs no write. Skipping it also avoids tripping
-    // over the same restriction that stopped the original rename, which would make the undo
-    // fail for an agent that is already exactly where the backup wants it.
-    const current = await readAgentNames(planned.filter(isRenameStep).map(s => s.agentId));
-    const steps = planned.filter(s => !(isRenameStep(s) && current?.get(s.agentId) === s.to));
-
-    if (!steps.length) {
-        await markRolledBack(entry);
-        log('Nothing to undo: everything is already as it was before this change.', 'info');
-        toolbox.utils.showNotification({
-            title: 'Agent Rename Manager',
-            body: 'Everything is already as it was before this change.',
-            type: 'success',
-        });
-        return { status: 'done', errors: [] };
-    }
-
-    const warnings = rollbackWarnings(entry, steps, current);
-    const confirmed = await askConfirm({
-        title: 'Undo this change?',
-        okLabel: 'Undo',
-        danger: true,
-        bodyHtml: `
-            <p style="margin-bottom:10px">This will:</p>
-            <ul class="confirm-list">${steps.map(s => `<li>${escapeHtml(describeStep(s))}</li>`).join('')}</ul>
-            ${warnings.length ? `
-            <div class="banner banner--warning" style="margin-top:12px;margin-bottom:0">
-                <div>${warnings.map(w => `<div>${escapeHtml(w)}</div>`).join('')}</div>
-            </div>` : ''}`,
-    });
-    if (!confirmed) return { status: 'cancelled', errors: [] };
-
-    const errors: string[] = [];
-    for (const step of steps) {
-        try {
-            await runRollbackStep(step);
-            log(`Undo: ${describeStep(step)}`, 'success');
-        } catch (err) {
-            errors.push(`${describeStep(step)} — ${err}`);
-            log(`Undo failed: ${describeStep(step)} — ${err}`, 'error');
-        }
-    }
-
-    // Whatever happened, what the lists and the form show is stale now
-    for (const a of entry.agents) {
-        const cached = state.agents.find(x => x.id === a.id);
-        if (cached && !errors.length) cached.name = a.nameBefore;
-    }
-    state.suffixDraft = null;
-    state.nameSuffixOverride = null;
-    void refreshData(true);
-
-    if (errors.length) {
-        toolbox.utils.showNotification({
-            title: 'Agent Rename Manager',
-            body: `${errors.length} undo step(s) failed — check the log.`,
-            type: 'warning',
-        });
-        return { status: 'failed', errors };
-    }
-
-    await markRolledBack(entry);
-    log('Change rolled back.', 'success');
-    toolbox.utils.showNotification({
-        title: 'Agent Rename Manager',
-        body: 'The change was rolled back.',
-        type: 'success',
-    });
-    return { status: 'done', errors: [] };
-}
-
-// ── History ───────────────────────────────────────────────────────────────────
-async function updateHistoryButton(): Promise<void> {
-    try {
-        const count = (await readBackups(toolbox.settings)).length;
-        els.historyBtn.textContent = count ? `History (${count})` : 'History';
-    } catch {
-        els.historyBtn.textContent = 'History';
-    }
-}
-
-const STATUS_CHIP: Record<BackupEntry['status'], [string, string]> = {
-    'applied':     ['success', 'Applied'],
-    'partial':     ['warning', 'Partial'],
-    'failed':      ['error',   'Failed'],
-    'pending':     ['warning', 'Interrupted'],
-    'rolled-back': ['muted',   'Rolled back'],
-};
-
-async function saveToFile(fileName: string, data: unknown): Promise<void> {
-    try {
-        const path = await toolbox.fileSystem.saveFile(fileName, JSON.stringify(data, null, 2));
-        if (path) log(`Saved ${path}`, 'success');
-    } catch (err) {
-        log(`Could not save the file: ${err}`, 'error');
-    }
-}
-
-async function renderHistory(): Promise<void> {
-    const host = els.stepHistory;
-    host.innerHTML = `
-        <section class="panel panel--fill">
-            <div class="empty-state"><span class="spinner"></span>
-                <p style="margin-top:12px">Loading history...</p></div>
-        </section>`;
-
-    let list: BackupEntry[];
-    try {
-        list = await readBackups(toolbox.settings);
-    } catch (err) {
-        host.innerHTML = `<div class="banner banner--error">Could not read the history: ${escapeHtml(String(err))}</div>`;
-        return;
-    }
-    if (state.currentStep !== 'history') return;   // the user moved on while it loaded
-
-    host.innerHTML = `
+async function renderHistoryStep(): Promise<void> {
+    renderBreadcrumb();
+    els.stepHistory.innerHTML = `
         <section class="panel panel--fill">
             <div class="panel-head panel-head--lg">
-                <div>
-                    <h2 class="panel-heading">History</h2>
-                    <div class="panel-sub">
-                        A backup is saved before every change and kept ${RETENTION_DAYS} days on this device.
-                        Nothing is sent anywhere.
-                    </div>
-                </div>
-                <button type="button" class="btn btn--secondary btn--sm" data-action="export-all"
-                    ${list.length ? '' : 'disabled'}>Export all</button>
+                <div><h2 class="panel-heading">Storico dei packaging</h2>
+                    <div class="panel-sub">conservato 30 giorni, solo su questo dispositivo</div></div>
             </div>
-            <div class="panel-table">
-                ${list.length ? `
-                <table class="data-table data-table--plain">
-                    <thead>
-                        <tr>
-                            <th>When</th><th>Environment</th><th>Agent</th><th>Variable</th><th>Status</th>
-                            <th class="col-action"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${list.map(e => {
-                            const [chip, label] = STATUS_CHIP[e.status];
-                            const wrongEnv = e.environment !== state.connectionName;
-                            const noop = planRollback(e).length === 0;
-                            const restoreOff = e.status === 'rolled-back' || wrongEnv || noop;
-                            const restoreTip = e.status === 'rolled-back' ? 'Already rolled back'
-                                : wrongEnv ? `Connect to ${e.environment} to restore`
-                                : noop ? 'This change did not alter anything' : 'Undo this change';
-                            return `
-                        <tr>
-                            <td class="cell-muted" title="${escapeHtml(formatAbsoluteDate(e.createdAt))}">${escapeHtml(formatRelativeDate(e.createdAt))}</td>
-                            <td><span class="cell-strong">${escapeHtml(e.environment)}</span>
-                                <div class="cell-sub">${escapeHtml(e.solution ?? 'No solution')}</div></td>
-                            <td>${e.agents.map(a => `
-                                <div class="cell-strong">${escapeHtml(a.nameBefore)}</div>
-                                <div class="cell-sub">→ ${escapeHtml(a.nameAfter)}</div>`).join('')}</td>
-                            <td class="cell-muted" title="${escapeHtml(e.variable.schemaName)}">${escapeHtml(summarizeVariable(e.variable))}</td>
-                            <td><span class="chip chip--${chip}">${label}</span></td>
-                            <td class="col-action">
-                                <div class="row-actions">
-                                    <button type="button" class="btn btn--secondary btn--sm" data-action="restore"
-                                        data-id="${escapeHtml(e.id)}" title="${escapeHtml(restoreTip)}"
-                                        ${restoreOff ? 'disabled' : ''}>Restore</button>
-                                    <button type="button" class="btn btn--secondary btn--sm" data-action="export"
-                                        data-id="${escapeHtml(e.id)}">Export</button>
-                                    <button type="button" class="btn btn--secondary btn--sm" data-action="delete"
-                                        data-id="${escapeHtml(e.id)}">Delete</button>
-                                </div>
-                            </td>
-                        </tr>`;
-                        }).join('')}
-                    </tbody>
-                </table>` : `
-                <div class="empty-state">
-                    <p>No backups yet. One is saved automatically before every change.</p>
-                </div>`}
+            <div class="panel-table" id="history-body">
+                <div class="progress-line"><span class="spinner"></span> lettura…</div>
             </div>
         </section>`;
 
-    host.querySelectorAll<HTMLElement>('[data-action]').forEach(el => {
-        el.addEventListener('click', () => void onHistoryAction(el.dataset.action!, el.dataset.id, list));
+    const list = await readHistory();
+    const body = document.getElementById('history-body');
+    if (!body) return;
+
+    if (!list.length) {
+        body.innerHTML = `<div class="empty-state">
+            <p>Nessun packaging registrato.</p>
+            <p class="hint">Qui compariranno le operazioni, con i percorsi e gli hash dei file.</p>
+        </div>`;
+        return;
+    }
+
+    body.innerHTML = `
+        <table class="data-table">
+            <thead><tr>
+                <th>Quando</th><th>Solution</th><th>Versione</th><th>Suffisso</th>
+                <th>Agent</th><th>Esito</th><th></th>
+            </tr></thead>
+            <tbody>${list.map(r => `
+                <tr>
+                    <td class="cell-muted" title="${escapeHtml(formatAbsoluteDate(r.timestamp))}">
+                        ${escapeHtml(formatRelativeDate(r.timestamp))}</td>
+                    <td class="cell-strong">${escapeHtml(r.solutionUniqueName)}</td>
+                    <td>${escapeHtml(r.version)}</td>
+                    <td>${escapeHtml(r.suffix || '—')}</td>
+                    <td class="cell-muted">${r.agents.map(a =>
+                        `${escapeHtml(a.before)} → ${escapeHtml(a.after)}`).join('<br>')}</td>
+                    <td><span class="chip chip--${r.status === 'ok' ? 'success' : 'error'}">${r.status}</span></td>
+                    <td>
+                        <button class="btn btn--secondary btn--sm" data-export="${escapeHtml(r.id)}">Esporta</button>
+                        <button class="btn btn--secondary btn--sm" data-delete="${escapeHtml(r.id)}">Elimina</button>
+                    </td>
+                </tr>
+                <tr><td colspan="7" class="cell-muted" style="padding-top:0">
+                    <code>${escapeHtml(r.artifactSetPath)}</code> ·
+                    export ${escapeHtml(r.exportMode)} ${r.exportSeconds.toFixed(1)} s ·
+                    ${r.files.map(f => `${escapeHtml(f.role)} ${escapeHtml(f.sha256.slice(0, 12))}…`).join(' · ')}
+                </td></tr>`).join('')}</tbody>
+        </table>`;
+
+    body.querySelectorAll<HTMLElement>('[data-export]').forEach(b => {
+        b.addEventListener('click', async () => {
+            const rec = list.find(x => x.id === b.dataset.export);
+            if (rec) await saveJsonFile(`${rec.id}.json`, rec);
+        });
+    });
+    body.querySelectorAll<HTMLElement>('[data-delete]').forEach(b => {
+        b.addEventListener('click', async () => {
+            const id = b.dataset.delete!;
+            const ok = await askConfirm({
+                title: 'Eliminare la voce?',
+                okLabel: 'Elimina',
+                danger: true,
+                bodyHtml: `<p>La voce di storico viene rimossa. <strong>I file sul disco non
+                    vengono toccati</strong>: restano nella loro cartella.</p>`,
+            });
+            if (!ok) return;
+            await deleteRecord(id);
+            void renderHistoryStep();
+        });
     });
 }
 
-async function onHistoryAction(action: string, id: string | undefined, list: BackupEntry[]): Promise<void> {
-    if (action === 'export-all') {
-        await saveToFile('agent-rename-backups.json', list);
-        return;
-    }
-    const entry = list.find(e => e.id === id);
-    if (!entry) return;
+// ── Fase 2: deploy opzionale ──────────────────────────────────────────────────
 
-    if (action === 'export') {
-        await saveToFile(`agent-rename-backup-${entry.id}.json`, entry);
-    } else if (action === 'restore') {
-        const res = await performRollback(entry);
-        if (res.status !== 'cancelled') await renderHistory();
-        void updateHistoryButton();
-    } else if (action === 'delete') {
-        const ok = await askConfirm({
-            title: 'Delete this backup?',
-            okLabel: 'Delete',
-            danger: true,
-            bodyHtml: `<p>The change to <strong>${escapeHtml(entry.agents[0]?.nameAfter ?? 'this agent')}</strong>
-                can no longer be undone once its backup is gone.</p>`,
-        });
-        if (!ok) return;
-        try {
-            await mutateBackups(toolbox.settings, l => l.filter(e => e.id !== entry.id));
-            log('Backup deleted.', 'info');
-        } catch (err) {
-            log(`Could not delete the backup: ${err}`, 'error');
+/**
+ * Il deploy agisce sulla **connessione attiva**: PPTB non espone un selettore di environment
+ * dentro il tool. Quindi si dice a chiare lettere dove si sta per scrivere, e se coincide con
+ * la sorgente si chiede conferma — importare la solution nell'ambiente da cui è stata
+ * esportata non è quasi mai ciò che si vuole.
+ */
+function renderDeployPanel(host: HTMLElement): void {
+    const set = state.lastSet;
+    const r = state.packaging;
+    if (!set || !r) return;
+    const deployFile = set.files.find(f => f.role === 'deploy');
+    if (!deployFile) return;
+
+    host.innerHTML = `
+        <h3 class="section-title">Deploy (opzionale)</h3>
+        <div class="kv"><span class="kv-key">Environment di destinazione</span>
+            <span class="kv-val kv-val--strong">${escapeHtml(state.connectionName)}</span></div>
+        <div class="kv"><span class="kv-key">File</span>
+            <span class="kv-val"><code>${escapeHtml(deployFile.fileName)}</code> ${roleChip('deploy')}</span></div>
+        <p class="hint">
+            È la <strong>connessione attiva</strong>. Se non è l'ambiente di destinazione, cambiala
+            prima di procedere. L'archivio <code>unmanaged</code> non è proponibile qui.
+        </p>
+        <div id="deploy-checks"></div>
+        <div class="step-footer" style="margin-top:12px">
+            <button class="btn btn--secondary" id="deploy-btn">Importa in ${escapeHtml(state.connectionName)}</button>
+        </div>
+        <div id="deploy-progress"></div>`;
+
+    document.getElementById('deploy-btn')!.addEventListener('click', () => void runDeploy());
+    void loadDeployChecks();
+}
+
+/** I due controlli che a mano si saltano sempre: layer preesistente e update vs upgrade. */
+async function loadDeployChecks(): Promise<void> {
+    const r = state.packaging;
+    const host = document.getElementById('deploy-checks');
+    if (!r || !host) return;
+    const pkg = r.managed.source;
+    const agent = pkg.agents[0];
+    if (!agent) return;
+
+    try {
+        const [target, installed] = await Promise.all([
+            readTargetAgent(agent.schemaName),
+            readInstalledVersion(pkg.uniqueName),
+        ]);
+        const parts: string[] = [];
+
+        if (target.found && target.probablyHasUnmanagedLayer) {
+            parts.push(`<p class="hint hint--warn">
+                <strong>L'agent nel target sembra avere customizations attive.</strong>
+                Finché esiste un unmanaged layer, il nome del package non comparirà: va rimosso
+                con <em>Solution Layers → Remove active customizations</em>. Il rilevamento è
+                best effort, quindi vale la pena controllare comunque.</p>`);
+        } else if (target.found) {
+            parts.push(`<div class="kv"><span class="kv-key">Agent nel target</span>
+                <span class="kv-val">${escapeHtml(target.name)} — nessuna customization rilevata</span></div>`);
+        } else {
+            parts.push(`<div class="kv"><span class="kv-key">Agent nel target</span>
+                <span class="kv-val">non presente: sarà una prima installazione</span></div>`);
         }
-        await renderHistory();
-        void updateHistoryButton();
+
+        if (installed) {
+            const same = installed === pkg.version;
+            parts.push(`<div class="kv"><span class="kv-key">Versione installata</span>
+                <span class="kv-val">${escapeHtml(installed)} → ${escapeHtml(pkg.version)}
+                ${same ? '<span class="chip chip--warning">update</span>' : '<span class="chip chip--success">upgrade</span>'}</span></div>`);
+            if (same) {
+                parts.push(`<p class="hint">
+                    Stessa versione: è un <strong>update</strong>, non un upgrade. Se ti serve un
+                    upgrade, torna indietro e attiva l'incremento di versione.</p>`);
+            }
+        }
+        host.innerHTML = parts.join('');
+    } catch (err) {
+        host.innerHTML = `<p class="hint">Controlli preliminari non riusciti: ${escapeHtml(describeError(err))}</p>`;
     }
 }
 
-async function upsertEnvVariable(): Promise<void> {
-    const sol = state.activeSolution;
-    const isNewDefinition = !state.envVarDefId;
+async function runDeploy(): Promise<void> {
+    const set = state.lastSet;
+    const r = state.packaging;
+    if (!set || !r) return;
+    const file = set.files.find(f => f.role === 'deploy');
+    const agent = r.managed.source.agents[0];
+    const change = r.plan.find(c => c.element === 'name');
+    if (!file || !agent) return;
 
-    if (isNewDefinition) {
-        const createResult = await dataverse.create('environmentvariabledefinition', {
-            schemaname: state.envVarSchemaName,
-            displayname: `Agent Display Suffix — ${sol?.friendlyName ?? 'Environment'}`,
-            type: 100000000, // String
-            defaultvalue: state.pendingSuffix,
-        });
-        state.envVarDefId = createResult.id;
-    }
+    const ok = await askConfirm({
+        title: `Importare in ${state.connectionName}?`,
+        okLabel: 'Importa',
+        bodyHtml: `
+            <p>Viene importato <code>${escapeHtml(file.fileName)}</code> nell'environment
+            <strong>${escapeHtml(state.connectionName)}</strong>.</p>
+            <p class="hint">Assicurati che sia l'ambiente di destinazione e non quello di
+            partenza.</p>`,
+    });
+    if (!ok) { log('Deploy annullato.'); return; }
 
-    // Components can't be added to a managed solution, so in a downstream environment the variable
-    // is created outside it. Normally it never gets here: the definition travels with the solution
-    // from the environment where it was first created.
-    if (isNewDefinition && sol?.isManaged) {
-        log(`"${sol.friendlyName || sol.uniqueName}" is managed, so the variable was created outside it.`, 'warning');
-    }
-    if (isNewDefinition && sol && !sol.isManaged) {
-        await dataverse.execute({
-            operationName: 'AddSolutionComponent',
-            operationType: 'action',
-            parameters: {
-                ComponentId: state.envVarDefId,
-                ComponentType: 380, // Environment Variable Definition (per official componenttype enum)
-                SolutionUniqueName: sol.uniqueName,
-                AddRequiredComponents: false,
-            },
-        });
-    }
+    const btn = document.getElementById('deploy-btn') as HTMLButtonElement | null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Import in corso…'; }
+    const progress = document.getElementById('deploy-progress');
+    const show = (text: string) => {
+        if (progress) progress.innerHTML = `<div class="progress-line"><span class="spinner"></span> ${escapeHtml(text)}</div>`;
+    };
 
-    // Upsert value record
-    if (state.envVarValueId) {
-        await dataverse.update('environmentvariablevalue', state.envVarValueId, {
-            value: state.pendingSuffix,
-        });
-    } else {
-        const valResult = await dataverse.create('environmentvariablevalue', {
-            value: state.pendingSuffix,
-            'EnvironmentVariableDefinitionId@odata.bind':
-                `/environmentvariabledefinitions(${state.envVarDefId})`,
-        });
-        state.envVarValueId = valResult.id;
+    try {
+        const outcome = await deployArtifact(
+            file.role === 'deploy' ? r.managed.bytes : r.managed.bytes,
+            { schemaName: agent.schemaName, name: change?.after ?? agent.name },
+            show,
+        );
+        await updateRecord(set.folderName, rec => ({
+            ...rec,
+            deployments: [...rec.deployments, {
+                timestamp: new Date().toISOString(),
+                targetEnvironmentUrl: state.connectionName,
+                importJobId: outcome.importJobId,
+                status: outcome.status === 'succeeded' ? 'succeeded' : 'failed',
+                message: outcome.message,
+            }],
+        }));
+        if (progress) {
+            progress.innerHTML = `
+                <div class="result-banner result-banner--${outcome.status === 'succeeded' ? 'success' : 'error'}">
+                    ${outcome.status === 'succeeded'
+                        ? `Import completato. Nel target l'agent si chiama
+                           <strong>${escapeHtml(outcome.nameInTarget ?? '')}</strong>.`
+                        : escapeHtml(outcome.message)}
+                </div>
+                ${outcome.status !== 'succeeded' ? `<p class="hint">
+                    L'archivio resta sul disco: puoi ritentare o importarlo dal portale.</p>` : ''}`;
+        }
+    } catch (err) {
+        if (progress) {
+            progress.innerHTML = `<div class="result-banner result-banner--error">
+                ${escapeHtml(describeError(err))}</div>
+                <p class="hint">L'archivio resta sul disco: puoi ritentare o importarlo dal portale.</p>`;
+        }
+        log(`Deploy non riuscito: ${describeError(err)}`, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = `Importa in ${state.connectionName}`; }
     }
 }
 
 // ── Controls ──────────────────────────────────────────────────────────────────
 els.clearLogBtn.addEventListener('click', () => {
-    els.logEntries.innerHTML = '';
+    clearLog();
     log('Log cleared.');
 });
 els.refreshBtn.addEventListener('click', () => loadAgents());
 els.historyBtn.addEventListener('click', () => navigateTo('history'));
+
+/** Il log e' un tracciato di cosa e' stato fatto: deve poter uscire dal tool (FR-017). */
+els.exportLogBtn.addEventListener('click', async () => {
+    const ok = await askConfirm({
+        title: 'Esporta il log',
+        okLabel: 'CSV',
+        bodyHtml: `<p>${getEntries().length} voci. <strong>CSV</strong> per aprirlo in un foglio,
+            <strong>Annulla</strong> e usa il pulsante di nuovo se preferisci JSON.</p>
+            <p class="hint">Il file resta sul dispositivo: nulla viene trasmesso.</p>`,
+    });
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    if (ok) await saveTextFile(`agent-rename-log-${stamp}.csv`, toCsv());
+    else await saveTextFile(`agent-rename-log-${stamp}.json`, toJson());
+});
 
 document.getElementById('solution-type-filter')!.addEventListener('click', ev => {
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('.segment');
@@ -2330,7 +1588,7 @@ clearSearchBtn.addEventListener('click', () => {
 });
 
 
-toolbox.events.on((_event, payload) => {
+toolbox.events.on((_event: unknown, payload: { event: string }) => {
     if (payload.event === 'connection:updated' || payload.event === 'connection:created') {
         log('Connection changed. Reloading...', 'info');
         state.agents = [];
@@ -2338,8 +1596,8 @@ toolbox.events.on((_event, payload) => {
         state.activeAgent = null;
         state.activeSolution = null;
         state.browsingSolutionId = null;
-        state.suffixDraft = null;
-        state.nameSuffixOverride = null;
+        state.suffix = '';
+        state.packaging = null;
         state.solutionFilter = null;   // the new environment may hold the other kind of solution
         state.connectionName = '';   // keeps the silent refresh idle until the new connection is confirmed
         navigateTo('welcome');
@@ -2348,6 +1606,7 @@ toolbox.events.on((_event, payload) => {
 });
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+attachLog(els.logEntries);
+els.exportLogBtn.disabled = false;
 log('Agent Rename Manager starting...');
-void updateHistoryButton();
 initConnection();

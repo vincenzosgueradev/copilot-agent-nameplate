@@ -1,0 +1,63 @@
+{
+    "invocation": {
+        "version": "1.0.0",
+        "capabilities": [
+            "solution-selector"
+        ],
+        "prefill": {
+            "properties": {
+                "solutionUniqueName": {
+                    "type": "string"
+                },
+                "suffix": {
+                    "type": "string"
+                },
+                "outputDirectory": {
+                    "type": "string"
+                }
+            }
+        },
+        "returnTopic": {
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "ok",
+                        "error"
+                    ]
+                },
+                "artifactSet": {
+                    "type": "object"
+                },
+                "changes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "agents": {
+        "version": "1.0.0",
+        "headless": true,
+        "invokable": true,
+        "modes": [
+            "two-way"
+        ],
+        "defaultMode": "two-way",
+        "timeoutMS": 600000,
+        "executionModes": [
+            "windowed",
+            "headless"
+        ],
+        "defaultExecutionMode": "windowed",
+        "headlessEntry": "dist/headless.js"
+    }
+}
