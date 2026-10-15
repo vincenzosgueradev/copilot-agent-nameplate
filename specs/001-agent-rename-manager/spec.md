@@ -584,7 +584,17 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   `{UniqueName}_{Version}_managed_{SUFFISSO}.zip`, `{UniqueName}_{Version}_unmanaged_{SUFFISSO}.zip`
   e, se conservati, `source_managed.zip` / `source_unmanaged.zip`. La cartella dell'operazione DEVE
   essere scelta tramite il dialog di PPTB e il tool DEVE chiedere conferma prima di sovrascrivere
-  un artifact set esistente
+  un artifact set esistente.
+  **Nome della cartella dell'operazione** *(revisione 2026-10-16)*: DEVE essere leggibile senza
+  decifrarlo, nella forma `{UniqueName} {Version} [{SUFFISSO}] - {AAAA-MM-GG hh-mm}`, per esempio
+  `testAgentTool 1.0.0.2 [UAT] - 2026-10-15 21-38`; senza suffisso la parentesi riporta
+  `[senza suffisso]`. L'`UniqueName` resta in testa perché le operazioni si raggruppino per
+  solution nel file manager. I due punti fra ore e minuti NON sono ammessi da Windows nei nomi di
+  cartella: si usa il trattino. Suffisso e `UniqueName` DEVONO essere ripuliti dei caratteri che
+  il filesystem rifiuta (`\ / : * ? " < > |`) prima di comporre il nome.
+  **Conseguenza nota**: la marca temporale si ferma al minuto, quindi due artifact set della stessa
+  solution, versione e suffisso prodotti entro lo stesso minuto ricadono sulla **stessa cartella**.
+  È il caso che la conferma di sovrascrittura di questo stesso FR deve intercettare
 - **FR-075**: Prima di scrivere qualsiasi file il tool DEVE mostrare l'anteprima del patch: per ogni
   agent `nome nel package → nome nuovo`, il percorso esatto del file toccato, le opzioni attive
   (bump di versione) e l'elenco di ciò che **non** viene toccato

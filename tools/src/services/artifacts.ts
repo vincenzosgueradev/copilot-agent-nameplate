@@ -25,11 +25,20 @@ export async function sha256(bytes: Uint8Array): Promise<string> {
     return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Data e ora al minuto, leggibili: `2026-10-15 21-38`.
+ *
+ * I due punti separerebbero meglio ore e minuti ma Windows non li ammette nei nomi di
+ * cartella, quindi trattino.
+ */
 function stamp(d: Date): string {
     const p = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`
-        + `-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+        + ` ${p(d.getHours())}-${p(d.getMinutes())}`;
 }
+
+/** Via i caratteri che Windows rifiuta: il suffisso lo scrive l'utente, puo' contenere di tutto. */
+const safeForPath = (s: string) => s.replace(/[\\/:*?"<>|]/g, '').trim();
 
 /** `1.0.0.2` → `1_0_0_2`, perché i punti nel nome file confondono l'estensione. */
 const flat = (v: string) => v.replace(/\./g, '_');
@@ -64,8 +73,14 @@ export async function writeArtifactSet(
     const { result, suffix, options } = input;
     const pkg = result.managed.source;
     const now = new Date();
+    // I nomi dei file restano quelli di FR-074: `{UniqueName}_{Version}_managed_{SUFFISSO}.zip`.
     const suffixTag = suffix.trim() || 'nosuffix';
-    const folderName = `${pkg.uniqueName}_${pkg.version}_${suffixTag}_${stamp(now)}`;
+
+    // La cartella invece e' per l'occhio: `testAgentTool 1.0.0.2 [UAT] - 2026-10-15 21-38`.
+    // La solution resta in testa, cosi' in Esplora file le operazioni si raggruppano per solution.
+    const clean = safeForPath(suffix);
+    const tag = clean ? ` [${clean}]` : ' [senza suffisso]';
+    const folderName = `${safeForPath(pkg.uniqueName)} ${pkg.version}${tag} - ${stamp(now)}`;
     const folderPath = `${baseFolder}/${folderName}`;
 
     await ensureDirectory(folderPath);
