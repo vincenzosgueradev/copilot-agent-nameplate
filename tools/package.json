@@ -3,6 +3,7 @@
     "version": "0.1.0",
     "displayName": "Agent Rename Manager",
     "description": "Produce the solution package with Copilot Studio agent display names already set for the target environment. No unmanaged layer, ever.",
+    "type": "module",
     "main": "index.html",
     "author": "Power Platform ToolBox",
     "license": "MIT",
