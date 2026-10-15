@@ -11,8 +11,7 @@ import {
 import { OverwriteDeclined, writeArtifactSet } from './services/artifacts';
 import { describeError } from './services/dataverse';
 import { disposeShell, openFolder, saveJsonFile, saveTextFile, selectFolder } from './services/files';
-import { deployArtifact, readInstalledVersion, readTargetAgent } from './services/deploy';
-import { addRecord, deleteRecord, readHistory, updateRecord } from './services/history';
+import { addRecord, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
 import { runPackaging, type PackagingResult } from './services/packaging';
 import { buildName } from './services/patch';
@@ -1512,8 +1511,6 @@ function renderResultStep(): void {
             </div>
         </section>
 
-        <div class="card" id="deploy-panel"></div>
-
         <div class="step-footer">
             <button class="btn btn--primary" id="open-folder-btn">
                 ${icon('package', 'icon--sm')} Apri cartella</button>
@@ -1521,9 +1518,6 @@ function renderResultStep(): void {
                 ${icon('history', 'icon--sm')} Vedi lo storico</button>
             <button class="btn btn--secondary" id="done-btn">Fine</button>
         </div>`;
-
-    const deployHost = document.getElementById('deploy-panel');
-    if (deployHost) renderDeployPanel(deployHost);
 
     els.stepResult.querySelector('#open-folder-btn')!.addEventListener('click', () => {
         void openFolder(set.folderPath).catch(err =>
@@ -1642,152 +1636,6 @@ async function renderHistoryStep(): Promise<void> {
 }
 
 // ── Fase 2: deploy opzionale ──────────────────────────────────────────────────
-
-/**
- * Il deploy agisce sulla **connessione attiva**: PPTB non espone un selettore di environment
- * dentro il tool. Quindi si dice a chiare lettere dove si sta per scrivere, e se coincide con
- * la sorgente si chiede conferma — importare la solution nell'ambiente da cui è stata
- * esportata non è quasi mai ciò che si vuole.
- */
-function renderDeployPanel(host: HTMLElement): void {
-    const set = state.lastSet;
-    const r = state.packaging;
-    if (!set || !r) return;
-    const deployFile = set.files.find(f => f.role === 'deploy');
-    if (!deployFile) return;
-
-    host.innerHTML = `
-        <h3 class="section-title">Deploy (opzionale)</h3>
-        <div class="kv"><span class="kv-key">Environment di destinazione</span>
-            <span class="kv-val kv-val--strong">${escapeHtml(state.connectionName)}</span></div>
-        <div class="kv"><span class="kv-key">File</span>
-            <span class="kv-val"><code>${escapeHtml(deployFile.fileName)}</code> ${roleChip('deploy')}</span></div>
-        <p class="hint">
-            È la <strong>connessione attiva</strong>. Se non è l'ambiente di destinazione, cambiala
-            prima di procedere. L'archivio <code>unmanaged</code> non è proponibile qui.
-        </p>
-        <div id="deploy-checks"></div>
-        <div class="step-footer" style="margin-top:12px">
-            <button class="btn btn--secondary" id="deploy-btn">Importa in ${escapeHtml(state.connectionName)}</button>
-        </div>
-        <div id="deploy-progress"></div>`;
-
-    document.getElementById('deploy-btn')!.addEventListener('click', () => void runDeploy());
-    void loadDeployChecks();
-}
-
-/** I due controlli che a mano si saltano sempre: layer preesistente e update vs upgrade. */
-async function loadDeployChecks(): Promise<void> {
-    const r = state.packaging;
-    const host = document.getElementById('deploy-checks');
-    if (!r || !host) return;
-    const pkg = r.managed.source;
-    const agent = pkg.agents[0];
-    if (!agent) return;
-
-    try {
-        const [target, installed] = await Promise.all([
-            readTargetAgent(agent.schemaName),
-            readInstalledVersion(pkg.uniqueName),
-        ]);
-        const parts: string[] = [];
-
-        if (target.found && target.probablyHasUnmanagedLayer) {
-            parts.push(`<p class="hint hint--warn">
-                <strong>L'agent nel target sembra avere customizations attive.</strong>
-                Finché esiste un unmanaged layer, il nome del package non comparirà: va rimosso
-                con <em>Solution Layers → Remove active customizations</em>. Il rilevamento è
-                best effort, quindi vale la pena controllare comunque.</p>`);
-        } else if (target.found) {
-            parts.push(`<div class="kv"><span class="kv-key">Agent nel target</span>
-                <span class="kv-val">${escapeHtml(target.name)} — nessuna customization rilevata</span></div>`);
-        } else {
-            parts.push(`<div class="kv"><span class="kv-key">Agent nel target</span>
-                <span class="kv-val">non presente: sarà una prima installazione</span></div>`);
-        }
-
-        if (installed) {
-            const same = installed === pkg.version;
-            parts.push(`<div class="kv"><span class="kv-key">Versione installata</span>
-                <span class="kv-val">${escapeHtml(installed)} → ${escapeHtml(pkg.version)}
-                ${same ? '<span class="chip chip--warning">update</span>' : '<span class="chip chip--success">upgrade</span>'}</span></div>`);
-            if (same) {
-                parts.push(`<p class="hint">
-                    Stessa versione: è un <strong>update</strong>, non un upgrade. Se ti serve un
-                    upgrade, torna indietro e attiva l'incremento di versione.</p>`);
-            }
-        }
-        host.innerHTML = parts.join('');
-    } catch (err) {
-        host.innerHTML = `<p class="hint">Controlli preliminari non riusciti: ${escapeHtml(describeError(err))}</p>`;
-    }
-}
-
-async function runDeploy(): Promise<void> {
-    const set = state.lastSet;
-    const r = state.packaging;
-    if (!set || !r) return;
-    const file = set.files.find(f => f.role === 'deploy');
-    const agent = r.managed.source.agents[0];
-    const change = r.plan.find(c => c.element === 'name');
-    if (!file || !agent) return;
-
-    const ok = await askConfirm({
-        title: `Importare in ${state.connectionName}?`,
-        okLabel: 'Importa',
-        bodyHtml: `
-            <p>Viene importato <code>${escapeHtml(file.fileName)}</code> nell'environment
-            <strong>${escapeHtml(state.connectionName)}</strong>.</p>
-            <p class="hint">Assicurati che sia l'ambiente di destinazione e non quello di
-            partenza.</p>`,
-    });
-    if (!ok) { log('Deploy annullato.'); return; }
-
-    const btn = document.getElementById('deploy-btn') as HTMLButtonElement | null;
-    if (btn) { btn.disabled = true; btn.textContent = 'Import in corso…'; }
-    const progress = document.getElementById('deploy-progress');
-    const show = (text: string) => {
-        if (progress) progress.innerHTML = `<div class="progress-line"><span class="spinner"></span> ${escapeHtml(text)}</div>`;
-    };
-
-    try {
-        const outcome = await deployArtifact(
-            file.role === 'deploy' ? r.managed.bytes : r.managed.bytes,
-            { schemaName: agent.schemaName, name: change?.after ?? agent.name },
-            show,
-        );
-        await updateRecord(set.folderName, rec => ({
-            ...rec,
-            deployments: [...rec.deployments, {
-                timestamp: new Date().toISOString(),
-                targetEnvironmentUrl: state.connectionName,
-                importJobId: outcome.importJobId,
-                status: outcome.status === 'succeeded' ? 'succeeded' : 'failed',
-                message: outcome.message,
-            }],
-        }));
-        if (progress) {
-            progress.innerHTML = `
-                <div class="result-banner result-banner--${outcome.status === 'succeeded' ? 'success' : 'error'}">
-                    ${outcome.status === 'succeeded'
-                        ? `Import completato. Nel target l'agent si chiama
-                           <strong>${escapeHtml(outcome.nameInTarget ?? '')}</strong>.`
-                        : escapeHtml(outcome.message)}
-                </div>
-                ${outcome.status !== 'succeeded' ? `<p class="hint">
-                    L'archivio resta sul disco: puoi ritentare o importarlo dal portale.</p>` : ''}`;
-        }
-    } catch (err) {
-        if (progress) {
-            progress.innerHTML = `<div class="result-banner result-banner--error">
-                ${escapeHtml(describeError(err))}</div>
-                <p class="hint">L'archivio resta sul disco: puoi ritentare o importarlo dal portale.</p>`;
-        }
-        log(`Deploy non riuscito: ${describeError(err)}`, 'error');
-    } finally {
-        if (btn) { btn.disabled = false; btn.textContent = `Importa in ${state.connectionName}`; }
-    }
-}
 
 // ── Controls ──────────────────────────────────────────────────────────────────
 els.clearLogBtn.addEventListener('click', () => {

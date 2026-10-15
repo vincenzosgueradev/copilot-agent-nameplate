@@ -624,7 +624,16 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   esattamente il caso osservato sull'unico agent del tenant con nome e canale divergenti
 - **FR-081** *(fase 2)*: Il tool DEVE poter importare lo zip prodotto in un environment connesso,
   mostrando l'avanzamento dell'import job fino all'esito. Il deploy DEVE essere **opzionale e
-  separato**: la fase 1 si chiude con lo zip sul disco
+  separato**: la fase 1 si chiude con lo zip sul disco.
+  **Vincolo sulla destinazione** *(revisione 2026-10-16)*: il deploy DEVE agire su una connessione
+  **scelta dall'utente e diversa dalla sorgente**, come già previsto dall'Independent Test della
+  User Story 5 (due connessioni, DEV e UAT, con UAT scelta come destinazione). Un pannello che
+  assume la **connessione attiva** come destinazione è sbagliato: durante il packaging quella è
+  l'ambiente di **origine**, e reimportarvi il managed vi stenderebbe sopra un layer managed —
+  esattamente ciò che questo flusso esiste per evitare. Una prima implementazione faceva così ed
+  è stata **rimossa** il 2026-10-16; `services/deploy.ts` resta disponibile. Finché PPTB non
+  espone la scelta dell'environment dentro il tool, il deploy NON DEVE essere riproposto in UI:
+  la fase 1 si chiude con l'artefatto su disco e l'import avviene nell'ambiente successivo
 - **FR-082** *(fase 2)*: Prima di un deploy il tool DEVE rilevare se l'agent nell'ambiente di
   destinazione ha un **unmanaged layer** attivo e avvisare che, finché esiste, il nome del package
   non comparirà: va rimosso con **Remove active customizations**
