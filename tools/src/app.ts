@@ -835,8 +835,7 @@ function renderSuffixStep(): void {
             ${stepperHtml(1)}
         </div>
 
-        <div class="two-col">
-            <div class="col-stack">
+        <div class="stack">
                 <section class="panel">
                     <div class="panel-head">
                         <h3 class="panel-heading">Suffisso</h3>
@@ -861,16 +860,6 @@ function renderSuffixStep(): void {
                     </div>
                 </section>
 
-                <section class="panel">
-                    <div class="panel-head">
-                        <h3 class="panel-heading">Artefatti</h3>
-                        <span class="panel-sub">cosa finisce su disco</span>
-                    </div>
-                    <div class="panel-body" id="artifact-list">
-                        ${artifactListHtml(sol, draft, state.options.keepSourceArtifacts)}
-                    </div>
-                </section>
-            </div>
 
                 <section class="panel">
                     <div class="panel-head"><h3 class="panel-heading">Opzioni</h3></div>
@@ -913,6 +902,16 @@ function renderSuffixStep(): void {
                             </div>
                         </div>
 
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-head">
+                        <h3 class="panel-heading">Artefatti</h3>
+                        <span class="panel-sub">cosa finisce su disco</span>
+                    </div>
+                    <div class="panel-body" id="artifact-list">
+                        ${artifactListHtml(sol, draft, state.options.keepSourceArtifacts)}
                     </div>
                 </section>
         </div>

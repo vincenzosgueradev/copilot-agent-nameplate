@@ -1219,14 +1219,15 @@ mark.hl {
     color: var(--color-text-muted);
 }
 
-/* Colonna che impila piu' pannelli dentro una cella della griglia */
-.col-stack {
+/* Pannelli impilati a tutta larghezza, con lo stesso respiro fra l'uno e l'altro */
+.stack {
     display: flex;
     flex-direction: column;
     gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
 }
 
-.col-stack > .panel { margin-bottom: 0; }
+.stack > .panel { margin-bottom: 0; }
 
 /* ── Elenco degli artefatti ──
    Gli archivi che l'opzione non produce restano visibili ma spenti: si vede cosa si sta
