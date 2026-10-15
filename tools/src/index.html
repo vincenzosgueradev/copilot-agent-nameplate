@@ -29,14 +29,20 @@
         <main class="main-content" id="main-content">
             <nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb" hidden></nav>
             <div class="solutions-browser" id="welcome-screen">
-                <div class="solutions-browser-header">
-                    <div>
-                        <h2 class="browser-title">
-                            <span class="icon icon-layers icon--head" aria-hidden="true"></span>Solutions</h2>
+                <div class="hero">
+                    <span class="hero-mark">
+                        <span class="icon icon-layers" aria-hidden="true"></span>
+                    </span>
+                    <div class="hero-text">
+                        <h2 class="hero-title">Solutions</h2>
                         <p class="browser-subtitle" id="browser-subtitle">
                             Solutions containing agents. Select one to see its agents.
                         </p>
                     </div>
+                    <dl class="hero-stats" id="hero-stats"></dl>
+                </div>
+
+                <div class="solutions-browser-header">
                     <div class="header-actions">
                         <span class="refresh-indicator" role="status">
                             <span class="spinner"></span> Updating…

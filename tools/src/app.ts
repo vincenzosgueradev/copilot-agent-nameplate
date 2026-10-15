@@ -344,11 +344,21 @@ function renderTypeFilter(): void {
     const counts = typeCounts();
 
     if (host) {
+        const mark = { unmanaged: 'unmanaged', managed: 'managed', all: 'all-solutions' } as const;
         host.innerHTML = (['unmanaged', 'managed', 'all'] as const).map(f => `
             <button type="button" class="segment${f === active ? ' active' : ''}" data-filter="${f}"
                 aria-pressed="${f === active}">
+                ${icon(mark[f], 'icon--sm')}
                 ${FILTER_LABEL[f]}<span class="segment-count">${counts[f]}</span>
             </button>`).join('');
+    }
+    const stats = document.getElementById('hero-stats');
+    if (stats) {
+        const agents = state.agents.length;
+        stats.innerHTML = `
+            <div class="stat"><dt>Solution</dt><dd>${counts.all}</dd></div>
+            <div class="stat"><dt>Agent</dt><dd>${agents}</dd></div>
+            <div class="stat"><dt>Managed</dt><dd>${counts.managed}</dd></div>`;
     }
     if (subtitle) {
         subtitle.textContent = active === 'all'

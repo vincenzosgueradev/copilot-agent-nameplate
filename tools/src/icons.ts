@@ -36,7 +36,10 @@ export type IconName =
     | 'sliders'
     | 'shield'
     | 'send'
-    | 'layers';
+    | 'layers'
+    | 'unmanaged'
+    | 'managed'
+    | 'all-solutions';
 
 /** Markup dell'icona, pronto da concatenare in un template string. */
 export function icon(name: IconName, cls = ''): string {

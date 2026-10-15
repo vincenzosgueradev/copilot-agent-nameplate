@@ -171,12 +171,78 @@ body {
     border-radius: var(--radius);
 }
 
+/* ── Intestazione della home ──
+   La prima schermata apriva su una tabella e basta. Qui l'ambiente si legge a colpo d'occhio:
+   quante solution, quanti agent, quante managed. */
+.hero {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-5);
+    padding: var(--sp-5) var(--sp-6);
+    margin-bottom: var(--sp-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background:
+        radial-gradient(900px 140px at 0% 0%, rgba(0, 120, 212, 0.16), transparent 70%),
+        var(--color-surface);
+    flex-wrap: wrap;
+}
+
+.hero-mark {
+    width: 46px;
+    height: 46px;
+    flex-shrink: 0;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.hero-mark .icon { width: 24px; height: 24px; }
+
+.hero-text { flex: 1; min-width: 220px; }
+
+.hero-title {
+    font-size: var(--fs-xl);
+    font-weight: 600;
+    color: var(--color-text-strong);
+    margin: 0 0 2px;
+}
+
+/* I conteggi in cifre grandi: sono il riassunto dell'ambiente */
+.hero-stats { display: flex; gap: var(--sp-6); margin: 0; flex-shrink: 0; }
+
+.stat { text-align: right; }
+
+.stat dt {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-muted);
+}
+
+.stat dd {
+    margin: 0;
+    font-size: var(--fs-xl);
+    font-weight: 600;
+    color: var(--color-text-strong);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+@media (max-width: 900px) {
+    .hero { gap: var(--sp-4); padding: var(--sp-4); }
+    .hero-stats { gap: var(--sp-5); }
+}
+
 .solutions-browser-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 16px;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
     flex-shrink: 0;
 }
 
@@ -213,8 +279,8 @@ body {
 .segment {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
     background: var(--color-surface-2);
     border: none;
     border-right: 1px solid var(--color-border);
@@ -1589,6 +1655,9 @@ mark.hl {
 .icon-shield { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 1.9 13.2 4v4c0 3-2.2 5.1-5.2 6-3-.9-5.2-3-5.2-6V4z'/%3E%3Cpath d='M5.9 7.9 7.4 9.4 10.3 6.5'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 1.9 13.2 4v4c0 3-2.2 5.1-5.2 6-3-.9-5.2-3-5.2-6V4z'/%3E%3Cpath d='M5.9 7.9 7.4 9.4 10.3 6.5'/%3E%3C/svg%3E"); }
 .icon-send { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13.9 2.1 7.2 8.8'/%3E%3Cpath d='M13.9 2.1 9.7 13.9 7.2 8.8 2.1 6.3z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13.9 2.1 7.2 8.8'/%3E%3Cpath d='M13.9 2.1 9.7 13.9 7.2 8.8 2.1 6.3z'/%3E%3C/svg%3E"); }
 .icon-layers { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 1.8 14.2 5 8 8.2 1.8 5z'/%3E%3Cpath d='M1.8 8 8 11.2 14.2 8'/%3E%3Cpath d='M1.8 11 8 14.2 14.2 11'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 1.8 14.2 5 8 8.2 1.8 5z'/%3E%3Cpath d='M1.8 8 8 11.2 14.2 8'/%3E%3Cpath d='M1.8 11 8 14.2 14.2 11'/%3E%3C/svg%3E"); }
+.icon-unmanaged { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='black'%3E%3Cpath d='M12.92 2.87a2.97 2.97 0 0 1 4.2 4.21l-.66.67-4.2-4.2.66-.68Zm-1.38 1.38-8 8c-.32.33-.55.74-.65 1.2l-.88 3.94a.5.5 0 0 0 .6.6l3.92-.87c.47-.1.9-.34 1.24-.68l7.98-7.98-4.2-4.21Z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='black'%3E%3Cpath d='M12.92 2.87a2.97 2.97 0 0 1 4.2 4.21l-.66.67-4.2-4.2.66-.68Zm-1.38 1.38-8 8c-.32.33-.55.74-.65 1.2l-.88 3.94a.5.5 0 0 0 .6.6l3.92-.87c.47-.1.9-.34 1.24-.68l7.98-7.98-4.2-4.21Z'/%3E%3C/svg%3E"); }
+.icon-managed { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='black'%3E%3Cpath d='M10 2a3 3 0 0 0-3 3v1H6a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1V5a3 3 0 0 0-3-3ZM8 5a2 2 0 1 1 4 0v1H8V5Zm2 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='black'%3E%3Cpath d='M10 2a3 3 0 0 0-3 3v1H6a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1V5a3 3 0 0 0-3-3ZM8 5a2 2 0 1 1 4 0v1H8V5Zm2 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/%3E%3C/svg%3E"); }
+.icon-all-solutions { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='black'%3E%3Cpath d='M12 2a2 2 0 0 1 2 2v7h-.88L9 6.88A3 3 0 0 0 6.88 6H5a3 3 0 0 0-1 .17V4c0-1.1.9-2 2-2h6Zm3 9a3 3 0 0 1 1 .17V6a2 2 0 0 0-1-1.73V11ZM5 7a2 2 0 0 0-2 2v6.5A2.5 2.5 0 0 0 5.5 18h9a2.5 2.5 0 0 0 2.5-2.5V14a2 2 0 0 0-2-2h-1.88a1 1 0 0 1-.7-.3L8.28 7.6A2 2 0 0 0 6.88 7H5Z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='black'%3E%3Cpath d='M12 2a2 2 0 0 1 2 2v7h-.88L9 6.88A3 3 0 0 0 6.88 6H5a3 3 0 0 0-1 .17V4c0-1.1.9-2 2-2h6Zm3 9a3 3 0 0 1 1 .17V6a2 2 0 0 0-1-1.73V11ZM5 7a2 2 0 0 0-2 2v6.5A2.5 2.5 0 0 0 5.5 18h9a2.5 2.5 0 0 0 2.5-2.5V14a2 2 0 0 0-2-2h-1.88a1 1 0 0 1-.7-.3L8.28 7.6A2 2 0 0 0 6.88 7H5Z'/%3E%3C/svg%3E"); }
 
 /* ── Dark-themed native inputs ── */
 /* `:where()` azzera la specificita': questo e' il fondo su cui i componenti scrivono.
