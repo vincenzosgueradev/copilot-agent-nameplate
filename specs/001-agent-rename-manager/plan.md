@@ -1,6 +1,6 @@
 # Implementation Plan: Agent Rename Manager
 
-**Branch**: `001-agent-rename-manager` | **Date**: 2026-10-14 | **Spec**: [spec.md](spec.md)
+**Branch**: `001-agent-rename-manager` | **Date**: 2026-10-14 | **Revisione**: 2026-10-15 (packaging) | **Spec**: [spec.md](spec.md)
 
 **Input**: Feature specification from `/specs/001-agent-rename-manager/spec.md`
 
@@ -8,39 +8,92 @@
 
 ## Summary
 
-Agent Rename Manager è un tool PPTB (web package HTML/JS) che consente di rinominare in modo idempotente tutti gli agent Copilot Studio di una solution, utilizzando una environment variable per solution (`{prefix}_AgentDisplaySuffix`) come suffisso ambiente. Il tool aggiorna `bot.name`, il manifest Teams (`applicationmanifestinformation`) e la description (`botcomponent` tipo 15), con backup automatico, log persistente locale e step di Publish opzionale per attivare le modifiche sui canali Teams/M365.
+Agent Rename Manager è un tool PPTB (web package HTML/TS) che produce il **package di una solution
+con i display name degli agent già corretti per l'ambiente di destinazione**.
+
+```text
+DEV → solution → ExportSolution ×2 (managed + unmanaged)
+     → patch <name> in bots/<schema>/bot.xml su entrambi gli archivi
+     → rezip + verifica per archivio
+     → artifact set: coppia patchata + originali + manifest.json
+                              └→ (fase 2) deploySolution + polling import job
+```
+
+Il tool **prende il posto della pipeline** per le solution che contengono agent: il *pipelines
+host* nativo proibisce la modifica dell'artefatto e distribuisce lo stesso artefatto managed a
+tutti gli stage, quindi un package patchato non può entrarvi. Il principio resta identico — export,
+artefatto immutabile, deploy del medesimo artefatto — e come il pipelines host il tool conserva la
+coppia **managed + unmanaged** per ogni operazione (FR-083, research §10).
+
+Il nome entra così nel **managed layer** dell'ambiente di destinazione. Il tool **non esegue
+nessuna scrittura su Dataverse** in fase 1: non tocca `bot`, `botcomponent` né le environment
+variable, e quindi non può creare unmanaged layer.
+
+> **Revisione 2026-10-15 — cambio di architettura.** Il disegno originale rinominava gli agent
+> con un `UPDATE` su `bot` nell'environment di destinazione. Su una solution managed questo crea un
+> *unmanaged layer* che da quel momento vince su ogni upgrade della solution. Il rename live è
+> stato **rimosso del tutto**, non reso opzionale. Vedi spec §Clarifications 2026-10-15,
+> research §9 (anatomia del package verificata su export reale) e FR-067.
 
 ---
 
 ## Technical Context
 
-**Language/Version**: JavaScript (ES2020+, browser context dentro PPTB Electron)
+**Language/Version**: TypeScript / ES2020+ (browser context dentro PPTB Electron)
 
 **Primary Dependencies**:
-- `window.dataverseAPI` — Dataverse Web API v9.2 (bot, botcomponent, solution, environmentvariabledefinition, solutioncomponent)
-- `window.powerplatformAPI` — Power Platform REST API namespace `copilotstudio` (PvaPublish)
-- `window.toolboxAPI` — PPTB utility API (notifiche, file system locale per log/backup)
-- Nessuna libreria NPM esterna — bundle self-contained
+- `window.dataverseAPI` — Dataverse Web API v9.2:
+  - `ExportSolution` (azione unbound, `{SolutionName, Managed}`) → `ExportSolutionFile` in base64.
+    **Due chiamate per operazione**, `Managed: true` e `Managed: false` (FR-084). Percorso primario
+  - `ExportSolutionAsync` + polling `asyncoperations(<id>)` + `DownloadSolutionExportData` —
+    **fallback automatico** quando il sincrono va in timeout (FR-093)
+  - `deploySolution(content, options)` + `getImportJobStatus(importJobId)` — **solo fase 2**
+  - letture: `solutions`, `bots`, `publishers`, `solutioncomponents`
+- `window.toolboxAPI` — `fileSystem.saveFile` / `fileSystem.readBinary` (zip su disco),
+  `settings` (storico packaging), notifiche
+- **Una libreria zip bundlata** (`fflate`, preferita per dimensione, o `JSZip`) — deviazione
+  consapevole dal vincolo originale "nessuna libreria NPM esterna": leggere e riscrivere un
+  archivio zip a mano non è lavoro da riscrivere in casa
+- ~~`window.powerplatformAPI` / PvaPublish~~ — non più necessario: `publishOnImport: true` nel
+  package ripubblica l'agent all'import (FR-080)
 
 **Storage**:
-- In-memory: stato sessione corrente (AgentRenameSession)
-- File locale (via PPTB toolboxAPI): log JSON e backup JSON, cartella configurabile, retention 30 giorni default
+- **Artifact set** su disco, una cartella per operazione: coppia managed+unmanaged patchata, i due
+  export originali e `manifest.json` con hash SHA-256 di ogni file (FR-083, FR-086)
+- Store `settings` locale di PPTB: storico dei packaging (Packaging Record), retention 30 giorni,
+  allineata alla cancellazione delle cartelle (FR-088)
+- In-memory: i **due** package decompressi durante la sessione di packaging
 
-**Testing**: Validazione manuale in PPTB sandbox; quickstart.md definisce gli scenari di validazione end-to-end
+**Testing**: validazione manuale in PPTB; `quickstart.md` definisce gli scenari end-to-end. Il
+confronto entry-per-entry con l'export originale (SC-008) è la verifica automatica più importante
 
 **Target Platform**: PPTB desktop app (Electron, Windows/Mac)
 
-**Project Type**: PPTB web package tool (HTML/JS bundle + `pptb.config.json`)
+**Project Type**: PPTB web package tool (HTML/TS bundle + `pptb.config.json`)
 
-**Performance Goals**: Rename completo di 50+ agent in < 5 minuti (SC-001); caricamento progressivo lista agent
+**Performance Goals**: packaging completo (2 export + patch + rezip + verifica su entrambi) in
+**< 2 minuti**, obiettivo confermato dalle misure: 13,4 s sulla solution più piccola e 111 s sulla
+più pesante dell'environment di riferimento. In fallback asincrono il tempo sale a ~5 minuti e
+l'interfaccia DEVE dirlo (FR-094). Test di carico su solution più grandi: da fare
 
 **Constraints**:
-- Dataverse OData: max 5000 record per page (gestione `@odata.nextLink`)
-- Teams manifest `name.short` ≤ 30 caratteri (FR-019)
-- Solution managed: PATCH su bot in managed solution richiede verifica (vedere research.md §3)
+- Costo dell'export **misurato** (research §13): coppia managed+unmanaged in 13,4 s
+  (`testAgentTool`), 17,6 s (`SigmaMonitoringAgent`), 111 s (`FactoryHub`, 976 KB). Il fallback
+  asincrono costa **154 s a prescindere dalla dimensione** (152 s di coda), quindi è un piano B,
+  non il percorso normale (FR-093)
+- Due archivi decompressi in memoria nel renderer: va misurato il consumo su una solution reale
+  prima di dichiarare il limite
+- Il package va ricostruito creando entry nuove: clonando l'header dell'entry sorgente l'archivio
+  risulta illeggibile (research §9, FR-077)
+- `<name>` è l'unico punto da patchare; `schemaname`, cartelle, file e GUID sono intoccabili
+  (FR-069)
+- Una solution **managed non è esportabile**: la sorgente deve essere l'environment in cui la
+  solution è unmanaged (FR-068)
+- Il manifest Teams non è nel package: il nome sui canali dipende dal publish e dal *Channel
+  display name suffix* nativo (FR-079)
 - Single tenant: nessuna gestione cross-tenant
 
-**Scale/Scope**: 50+ agent per solution, 3-4+ environment, stesso tenant
+**Scale/Scope**: più agent per package, 3-4+ environment, stesso tenant
 
 ---
 
@@ -84,34 +137,43 @@ tools/agent-rename-manager/
 ├── pptb.config.json          # Metadata tool PPTB
 ├── index.html                # Entry point
 ├── src/
-│   ├── main.js               # App init, routing, state globale
+│   ├── app.ts                # App init, routing, stato globale
 │   ├── services/
-│   │   ├── dataverse.js      # Wrapper window.dataverseAPI con paging
-│   │   ├── solutions.js      # Lista solutions, publisher prefix
-│   │   ├── agents.js         # Lista agent per solution, dettagli bot
-│   │   ├── envvariables.js   # CRUD environmentvariabledefinition/value
-│   │   ├── rename.js         # Logica strip/apply suffisso, calcolo nome base
-│   │   ├── manifest.js       # Parse/update applicationmanifestinformation JSON
-│   │   ├── publish.js        # PvaPublish + polling status
-│   │   ├── backup.js         # Snapshot pre-operazione, restore
-│   │   └── log.js            # Log append, export CSV/JSON, retention
+│   │   ├── dataverse.ts      # Wrapper window.dataverseAPI (letture + paging)
+│   │   ├── solutions.ts      # Lista solution, publisher prefix, agent contenuti
+│   │   ├── export.ts         # ExportSolution sincrono + fallback asincrono (FR-093)
+│   │   ├── package.ts        # Lettura zip: bot.xml, configuration.json, solution.xml,
+│   │   │                     # environmentvariabledefinition.xml
+│   │   ├── compat.ts         # Impronta del formato, baseline, drift, occorrenze del nome
+│   │   │                     # (FR-096 → FR-098)
+│   │   ├── patch.ts          # Patch Plan + riscrittura di <name> (e <Version> se richiesto)
+│   │   ├── rezip.ts          # Ricostruzione archivio + verifica post-scrittura (FR-077)
+│   │   ├── artifacts.ts      # Artifact set: cartella operazione, manifest.json, SHA-256
+│   │   ├── deploy.ts         # FASE 2: deploySolution + polling import job
+│   │   └── history.ts        # Packaging Record: salvataggio, retention, export
 │   ├── components/
-│   │   ├── SolutionExplorer/ # Step 1: lista environment/solution/agent
-│   │   ├── SuffixSelector/   # Step 2: selettore suffisso predefiniti + testo libero
-│   │   ├── RenamePreview/    # Step 3: tabella before/after con stato per agent
-│   │   ├── ApplyProgress/    # Step 4: progress in tempo reale per agent
-│   │   ├── PublishPanel/     # Step 5: publish per agent con Teams
-│   │   └── LogPanel/         # Sidebar: log operazioni, export, backup viewer
+│   │   ├── SolutionExplorer/ # Step 1: solution e agent dell'environment sorgente
+│   │   ├── SuffixSelector/   # Step 2: suffisso + opzioni (bump versione)
+│   │   ├── PatchPreview/     # Step 3: cosa viene toccato e cosa no (FR-075)
+│   │   ├── PackageResult/    # Step 4: esito, verifica per archivio, artifact set prodotto
+│   │   ├── DeployPanel/      # FASE 2: scelta environment, import, avanzamento
+│   │   └── HistoryPanel/     # Storico packaging
 │   └── utils/
-│       ├── storage.js        # File locale via toolboxAPI (log, backup)
-│       └── validation.js     # Validazioni (nome ≤30 char, permessi, ecc.)
-└── tests/                    # Scenari validazione manuale (vedere quickstart.md)
+│       └── validation.ts     # Formato suffisso, avviso 30 caratteri (informativo)
+│   └── baseline/
+│       └── package-format.json  # Impronta di riferimento, verificata 2026-10-15 (FR-098).
+│                                # Sta sotto src/ perche' Vite ha root: ./src e un import
+│                                # fuori da quella radice non e'' garantito dal bundler.
+└── tests/                    # Scenari di validazione manuale (vedere quickstart.md)
 ```
 
-**Structure Decision**: Single web package PPTB. Nessun backend separato — tutto client-side via PPTB APIs già autenticate.
+**Structure Decision**: Single web package PPTB. Nessun backend separato — tutto client-side via PPTB APIs già autenticate. La manipolazione del package avviene **in memoria nel renderer**: il file tocca il disco solo quando l'utente conferma il salvataggio.
 
 ---
 
 ## Complexity Tracking
 
-Nessuna violazione Constitution Check — sezione non applicabile.
+| Deviazione | Motivo | Alternativa scartata |
+|---|---|---|
+| Libreria zip esterna bundlata (`fflate`/`JSZip`) | Il vincolo originale "nessuna libreria NPM esterna" non regge davanti a lettura/scrittura di archivi zip | Implementazione propria di deflate: superficie di bug sproporzionata rispetto al valore |
+| Il tool produce un file invece di modificare l'environment | È esattamente il punto della revisione 2026-10-15: modificare l'environment di destinazione crea un unmanaged layer (FR-067) | Rename live mantenuto per il solo DEV: scartato, un flusso solo è un flusso che non si può usare male |
