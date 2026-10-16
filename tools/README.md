@@ -2,148 +2,149 @@
 
 **Rename Copilot Studio agents per environment — without an unmanaged layer.**
 
-Produce il package di una solution con i display name degli agent Copilot Studio già corretti
-per l'ambiente di destinazione: l'agent arriva in UAT o PROD **già con la targhetta giusta**,
-invece di essere rinominato una volta lì. È la differenza fra un package pulito e un unmanaged
-layer che si porta dietro per sempre.
+Produces a solution package where Copilot Studio agent display names are already set for the
+target environment: the agent arrives in UAT or PROD **already wearing the right nameplate**,
+instead of being renamed once it gets there. The difference between a clean package and an
+unmanaged layer you carry forever.
 
-## Il problema
+## The Problem
 
-Quando una solution con un agent Copilot Studio arriva in UAT o PROD, l'agent si chiama come in
-DEV. Rinominarlo nell'ambiente di destinazione **crea un unmanaged layer** sul componente
-managed: da quel momento quel layer vince su ogni upgrade successivo della solution, e
-l'ambiente si scollega dal package. Il problema non è che l'`UPDATE` possa fallire — è che
-possa **riuscire**, perché il danno è silenzioso.
+When a solution containing a Copilot Studio agent lands in UAT or PROD, the agent carries its
+DEV display name. Renaming it in the target environment **creates an unmanaged layer** on top of
+the managed component: from that point on, that layer wins over every subsequent solution
+upgrade, and the environment quietly drifts away from the package. The risk is not that `UPDATE`
+might fail — it is that it might **succeed**, because the damage is silent.
 
-## Il flusso
+## The Flow
 
 ```text
 DEV → solution → ExportSolution ×2 (managed + unmanaged)
-    → patch di <name> in bots/<schema>/bot.xml
-    → rezip + verifica per archivio
-    → artifact set: coppia patchata + originali + manifest.json
-                         └→ (opzionale) import nell'ambiente di destinazione
+    → patch <name> in bots/<schema>/bot.xml
+    → rezip + entry-by-entry verification
+    → artifact set: patched pair + originals + manifest.json
+                         └→ (optional) import into the target environment
 ```
 
-Il nome entra nel **managed layer**, come qualsiasi altra proprietà della solution. Il tool
-**non scrive su nessun environment**: non tocca `bot`, `botcomponent` né le environment
-variable, e quindi non può creare layer. Il `pptb.config.json` dichiara `"write": []`, e il
-vuoto è voluto.
+The name lands in the **managed layer**, like any other property of the solution. The tool
+**writes nothing to any environment**: it never touches `bot`, `botcomponent`, or environment
+variables, and therefore cannot create layers. `pptb.config.json` declares `"write": []`, and
+the empty list is intentional.
 
-## Cosa viene modificato nel package
+## What Gets Modified in the Package
 
-**Un solo elemento**: il contenuto di `<name>` in `bots/<schemaname>/bot.xml`, uno per agent.
+**One element only**: the content of `<name>` inside `bots/<schemaname>/bot.xml`, one per agent.
 
-Non vengono toccati `schemaname`, nomi di cartella, nomi di file, GUID, `[Content_Types].xml`,
-`customizations.xml`. Nessuna sostituzione testuale globale — lo schemaname compare in **31
-entry su 34**, un "cerca e sostituisci" distruggerebbe la solution.
+`schemaname`, folder names, file names, GUIDs, `[Content_Types].xml`, and
+`customizations.xml` are never touched. No global find-and-replace — the schema name appears in
+**31 out of 34 entries**, and a blanket substitution would destroy the solution.
 
-Su richiesta si toccano anche `<Version>` in `solution.xml` (bump) e `publishOnImport` in
-`configuration.json`. Ogni altra entry resta **byte-identica**, e il tool lo verifica entry per
-entry prima di consegnare il file.
+Optionally, `<Version>` in `solution.xml` (bump) and `publishOnImport` in
+`configuration.json` can also be updated. Every other entry stays **byte-identical**, and the
+tool verifies this entry by entry before delivering the file.
 
-## Teams e M365 Copilot
+## Teams and M365 Copilot
 
-Il nome sui canali è una **copia di `bot.name` scattata al publish**, in ciascun environment:
-il patch del package lo copre, a patto che l'agent venga pubblicato nel target —
-`publishOnImport: true` lo fa all'import. Il manifest Teams non viaggia nel package e non
-contiene alcun nome.
+The name shown on channels is a **snapshot of `bot.name` taken at publish time**, in each
+environment: the package patch covers it, provided the agent is published in the target —
+`publishOnImport: true` does this at import. The Teams manifest does not travel inside the
+package and contains no display name.
 
-Il *Channel display name suffix* nativo di Copilot Studio è un'**alternativa**, non un
-complemento: usato insieme al suffisso nel nome produce `agenteTool1 [UAT] (UAT)`. Il tool non
-lo tocca e avvisa se lo trova configurato.
+The native Copilot Studio *Channel display name suffix* is an **alternative**, not a complement:
+used alongside a suffix already in the name, it produces `agentTool1 [UAT] (UAT)`. The tool
+leaves it untouched and warns if it finds one configured.
 
-## Supportabilità — da sapere prima di usarlo
+## Supportability — Know This Before You Use It
 
-Microsoft **non supporta la modifica manuale dei file estratti da una solution**
+Microsoft **does not support manual modification of files extracted from a solution**
 ([Source control with solution files](https://learn.microsoft.com/power-platform/alm/use-source-control-solution-files)).
-Il tool la fa comunque, su un solo elemento. La scelta è stata presa consapevolmente, su tre
-basi verificate:
+The tool does it anyway, on a single element. The decision was made deliberately, grounded in
+three verified facts:
 
-1. **Nessuna dipendenza può rompersi**: i record di dipendenza contengono solo GUID e
-   `componenttype`, nessun campo con un nome. Il display name non è una chiave.
-2. **Viene toccato un solo elemento**, e la verifica entry-per-entry lo dimostra a ogni
-   esecuzione.
-3. **L'export originale resta nell'artifact set**: ogni problema è riproducibile senza il patch.
+1. **No dependency can break**: dependency records contain only GUIDs and `componenttype` — no
+   field holds a display name. The name is not a key.
+2. **Exactly one element is touched**, and the entry-by-entry verification proves it on every
+   run.
+3. **The original export is preserved in the artifact set**: any issue is fully reproducible
+   without the patch.
 
-Esiste un'alternativa formalmente ineccepibile — rinominare in un *build environment* dove la
-solution è unmanaged ed esportare da lì — documentata in `research.md §15`, valutata e scartata
-per costo operativo.
+A formally sound alternative exists — rename inside a *build environment* where the solution is
+unmanaged and export from there — documented in `research.md §15`, evaluated, and ruled out on
+operational cost grounds.
 
-**Le Power Platform Pipelines native non sono compatibili** con questo flusso: il pipelines host
-proibisce la modifica dell'artefatto e distribuisce lo stesso artefatto managed a tutti gli
-stage.
+**Native Power Platform Pipelines are not compatible** with this flow: the pipelines host
+prohibits artifact modification and distributes the same managed artifact to every stage.
 
-## Artifact set
+## Artifact Set
 
-Ogni operazione lascia una cartella:
+Every operation leaves a folder:
 
 ```text
 testAgentTool_1.0.0.2_UAT_20261015-143022/
-├── manifest.json                              sorgente, suffisso, operatore, impronta, hash
-├── testAgentTool_1_0_0_2_managed_UAT.zip      role: deploy   ← l'unico da importare in UAT/PROD
-├── testAgentTool_1_0_0_2_unmanaged_UAT.zip    role: source   ← source control, mai a valle
+├── manifest.json                              source, suffix, operator, fingerprint, hash
+├── testAgentTool_1_0_0_2_managed_UAT.zip      role: deploy   ← the only file to import in UAT/PROD
+├── testAgentTool_1_0_0_2_unmanaged_UAT.zip    role: source   ← source control only, never deploy downstream
 ├── source_managed.zip                         role: restore
 └── source_unmanaged.zip                       role: restore
 ```
 
-Due artefatti della stessa `<Version>` si distinguono dall'**hash SHA-256** nel manifest, non
-dalla versione: per questo non serve forzare un bump, che creerebbe una deriva di versioni per
-ambiente.
+Two artifacts at the same `<Version>` are told apart by the **SHA-256 hash** in the manifest,
+not by the version number: this is why forcing a version bump is unnecessary — it would only
+create version drift across environments.
 
-## Sviluppo
+## Development
 
 ```bash
 npm install
-npm run build          # UI + entry headless
-npm run build-headless # solo l'entry headless
+npm run build          # UI + headless entry point
+npm run build-headless # headless entry point only
 npm run validate       # pptb-validate
 ```
 
-### Smoke check
+### Smoke Check
 
-Verifica l'invariante che regge tutto — un solo elemento modificato, tutto il resto
-byte-identico — su un export reale:
+Verifies the invariant that underpins everything — one element modified, everything else
+byte-identical — against a real export:
 
 ```bash
-npm run smoke -- <percorso-zip> [suffisso] [--bump] [--publish=false]
+npm run smoke -- <path-to-zip> [suffix] [--bump] [--publish=false]
 ```
 
-Richiede `@xmldom/xmldom` (devDependency): il codice gira nel browser e usa `DOMParser`.
+Requires `@xmldom/xmldom` (devDependency): the production code runs in the browser and uses
+`DOMParser`.
 
-### Struttura
+### Structure
 
 ```text
 src/
-├── app.ts                  routing, stato, rendering
-├── types.ts                entità del flusso
-├── globals.d.ts            API PPTB su globalThis (serve all'headless)
-├── headless.ts             interfaccia MCP
+├── app.ts                  routing, state, rendering
+├── types.ts                domain entities
+├── globals.d.ts            PPTB API on globalThis (required by headless)
+├── headless.ts             MCP interface
 ├── baseline/
-│   └── package-format.json impronta di riferimento del formato, verificata 2026-10-15
+│   └── package-format.json reference fingerprint of the solution format, verified 2026-10-15
 └── services/
-    ├── dataverse.ts        letture (nessuna scrittura, per costruzione)
-    ├── solutions.ts        solution e agent
-    ├── export.ts           ExportSolution sincrono + fallback asincrono
-    ├── package.ts          lettura del package
-    ├── compat.ts           impronta del formato, occorrenze del nome, scostamenti
-    ├── patch.ts            Patch Plan e riscrittura mirata
-    ├── rezip.ts            ricostruzione e verifica
-    ├── packaging.ts        orchestratore
-    ├── artifacts.ts        artifact set e manifest
-    ├── history.ts          storico dei packaging
-    ├── deploy.ts           import opzionale nel target
-    ├── files.ts            scrittura su disco
-    ├── log.ts              log con export CSV/JSON
-    └── ui.ts               indicatori e dialog di conferma
+    ├── dataverse.ts        reads only (no writes, by design)
+    ├── solutions.ts        solutions and agents
+    ├── export.ts           synchronous ExportSolution + async fallback
+    ├── package.ts          package reading
+    ├── compat.ts           format fingerprint, name occurrences, deviations
+    ├── patch.ts            Patch Plan and targeted rewrite
+    ├── rezip.ts            reconstruction and verification
+    ├── packaging.ts        orchestrator
+    ├── artifacts.ts        artifact set and manifest
+    ├── history.ts          packaging history
+    ├── deploy.ts           optional import into target environment
+    ├── files.ts            disk writes
+    ├── log.ts              log with CSV/JSON export
+    └── ui.ts               indicators and confirmation dialogs
 ```
 
-## Documentazione
+## Documentation
 
-Spec, decisioni e misure: `specs/001-agent-rename-manager/`. In particolare `research.md`, che
-raccoglie quindici sezioni di verifiche fatte su dati reali — compresi gli errori incontrati e
-il perché di ogni scelta.
+Specs, decisions, and measurements: `specs/001-agent-rename-manager/`. In particular
+`research.md`, which collects fifteen sections of verifications run against real data —
+including every mistake made along the way and the reasoning behind each choice.
 
-## Licenza
+## License
 
 MIT
