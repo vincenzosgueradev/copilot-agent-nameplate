@@ -81,7 +81,7 @@ export interface WrittenArtifactSet {
 /** L'utente ha rifiutato di sovrascrivere: non e' un errore, e' una scelta. */
 export class OverwriteDeclined extends Error {
     constructor(public readonly folderName: string) {
-        super(`Sovrascrittura annullata: ${folderName}`);
+        super(`Overwrite cancelled: ${folderName}`);
         this.name = 'OverwriteDeclined';
     }
 }
@@ -105,7 +105,7 @@ export async function writeArtifactSet(
     // La cartella invece e' per l'occhio: `testAgentTool 1.0.0.2 [UAT] - 2026-10-15 21-38`.
     // La solution resta in testa, cosi' in Esplora file le operazioni si raggruppano per solution.
     const clean = safeForPath(suffix);
-    const tag = clean ? ` [${clean}]` : ' [senza suffisso]';
+    const tag = clean ? ` [${clean}]` : ' [no suffix]';
     const folderName = `${safeForPath(pkg.uniqueName)} ${pkg.version}${tag} - ${stamp(now)}`;
     const folderPath = joinPath(baseFolder, folderName);
 
@@ -162,7 +162,7 @@ export async function writeArtifactSet(
         const written = await writeBinary(joinPath(folderPath, f.fileName), f.bytes);
         if (!written) {
             complete = false;
-            log(`Salvataggio annullato: ${f.fileName}`, 'warning');
+            log(`Save cancelled: ${f.fileName}`, 'warning');
             continue;
         }
         files.push({
@@ -188,7 +188,7 @@ export async function writeArtifactSet(
         manifestPath,
         totalBytes: files.reduce((n, f) => n + f.bytes, 0),
     };
-    log(`Artifact set scritto in ${folderPath} (${files.length} archivi, `
+    log(`Artifact set written to ${folderPath} (${files.length} archive(s), `
         + `${(set.totalBytes / 1024).toFixed(0)} KB).`, complete ? 'success' : 'warning');
     return { set, manifest, complete };
 }
@@ -210,9 +210,9 @@ function buildManifest(
         timestamp: now.toISOString(),
         user: input.user,
         notice:
-            'Questo package e\' stato modificato dal tool: un solo elemento, '
-            + 'bots/<schema>/bot.xml <name>. Microsoft non supporta la modifica manuale dei file '
-            + 'di una solution. source_managed.zip, non modificato, e\' nella stessa cartella.',
+            'This package was modified by the tool: a single element, '
+            + 'bots/<schema>/bot.xml <name>. Microsoft does not support editing a solution\'s '
+            + 'files by hand. source_managed.zip, untouched, sits in the same folder.',
         source: {
             environmentUrl: input.sourceEnvironmentUrl,
             solutionUniqueName: pkg.uniqueName,
@@ -243,7 +243,7 @@ function buildManifest(
             sha256: f.sha256,
             verification: f.verification,
             ...(f.role === 'source'
-                ? { warning: 'Unmanaged patchato: non importare in UAT/PROD, creerebbe una solution unmanaged.' }
+                ? { warning: 'Patched unmanaged: do not import into UAT/PROD, it would create an unmanaged solution.' }
                 : {}),
         })),
     };

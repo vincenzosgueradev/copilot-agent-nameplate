@@ -61,12 +61,12 @@ export async function callAction(name: string, parameters: Record<string, unknow
 export function describeError(err: unknown): string {
     const text = String(err);
     if (/privilege|unauthorized|403|forbidden/i.test(text)) {
-        return `Permessi insufficienti. Per esportare una solution serve almeno il ruolo ` +
+        return `Not enough permissions. Exporting a solution needs at least the role ` +
             `System Customizer sull'environment. Dettaglio: ${text}`;
     }
     if (/does not exist|not found|404/i.test(text)) {
-        return `Record non trovato: potrebbe essere stato eliminato dopo l'ultimo aggiornamento ` +
-            `della lista. Dettaglio: ${text}`;
+        return `Record not found: it may have been deleted since the list was last refreshed ` +
+            `. Detail: ${text}`;
     }
     return text;
 }

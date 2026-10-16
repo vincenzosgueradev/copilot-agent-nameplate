@@ -609,9 +609,9 @@ function renderSolutionDetail(keepScroll = false): void {
                     </tbody>
                 </table>` : `
                 <div class="empty-state">
-                    <p>Questa solution non contiene agent.</p>
-                    <p class="empty-hint">Il packaging parte da un agent: aggiungine uno alla
-                    solution, oppure scegli una solution che ne contenga.</p>
+                    <p>This solution contains no agents.</p>
+                    <p class="empty-hint">Packaging starts from an agent: add one to this
+                    solution, or pick a solution that has some.</p>
                 </div>`}
             </div>
         </section>`;
@@ -632,11 +632,11 @@ function notExportableBannerHtml(sol: Solution): string {
     if (sol.exportable) return '';
     return `
         <div class="panel-note panel-note--warning">
-            <strong>Questa solution e' managed e non puo' essere esportata.</strong>
-            Microsoft non consente l'export di una solution managed, quindi non puo' essere la
-            sorgente di un package. Apri il tool sull'environment in cui
-            <code>${escapeHtml(sol.uniqueName)}</code> e' <strong>unmanaged</strong> — di norma DEV —
-            e fai il packaging da li'.
+            <strong>This solution is managed and cannot be exported.</strong>
+            Microsoft does not allow exporting a managed solution, so it cannot be the source
+            of a package. Open the tool on the environment where
+            <code>${escapeHtml(sol.uniqueName)}</code> is <strong>unmanaged</strong> — usually DEV —
+            and build the package from there.
         </div>`;
 }
 
@@ -654,12 +654,12 @@ async function loadSuffixHint(sol: Solution, seq: number): Promise<void> {
     if (!host || !hint) return;
     host.insertAdjacentHTML('beforeend', `
         <div class="panel-note">
-            Questa solution contiene la environment variable
-            <code>${escapeHtml(hint.schemaName)}</code> (String), utilizzabile come
-            <em>Channel display name suffix</em> nativo di Copilot Studio.
-            <strong>Il tool non la tocca.</strong> Riguarda solo Teams e M365 Copilot e, se
-            configurata, il suo valore si <strong>somma</strong> al suffisso nel nome
-            dell'agent: usane uno solo.
+            This solution holds the environment variable
+            <code>${escapeHtml(hint.schemaName)}</code> (String), usable as Copilot Studio's
+            native <em>Channel display name suffix</em>.
+            <strong>The tool does not touch it.</strong> It affects only Teams and M365 Copilot,
+            and if set its value <strong>adds to</strong> the suffix in the agent's name:
+            use one mechanism or the other, not both.
         </div>`);
 }
 
@@ -669,9 +669,9 @@ function selectAgent(agentId: string): void {
     const agent = state.agents.find(a => a.id === agentId);
     if (!agent) return;
     if (agent.solution && !agent.solution.exportable) {
-        log(`"${agent.solution.friendlyName || agent.solution.uniqueName}" e' managed: non e' `
-            + `esportabile, quindi non puo' essere sorgente di un package. Opera `
-            + `sull'environment in cui e' unmanaged.`, 'warning');
+        log(`"${agent.solution.friendlyName || agent.solution.uniqueName}" is managed: it cannot `
+            + `be exported, so it cannot be the source of a package. Work on the environment `
+            + `where it is unmanaged.`, 'warning');
         return;
     }
     // Aprire un agent dalla lista azzera il lavoro precedente: il suffisso digitato
@@ -712,10 +712,10 @@ function buildBreadcrumb(): Crumb[] {
     if (state.activeAgent) trail.push({ label: state.activeAgent.name, step: 'suffix' });
     if (state.currentStep === 'suffix') return trail;
 
-    trail.push({ label: 'Riepilogo', step: 'review' });
+    trail.push({ label: 'Review', step: 'review' });
     if (state.currentStep === 'review') return trail;
 
-    trail.push({ label: 'Anteprima', step: 'preview' });
+    trail.push({ label: 'Preview', step: 'preview' });
     if (state.currentStep === 'preview') return trail;
 
     trail.push({ label: 'Verifica', step: 'verify' });
@@ -790,7 +790,7 @@ function navigateTo(step: AppStep): void {
 const SUFFIX_PRESETS = ['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'];
 
 function stepperHtml(active: 1 | 2 | 3 | 4 | 5): string {
-    const steps = ['Suffisso', 'Riepilogo', 'Anteprima', 'Verifica', 'Risultato'];
+    const steps = ['Suffix', 'Review', 'Preview', 'Checks', 'Result'];
     const items = steps.map((label, i) => {
         const n = i + 1;
         const cls = n === active ? 'active' : n < active ? 'done' : '';
@@ -833,11 +833,11 @@ function channelChip(id: string): string {
 
 function versionHintHtml(current: string, bump: boolean): string {
     if (!bump) {
-        return `<code>${escapeHtml(current)}</code> resta invariata — all'import sarà un
+        return `<code>${escapeHtml(current)}</code> stays as it is — the import will be an
             <strong>update</strong>`;
     }
     return `<code>${escapeHtml(current)}</code> → <code>${escapeHtml(bumpVersion(current))}</code>
-        — all'import sarà un <strong>upgrade</strong>`;
+        — the import will be an <strong>upgrade</strong>`;
 }
 
 function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): string {
@@ -845,20 +845,20 @@ function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): s
     const tag = suffix.trim() || 'nosuffix';
     const rows: Array<[boolean, string, string]> = [
         [true, `${base}_managed_${tag}.zip`,
-            "L'unico da importare in UAT o PROD. Essendo managed non crea un unmanaged layer "
-            + "nell'ambiente di destinazione."],
+            'The only one to import into UAT or PROD. Being managed, it creates no '
+            + 'unmanaged layer in the target environment.'],
         [keepExtras, `${base}_unmanaged_${tag}.zip`,
-            "Lo stesso patch in versione unmanaged, per il source control o un ambiente di "
-            + "sviluppo. Non va mai importato a valle."],
+            'The same patch, unmanaged, for source control or a development environment. '
+            + 'Never import it downstream.'],
         [keepExtras, 'source_managed.zip',
-            "L'export managed originale, non patchato. Si reimporta per tornare indietro, e "
-            + "accanto al patchato dimostra che è stato toccato un solo elemento."],
+            'The original managed export, unpatched. Re-import it to go back; beside the '
+            + 'patched one it proves a single element was touched.'],
         [keepExtras, 'source_unmanaged.zip',
-            "L'export unmanaged originale: la fotografia intatta della solution com'era "
-            + "nell'ambiente di partenza."],
+            'The original unmanaged export: an untouched snapshot of the solution as it '
+            + 'stood in the source environment.'],
         [true, 'manifest.json',
-            "Chi, quando, da dove, suffisso applicato e hash di ogni file. Distingue due "
-            + "artefatti della stessa versione fatti per ambienti diversi."],
+            'Who, when, from where, the suffix applied and every file hash. It tells apart '
+            + 'two artifacts of the same version built for different environments.'],
     ];
     const n = rows.filter(([on, f]) => on && f.endsWith('.zip')).length;
     return `
@@ -873,8 +873,8 @@ function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): s
                 </div>
             </li>`).join('')}</ul>
         <p class="hint">${n === 1
-            ? 'Un archivio: <strong>un solo salvataggio</strong>.'
-            : `${n} archivi: <strong>${n} salvataggi</strong>, uno per file.`}</p>`;
+            ? 'One archive: <strong>a single save</strong>.'
+            : `${n} archives: <strong>${n} saves</strong>, one per file.`}</p>`;
 }
 
 function renderSuffixStep(): void {
@@ -887,26 +887,26 @@ function renderSuffixStep(): void {
     const pub = state.options.publishOnImport;
     els.stepSuffix.innerHTML = `
         <div class="step-header step-header-row">
-            <div class="step-id">${icon('tag')}<h2 class="step-title">Suffisso per l'ambiente di destinazione</h2></div>
+            <div class="step-id">${icon('tag')}<h2 class="step-title">Suffix for the target environment</h2></div>
             ${stepperHtml(1)}
         </div>
 
         <div class="stack">
                 <section class="panel">
                     <div class="panel-head">
-                        <h3 class="panel-heading">${icon('tag', 'icon--head')}Suffisso</h3>
-                        <span class="panel-sub">aggiunto tra parentesi quadre dopo il nome</span>
+                        <h3 class="panel-heading">${icon('tag', 'icon--head')}Suffix</h3>
+                        <span class="panel-sub">added in square brackets after the name</span>
                     </div>
                     <div class="panel-body">
                         <div class="suffix-row">
                             <div class="input-row">
                                 <input id="suffix-input" class="text-input" type="text"
                                     maxlength="${SUFFIX_MAX}" autocomplete="off"
-                                    placeholder="es. UAT" value="${escapeHtml(draft)}">
+                                    placeholder="e.g. UAT" value="${escapeHtml(draft)}">
                                 <button id="clear-suffix-btn" class="btn btn--secondary btn--sm"
                                     ${draft ? '' : 'disabled'}>Clear</button>
                             </div>
-                            <span class="suffix-or">oppure</span>
+                            <span class="suffix-or">or</span>
                             <div class="chip-row">
                                 ${SUFFIX_PRESETS.map(p => `
                                     <button class="chip-btn ${p === draft ? 'is-active' : ''}"
@@ -914,19 +914,19 @@ function renderSuffixStep(): void {
                             </div>
                         </div>
                         <p class="hint" style="margin-top:8px">
-                            Lascia vuoto per <strong>rimuovere</strong> il suffisso esistente.
+                            Leave it empty to <strong>remove</strong> the existing suffix.
                         </p>
                     </div>
                 </section>
 
 
                 <section class="panel">
-                    <div class="panel-head"><h3 class="panel-heading">${icon('sliders', 'icon--head')}Opzioni</h3></div>
+                    <div class="panel-head"><h3 class="panel-heading">${icon('sliders', 'icon--head')}Options</h3></div>
                     <div class="panel-body" style="padding:0">
 
                         <div class="opt-row" style="padding:12px 16px">
                             <div>
-                                <div class="opt-label">Incrementa la versione</div>
+                                <div class="opt-label">Bump the version</div>
                                 <div class="hint" id="version-hint">${versionHintHtml(sol.version, state.options.bumpVersion)}</div>
                             </div>
                             <label class="switch" for="opt-bump">
@@ -938,13 +938,13 @@ function renderSuffixStep(): void {
 
                         <div class="opt-row" style="padding:12px 16px">
                             <div>
-                                <div class="opt-label">Publish all'import</div>
-                                <div class="hint">porta il nome su Teams e M365 Copilot</div>
+                                <div class="opt-label">Publish on import</div>
+                                <div class="hint">carries the name to Teams and M365 Copilot</div>
                             </div>
                             <div class="toggle-group" id="opt-publish" role="group">
-                                <button class="toggle-btn ${pub === 'keep'        ? 'is-active' : ''}" data-val="keep">Non modificare</button>
-                                <button class="toggle-btn ${pub === 'force-true'  ? 'is-active' : ''}" data-val="force-true">Sì</button>
-                                <button class="toggle-btn ${pub === 'force-false' ? 'is-active' : ''}" data-val="force-false">No</button>
+                                <button class="toggle-btn ${pub === 'keep'        ? 'is-active' : ''}" data-val="keep">Leave as is</button>
+                                <button class="toggle-btn ${pub === 'force-true'  ? 'is-active' : ''}" data-val="force-true">Force yes</button>
+                                <button class="toggle-btn ${pub === 'force-false' ? 'is-active' : ''}" data-val="force-false">Force no</button>
                             </div>
                         </div>
 
@@ -954,12 +954,12 @@ function renderSuffixStep(): void {
                 <section class="panel">
                     <div class="panel-head">
                         <div>
-                            <h3 class="panel-heading">${icon('package', 'icon--head')}Artefatti</h3>
-                            <span class="panel-sub">cosa finisce su disco</span>
+                            <h3 class="panel-heading">${icon('package', 'icon--head')}Artifacts</h3>
+                            <span class="panel-sub">what lands on disk</span>
                         </div>
                         <label class="switch" for="opt-keep"
-                            title="unmanaged patchato e i due export originali">
-                            <span class="switch-text">Conserva le copie aggiuntive</span>
+                            title="the patched unmanaged archive and the two original exports">
+                            <span class="switch-text">Keep the extra copies</span>
                             <input class="switch-input" type="checkbox" id="opt-keep"
                                 ${state.options.keepSourceArtifacts ? 'checked' : ''}>
                             <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -972,8 +972,8 @@ function renderSuffixStep(): void {
         </div>
 
         <div class="step-footer">
-            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
-            <button class="btn btn--primary" id="next-btn">Riepilogo ${icon('arrow-right', 'icon--sm')}</button>
+            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Back</button>
+            <button class="btn btn--primary" id="next-btn">Review ${icon('arrow-right', 'icon--sm')}</button>
         </div>`;
 
     const input = document.getElementById('suffix-input') as HTMLInputElement;
@@ -1041,93 +1041,93 @@ function renderReviewStep(): void {
     const tooLong = nextName.length > TEAMS_NAME_LIMIT;
     const unchanged = nextName === agent.name;
     const publishLabel = {
-        'keep': 'Non modificare',
-        'force-true': 'Forza Sì',
-        'force-false': 'Forza No',
+        'keep': 'Leave as is',
+        'force-true': 'Force yes',
+        'force-false': 'Force no',
     }[state.options.publishOnImport];
 
     els.stepReview.innerHTML = `
         <div class="step-header step-header-row">
-            <div class="step-id">${icon('check')}<h2 class="step-title">Riepilogo prima dell'export</h2></div>
+            <div class="step-id">${icon('check')}<h2 class="step-title">Review before the export</h2></div>
             ${stepperHtml(2)}
         </div>
 
         <div class="two-col">
             <section class="panel">
                 <div class="panel-head">
-                    <h3 class="panel-heading">${icon('pencil', 'icon--head')}Rinomina</h3>
-                    <span class="panel-sub">cosa stai per cambiare</span>
+                    <h3 class="panel-heading">${icon('pencil', 'icon--head')}Rename</h3>
+                    <span class="panel-sub">what you are about to change</span>
                 </div>
                 <div class="panel-body">
                     <div class="kv"><span class="kv-key">Agent</span>
                         <span class="kv-val kv-val--strong">${escapeHtml(agent.name)}</span></div>
-                    <div class="kv"><span class="kv-key">Schema</span>
+                    <div class="kv"><span class="kv-key">Schema name</span>
                         <span class="kv-val"><code>${escapeHtml(agent.schemaName)}</code></span></div>
                     <div class="kv"><span class="kv-key">Solution</span>
                         <span class="kv-val">${escapeHtml(sol.friendlyName || sol.uniqueName)}
                         <span class="cell-muted">${escapeHtml(sol.version)}</span></span></div>
-                    <div class="kv"><span class="kv-key">Suffisso</span>
+                    <div class="kv"><span class="kv-key">Suffix</span>
                         <span class="kv-val">${state.suffix
                             ? `<strong>[${escapeHtml(state.suffix)}]</strong>`
-                            : '<span class="cell-muted">nessuno — rimuove quello esistente</span>'}</span></div>
-                    <div class="kv"><span class="kv-key">Nome risultante</span>
+                            : '<span class="cell-muted">none — removes the existing one</span>'}</span></div>
+                    <div class="kv"><span class="kv-key">Resulting name</span>
                         <span class="kv-val kv-val--strong">${escapeHtml(nextName)}</span></div>
-                    <div class="kv"><span class="kv-key">Lunghezza</span>
+                    <div class="kv"><span class="kv-key">Length</span>
                         <span class="kv-val ${tooLong ? 'kv-val--warn' : ''}">${nextName.length} / ${TEAMS_NAME_LIMIT}</span></div>
                     ${unchanged ? `
                     <p class="hint hint--warn" style="margin-top:12px">
-                        Il nome non cambia: l'agent si chiama già così. Il package verrà prodotto
-                        lo stesso, ma senza alcuna rinomina effettiva.
+                        The name does not change: the agent is already called that. The package
+                        is still produced, but no rename actually takes place.
                     </p>` : ''}
                     ${tooLong ? `
                     <p class="hint hint--warn" style="margin-top:12px">
-                        Oltre ${TEAMS_NAME_LIMIT} caratteri. Il limite riguarda il manifest Teams,
-                        il cui nome deriva da quello dell'agent. Non blocca il packaging.
+                        Over ${TEAMS_NAME_LIMIT} characters. The limit applies to the Teams
+                        manifest, whose name derives from the agent's. It does not block packaging.
                     </p>` : ''}
                 </div>
             </section>
 
             <section class="panel">
                 <div class="panel-head">
-                    <h3 class="panel-heading">${icon('sliders', 'icon--head')}Opzioni</h3>
-                    <span class="panel-sub">scelte allo step precedente</span>
+                    <h3 class="panel-heading">${icon('sliders', 'icon--head')}Options</h3>
+                    <span class="panel-sub">chosen in the previous step</span>
                 </div>
                 <div class="panel-body">
-                    <div class="kv"><span class="kv-key">Versione del package</span>
+                    <div class="kv"><span class="kv-key">Package version</span>
                         <span class="kv-val">${versionHintHtml(sol.version, state.options.bumpVersion)}</span></div>
-                    <div class="kv"><span class="kv-key">Publish all'import</span>
+                    <div class="kv"><span class="kv-key">Publish on import</span>
                         <span class="kv-val">${escapeHtml(publishLabel)}</span></div>
-                    <div class="kv"><span class="kv-key">Artefatti prodotti</span>
+                    <div class="kv"><span class="kv-key">Artifacts produced</span>
                         <span class="kv-val">${state.options.keepSourceArtifacts
-                            ? `4 archivi <span class="cell-muted">— managed, unmanaged e i due originali</span>`
-                            : `1 archivio <span class="cell-muted">— solo il managed da importare</span>`}
+                            ? `4 archives <span class="cell-muted">— managed, unmanaged and the two originals</span>`
+                            : `1 archive <span class="cell-muted">— only the managed one to import</span>`}
                         + manifest</span></div>
 
-                    <h4 class="section-title">Cosa succede ora</h4>
+                    <h4 class="section-title">What happens next</h4>
                     <ul class="facts">
                         <li>${icon('package', 'icon--sm')}
-                            <span><strong>Due export</strong> della solution, managed e unmanaged,
-                            patchati entrambi: servono anche a verificarsi a vicenda.</span></li>
+                            <span><strong>Two exports</strong> of the solution, managed and
+                            unmanaged, both patched: they also verify each other.</span></li>
                         <li>${icon('archive', 'icon--archive icon--sm')}
-                            <span>Su disco ${state.options.keepSourceArtifacts
-                                ? `<strong>4 archivi</strong> e il manifest.`
-                                : `<strong>solo il managed</strong>, l'unico che importerai,
-                                   e il manifest.`}</span></li>
+                            <span>On disk ${state.options.keepSourceArtifacts
+                                ? `<strong>4 archives</strong> and the manifest.`
+                                : `<strong>only the managed one</strong>, the only one you will
+                                   import, and the manifest.`}</span></li>
                         <li>${icon('shield', 'icon--sm')}
-                            <span><strong>Nulla viene scritto su Dataverse</strong>:
-                            l'artefatto nasce su disco.</span></li>
+                            <span><strong>Nothing is written to Dataverse</strong>: the
+                            artifact is born on disk.</span></li>
                         <li>${icon('history', 'icon--sm')}
-                            <span>Da pochi secondi a qualche minuto, secondo la dimensione
-                            della solution.</span></li>
+                            <span>From a few seconds to a few minutes, depending on the size
+                            of the solution.</span></li>
                     </ul>
                 </div>
             </section>
         </div>
 
         <div class="step-footer">
-            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
+            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Back</button>
             <button class="btn btn--primary" id="next-btn">
-                ${icon('package', 'icon--sm')} Genera il package</button>
+                ${icon('package', 'icon--sm')} Build the package</button>
         </div>`;
 
     els.stepReview.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('suffix'));
@@ -1142,17 +1142,17 @@ function renderPreviewStep(): void {
 
     els.stepPreview.innerHTML = `
         <div class="step-header step-header-row">
-            <div class="step-id">${icon('package')}<h2 class="step-title">Anteprima del package</h2></div>
+            <div class="step-id">${icon('package')}<h2 class="step-title">Package preview</h2></div>
             ${stepperHtml(3)}
         </div>
         <div class="strip" id="preview-body">
             <div class="pack-wait" id="preview-progress">
-                ${packProgressHtml(0, "avvio dell'export…", 0)}
+                ${packProgressHtml(0, 'starting the export…', 0)}
             </div>
         </div>
         <div id="preview-panels"></div>
         <div class="step-footer" id="preview-footer">
-            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
+            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Back</button>
         </div>`;
     els.stepPreview.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('review'));
 
@@ -1176,8 +1176,8 @@ function packagingKey(sol: Solution, agent: AgentListItem): string {
 const PACK_PHASES = [
     'Export managed',
     'Export unmanaged',
-    'Lettura dei package',
-    'Patch e verifica',
+    'Read the packages',
+    'Patch and verify',
 ] as const;
 
 /**
@@ -1190,9 +1190,9 @@ const PACK_PHASES = [
 function phaseFromMessage(msg: string, current: number): number {
     const m = msg.toLowerCase();
     if (m.includes('patch')) return 3;
-    if (m.includes('lettura')) return 2;
+    if (m.includes('read')) return 2;
     if (m.includes('unmanaged')) return 1;
-    if (m.includes('export') || m.includes('coda')) return 0;
+    if (m.includes('export') || m.includes('queue')) return 0;
     return current;
 }
 
@@ -1216,7 +1216,7 @@ async function runPreview(
     sol: Solution, agent: AgentListItem, seq: number, key: string,
 ): Promise<void> {
     const startedAt = Date.now();
-    let lastText = "avvio dell'export…";
+    let lastText = 'starting the export…';
     let phase = 0;
     const paint = () => {
         if (seq !== previewSeq) return;
@@ -1242,7 +1242,7 @@ async function runPreview(
         // Un istante con tutte le fasi chiuse prima di cambiare schermata: il lavoro e' durato
         // decine di secondi, sparire di colpo lascia il dubbio che sia finito davvero.
         phase = PACK_PHASES.length;
-        lastText = 'completato';
+        lastText = 'completed';
         paint();
         await new Promise(r => window.setTimeout(r, 900));
         if (seq !== previewSeq) return;
@@ -1259,13 +1259,13 @@ async function runPreview(
         if (body) {
             body.innerHTML = `
                 <div class="empty-state">
-                    <p><strong>Non è stato possibile preparare il package.</strong></p>
+                    <p><strong>The package could not be prepared.</strong></p>
                     <p class="hint">${escapeHtml(describeError(err))}</p>
-                    <button class="btn btn--secondary" id="retry-btn">Riprova</button>
+                    <button class="btn btn--secondary" id="retry-btn">Retry</button>
                 </div>`;
             els.stepPreview.querySelector('#retry-btn')!.addEventListener('click', () => renderPreviewStep());
         }
-        log(`Packaging non riuscito: ${describeError(err)}`, 'error');
+        log(`Packaging failed: ${describeError(err)}`, 'error');
     }
 }
 
@@ -1282,7 +1282,7 @@ function renderPreviewResult(r: PackagingResult): void {
             <td class="cell-strong">${escapeHtml(c.after)}</td>
             <td><span class="chip chip--${c.state === 'no-change' ? 'muted' : 'success'}">${c.state}</span>
                 ${c.exceedsTeamsLimit ? '<span class="chip chip--warning">&gt; 30 char</span>' : ''}</td>
-        </tr>`).join('') : `<tr><td colspan="5" class="cell-muted">Nessuna modifica da applicare.</td></tr>`;
+        </tr>`).join('') : `<tr><td colspan="5" class="cell-muted">Nothing to change.</td></tr>`;
 
     body.innerHTML = `
         <div class="stat"><dt>Solution</dt><dd>${escapeHtml(pkg.uniqueName)}</dd></div>
@@ -1300,40 +1300,40 @@ function renderPreviewResult(r: PackagingResult): void {
         panels.innerHTML = `
             <section class="panel">
                 <div class="panel-head">
-                    <h3 class="panel-heading">${icon('pencil', 'icon--head')}Cosa viene modificato</h3>
-                    <span class="panel-sub">l'unico punto toccato nel package</span>
+                    <h3 class="panel-heading">${icon('pencil', 'icon--head')}What gets changed</h3>
+                    <span class="panel-sub">the only place touched in the package</span>
                 </div>
                 <div class="panel-body">
                     <table class="data-table">
-                        <thead><tr><th>File</th><th>Elemento</th><th>Prima</th><th>Dopo</th><th>Stato</th></tr></thead>
+                        <thead><tr><th>File</th><th>Element</th><th>Before</th><th>After</th><th>State</th></tr></thead>
                         <tbody>${planRows}</tbody>
                     </table>
                     <p class="hint" style="margin-top:12px">
-                        <strong>Non</strong> vengono toccati: <code>schemaname</code>, nomi di cartella e
-                        di file, GUID, <code>[Content_Types].xml</code>, <code>customizations.xml</code>.
-                        Nessuna sostituzione testuale globale.
+                        <strong>Not</strong> touched: <code>schemaname</code>, folder and file
+                        names, GUIDs, <code>[Content_Types].xml</code>, <code>customizations.xml</code>.
+                        No global text replacement.
                     </p>
                 </div>
             </section>
 
             <section class="panel">
                 <div class="panel-head">
-                    <h3 class="panel-heading">${icon('send', 'icon--head')}Publish e canali</h3>
-                    <span class="panel-sub">letti dal package appena esportato</span>
+                    <h3 class="panel-heading">${icon('send', 'icon--head')}Publish and channels</h3>
+                    <span class="panel-sub">read from the package just exported</span>
                 </div>
                 <div class="panel-body">
                     ${pkg.agents.map(a => `
-                        <div class="kv"><span class="kv-key">Publish all'import</span>
+                        <div class="kv"><span class="kv-key">Publish on import</span>
                             <span class="kv-val kv-val--strong">${a.publishOnImport === null
-                                ? 'non specificato' : a.publishOnImport ? 'sì' : 'no'}</span></div>
-                        <div class="kv"><span class="kv-key">Canali</span>
+                                ? 'not specified' : a.publishOnImport ? 'yes' : 'no'}</span></div>
+                        <div class="kv"><span class="kv-key">Channels</span>
                             <span class="kv-val">${a.channels.length
                                 ? `<span class="channel-row">${a.channels.map(channelChip).join('')}</span>`
-                                : '<span class="cell-muted">nessuno</span>'}</span></div>`).join('')}
+                                : '<span class="cell-muted">none</span>'}</span></div>`).join('')}
                     ${pkg.agents.some(a => a.publishOnImport !== true) ? `
                     <p class="hint hint--warn" style="margin-top:12px">
-                        Senza publish nell'ambiente di destinazione il nome cambia solo in Copilot
-                        Studio e <strong>resta quello vecchio su Teams e M365</strong>.
+                        Without a publish in the target environment the name changes only in
+                        Copilot Studio and <strong>stays the old one on Teams and M365</strong>.
                     </p>` : ''}
                 </div>
             </section>`;
@@ -1342,9 +1342,9 @@ function renderPreviewResult(r: PackagingResult): void {
     const footer = document.getElementById('preview-footer');
     if (footer) {
         footer.innerHTML = `
-            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
+            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Back</button>
             <button class="btn btn--primary" id="to-verify-btn">
-                Verifica ${icon('arrow-right', 'icon--sm')}</button>`;
+                Checks ${icon('arrow-right', 'icon--sm')}</button>`;
         footer.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('review'));
         footer.querySelector('#to-verify-btn')!.addEventListener('click', () => navigateTo('verify'));
     }
@@ -1365,14 +1365,14 @@ function dotHtml(state: 'ok' | 'partial' | 'ko', title: string): string {
 function checkRowHtml(label: string, v: VerificationResult, expectedEntries: number): string {
     const bytes = v.byteIdenticalEntries === expectedEntries ? 'ok'
         : v.byteIdenticalEntries > 0 ? 'partial' : 'ko';
-    const yn = (b: boolean) => b ? 'sì' : 'no';
+    const yn = (b: boolean) => b ? 'yes' : 'no';
     return `
         <tr>
             <td class="cell-strong">${escapeHtml(label)}</td>
             <td>${dotHtml(v.archiveReadable ? 'ok' : 'ko', yn(v.archiveReadable))}</td>
             <td>${dotHtml(v.entryCountMatches ? 'ok' : 'ko', yn(v.entryCountMatches))}</td>
             <td>${dotHtml(v.patchedValuesConfirmed ? 'ok' : 'ko', yn(v.patchedValuesConfirmed))}</td>
-            <td>${dotHtml(bytes, `${v.byteIdenticalEntries} su ${expectedEntries}`)}
+            <td>${dotHtml(bytes, `${v.byteIdenticalEntries} of ${expectedEntries}`)}
                 <span class="check-count">${v.byteIdenticalEntries}/${expectedEntries}</span></td>
         </tr>`;
 }
@@ -1397,19 +1397,19 @@ function renderVerifyStep(): void {
 
     els.stepVerify.innerHTML = `
         <div class="step-header step-header-row">
-            <div class="step-id">${icon('shield')}<h2 class="step-title">Verifica dell'artefatto</h2></div>
+            <div class="step-id">${icon('shield')}<h2 class="step-title">Artifact checks</h2></div>
             ${stepperHtml(4)}
         </div>
 
         <section class="panel">
             <div class="panel-head">
-                <h3 class="panel-heading">${icon('package', 'icon--head')}Contenuto del package</h3>
-                <span class="panel-sub">cosa viaggia all'import</span>
+                <h3 class="panel-heading">${icon('package', 'icon--head')}Package contents</h3>
+                <span class="panel-sub">what travels on import</span>
             </div>
             <div class="panel-body">
                 <table class="data-table">
                     <thead><tr>
-                        <th>Cartella</th><th>Tipo</th><th class="col-num">Quanti</th><th></th>
+                        <th>Folder</th><th>Type</th><th class="col-num">Count</th><th></th>
                     </tr></thead>
                     <tbody>${pkg.inventory.map(c => `
                         <tr>
@@ -1419,30 +1419,30 @@ function renderVerifyStep(): void {
                             <td>${escapeHtml(c.kind)}</td>
                             <td class="col-num">${c.count}</td>
                             <td class="col-action">${c.relatedToSelectedAgent ? ''
-                                : '<span class="chip chip--warning">oltre all\'agent</span>'}</td>
+                                : '<span class="chip chip--warning">beyond the agent</span>'}</td>
                         </tr>`).join('')}</tbody>
                 </table>
                 ${extra.length ? `
                 <div class="note note--warn">
-                    L'artefatto è la <strong>solution intera</strong>: all'import viaggia anche
-                    quanto sopra, non solo l'agent.
+                    The artifact is the <strong>whole solution</strong>: everything above
+                    travels on import, not just the agent.
                 </div>` : ''}
             </div>
         </section>
 
         <section class="panel">
             <div class="panel-head">
-                <h3 class="panel-heading">${icon('shield', 'icon--head')}Controlli</h3>
-                <span class="panel-sub">managed e unmanaged a confronto</span>
+                <h3 class="panel-heading">${icon('shield', 'icon--head')}Checks</h3>
+                <span class="panel-sub">managed and unmanaged side by side</span>
             </div>
             <div class="panel-body">
                 <table class="data-table check-matrix">
                     <thead><tr>
                         <th>Package</th>
-                        <th>Archivio leggibile</th>
-                        <th>Numero di entry</th>
-                        <th>Valori patchati</th>
-                        <th>Entry byte-identiche</th>
+                        <th>Archive readable</th>
+                        <th>Entry count</th>
+                        <th>Patched values</th>
+                        <th>Byte-identical entries</th>
                     </tr></thead>
                     <tbody>
                         ${checkRowHtml('Managed', v, r.managed.expectedIdenticalEntries)}
@@ -1451,20 +1451,20 @@ function renderVerifyStep(): void {
                 </table>
 
                 <div class="kv" style="margin-top:var(--sp-4)">
-                    <span class="kv-key">Occorrenze del nome</span>
-                    <span class="kv-val">${pkg.nameOccurrences.length} trovate,
-                    ${unexpected.length} impreviste</span></div>
+                    <span class="kv-key">Name occurrences</span>
+                    <span class="kv-val">${pkg.nameOccurrences.length} found,
+                    ${unexpected.length} unexpected</span></div>
                 ${unexpected.length ? `
                 <div class="note note--warn">
-                    Il nome compare in punti che il tool non conosce: ${unexpected.map(o =>
+                    The name appears in places the tool does not know: ${unexpected.map(o =>
                         `<code>${escapeHtml(o.file)}</code> ${escapeHtml(o.locator)}`).join(', ')}.
-                    Quei punti <strong>non</strong> verrebbero patchati.
+                    Those places would <strong>not</strong> be patched.
                 </div>` : ''}
                 ${pkg.drift.length ? `
-                <h4 class="section-title">Formato del package</h4>
+                <h4 class="section-title">Package format</h4>
                 <div class="note note--warn">
-                    Il formato si discosta da quello di riferimento. Non blocca il packaging —
-                    Dataverse si aggiorna di continuo — ma vale la pena saperlo:
+                    The format differs from the reference one. It does not block packaging —
+                    Dataverse keeps changing — but it is worth knowing:
                     <ul class="drift-list">${pkg.drift.map(d =>
                         `<li>${escapeHtml(d.what)} <span class="cell-muted">(vs ${escapeHtml(d.against)})</span></li>`).join('')}</ul>
                 </div>` : ''}
@@ -1473,14 +1473,14 @@ function renderVerifyStep(): void {
 
         <div class="result-banner result-banner--${r.valid ? 'success' : 'error'}">
             ${r.valid
-                ? 'Package pronti e verificati: managed e unmanaged, con una sola entry modificata.'
-                : 'La verifica non è passata: l\'artefatto non è utilizzabile. Gli export originali restano importabili.'}
+                ? 'Packages ready and verified: managed and unmanaged, with a single entry changed.'
+                : 'The checks did not pass: the artifact is unusable. The original exports remain importable.'}
         </div>
 
         <div class="step-footer">
-            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Indietro</button>
+            <button class="btn btn--secondary" id="back-btn">${icon('arrow-left', 'icon--sm')} Back</button>
             <button class="btn btn--primary" id="save-btn" ${r.valid ? '' : 'disabled'}>
-                ${icon('download', 'icon--sm')} Salva l'artifact set</button>
+                ${icon('download', 'icon--sm')} Save the artifact set</button>
         </div>`;
 
     els.stepVerify.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('preview'));
@@ -1500,41 +1500,41 @@ async function confirmThenSave(
 ): Promise<void> {
     if (unexpected.length) {
         const ok = await askConfirm({
-            title: 'Il nome compare in punti non previsti',
-            okLabel: 'Ho capito, procedi',
+            title: 'The name appears in unexpected places',
+            okLabel: 'Understood, continue',
             danger: true,
             bodyHtml: `
-                <p>Il display name dell'agent e' stato trovato anche qui, dove il tool
-                <strong>non</strong> lo patchera':</p>
+                <p>The agent display name was also found here, where the tool will
+                <strong>not</strong> patch it:</p>
                 <ul>${unexpected.map(o =>
                     `<li><code>${escapeHtml(o.file)}</code> ${escapeHtml(o.locator)}</li>`).join('')}</ul>
-                <p class="hint">Di norma il nome sta in un punto solo. Se ne compaiono altri, il
-                formato del package potrebbe essere cambiato e il patch resterebbe
-                <strong>incompleto</strong>.</p>`,
+                <p class="hint">Normally the name appears in one place only. If more show up, the
+                package format may have changed and the patch would be
+                <strong>incomplete</strong>.</p>`,
         });
-        if (!ok) { log('Salvataggio annullato: occorrenze impreviste non confermate.', 'warning'); return; }
+        if (!ok) { log('Save cancelled: unexpected occurrences not confirmed.', 'warning'); return; }
         state.confirmations.push({
-            what: `occorrenze impreviste del nome: ${unexpected.map(o => o.file).join(', ')}`,
+            what: `unexpected name occurrences: ${unexpected.map(o => o.file).join(', ')}`,
             confirmedAt: new Date().toISOString(),
         });
     }
 
     if (extra.length) {
         const ok = await askConfirm({
-            title: 'Il package contiene altro oltre all\'agent',
-            okLabel: 'Procedi',
+            title: 'The package holds more than the agent',
+            okLabel: 'Continue',
             bodyHtml: `
-                <p>L'artefatto e' la <strong>solution intera</strong>: all'import viaggia anche
-                quanto segue.</p>
+                <p>The artifact is the <strong>whole solution</strong>: the following also travels
+                on import.</p>
                 <ul>${extra.map(c =>
                     `<li>${escapeHtml(c.kind)} — ${c.count}</li>`).join('')}</ul>
-                <p class="hint">Microsoft avverte che componenti non modificati inclusi in un
-                update creano layer sopra quelli esistenti e possono disattivarne le
-                customization.</p>`,
+                <p class="hint">Microsoft warns that unmodified components included in an update
+                create layers on top of existing ones and may disable their
+                customizations.</p>`,
         });
-        if (!ok) { log('Salvataggio annullato: componenti extra non confermati.', 'warning'); return; }
+        if (!ok) { log('Save cancelled: extra components not confirmed.', 'warning'); return; }
         state.confirmations.push({
-            what: `componenti oltre all'agent: ${extra.map(c => `${c.kind} x${c.count}`).join(', ')}`,
+            what: `components beyond the agent: ${extra.map(c => `${c.kind} x${c.count}`).join(', ')}`,
             confirmedAt: new Date().toISOString(),
         });
     }
@@ -1555,15 +1555,15 @@ async function saveArtifactSet(): Promise<void> {
     const sol = state.activeSolution;
     if (!r || !sol) return;
     if (!r.valid) {
-        log('La verifica non è passata: non viene scritto nessun artefatto.', 'error');
+        log('The checks did not pass: no artifact is written.', 'error');
         return;
     }
 
-    const folder = await selectFolder('Dove salvare l\'artifact set');
-    if (!folder) { log('Salvataggio annullato.'); return; }
+    const folder = await selectFolder('Where to save the artifact set');
+    if (!folder) { log('Save cancelled.'); return; }
 
     const btn = els.stepVerify.querySelector('#save-btn') as HTMLButtonElement | null;
-    if (btn) { btn.disabled = true; btn.textContent = 'Salvataggio…'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
 
     try {
         const written = await writeArtifactSet(folder, {
@@ -1574,15 +1574,15 @@ async function saveArtifactSet(): Promise<void> {
             user: state.connectionName,
             confirmations: state.confirmations,
             confirmOverwrite: folderName => askConfirm({
-                title: 'La cartella esiste già',
-                okLabel: 'Sovrascrivi',
+                title: 'That folder already exists',
+                okLabel: 'Overwrite',
                 danger: true,
-                bodyHtml: `<p>In <code>${escapeHtml(folder)}</code> c'è già una cartella
-                    <strong>${escapeHtml(folderName)}</strong>.</p>
-                    <p>Succede quando due artifact set della stessa solution, versione e suffisso
-                    nascono nello stesso minuto: la marca temporale si ferma lì.</p>
-                    <p>Proseguendo, <strong>gli archivi con lo stesso nome vengono rimpiazzati</strong>.
-                    Per tenerli entrambi, annulla e aspetta un minuto.</p>`,
+                bodyHtml: `<p>In <code>${escapeHtml(folder)}</code> a folder named
+                    <strong>${escapeHtml(folderName)}</strong> already exists.</p>
+                    <p>This happens when two artifact sets for the same solution, version and suffix
+                    are produced within the same minute: the timestamp stops at that granularity.</p>
+                    <p>Continuing will <strong>replace archives with the same name</strong>.
+                    To keep both, cancel and wait a minute.</p>`,
             }),
         });
 
@@ -1618,18 +1618,18 @@ async function saveArtifactSet(): Promise<void> {
         navigateTo('result');
         toolbox.utils.showNotification({
             title: 'Copilot Agent Nameplate',
-            body: `Artifact set pronto in ${written.set.folderName}`,
+            body: `Artifact set ready in ${written.set.folderName}`,
             type: written.complete ? 'success' : 'warning',
         });
     } catch (err) {
         if (err instanceof OverwriteDeclined) {
-            log('Sovrascrittura annullata: non è stato scritto nulla.');
+            log('Overwrite cancelled: nothing was written.');
         } else {
-            log(`Salvataggio non riuscito: ${err}`, 'error');
+            log(`Save failed: ${err}`, 'error');
         }
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = `${icon('download', 'icon--sm')} Salva l'artifact set`;
+            btn.innerHTML = `${icon('download', 'icon--sm')} Save the artifact set`;
         }
     }
 }
@@ -1645,14 +1645,14 @@ function renderResultStep(): void {
     const deploy = set.files.find(f => f.role === 'deploy');
     els.stepResult.innerHTML = `
         <div class="step-header step-header-row">
-            <div class="step-id">${icon('archive')}<h2 class="step-title">Artifact set pronto</h2></div>
+            <div class="step-id">${icon('archive')}<h2 class="step-title">Artifact set ready</h2></div>
             ${stepperHtml(5)}
         </div>
 
         <div class="handoff">
             <span class="handoff-mark">${icon('check')}</span>
             <div class="handoff-text">
-                <div class="handoff-label">Da importare in UAT o PROD</div>
+                <div class="handoff-label">To import into UAT or PROD</div>
                 <code class="handoff-file">${icon('archive', 'icon--archive')}
                     ${escapeHtml(deploy?.fileName ?? '—')}</code>
             </div>
@@ -1661,13 +1661,13 @@ function renderResultStep(): void {
 
         <section class="panel">
             <div class="panel-head">
-                <h3 class="panel-heading">${icon('archive', 'icon--head')}File prodotti</h3>
-                <span class="panel-sub">${set.files.length} archivi · ${(set.totalBytes / 1024).toFixed(0)} KB</span>
+                <h3 class="panel-heading">${icon('archive', 'icon--head')}Files produced</h3>
+                <span class="panel-sub">${set.files.length} archives · ${(set.totalBytes / 1024).toFixed(0)} KB</span>
             </div>
             <div class="panel-body">
                 <table class="data-table">
                     <thead><tr>
-                        <th>File</th><th>Ruolo</th><th class="col-num">Entry</th><th>SHA-256</th>
+                        <th>File</th><th>Role</th><th class="col-num">Entries</th><th>SHA-256</th>
                     </tr></thead>
                     <tbody>${set.files.map(f => `
                         <tr${f.role === 'deploy' ? ' class="row-highlight"' : ''}>
@@ -1680,52 +1680,53 @@ function renderResultStep(): void {
                         </tr>`).join('')}</tbody>
                 </table>
                 <div class="note note--warn">
-                    L'archivio <strong>unmanaged</strong> non va importato in UAT o PROD:
-                    creerebbe una solution unmanaged, cioè il problema che questo flusso elimina.
+                    Do <strong>not</strong> import the unmanaged archive into UAT or PROD: it
+                    would create an unmanaged solution, the very problem this flow removes.
                 </div>
                 <div class="note">
-                    Due artefatti della stessa versione si distinguono dall'<strong>hash</strong>,
-                    non dalla <code>&lt;Version&gt;</code>: per questo non serve forzare un bump.
+                    Two artifacts of the same version are told apart by their
+                    <strong>hash</strong>, not by <code>&lt;Version&gt;</code>: that is why no
+                    version bump is needed.
                 </div>
             </div>
         </section>
 
         <section class="panel">
             <div class="panel-head">
-                <h3 class="panel-heading">${icon('folder', 'icon--head')}Dove si trova</h3>
+                <h3 class="panel-heading">${icon('folder', 'icon--head')}Where it is</h3>
             </div>
             <div class="panel-body">
-                <div class="kv"><span class="kv-key">Cartella</span>
+                <div class="kv"><span class="kv-key">Folder</span>
                     <span class="kv-val">${icon('folder', 'icon--folder icon--sm')}
                     <code>${escapeHtml(set.folderPath)}</code></span></div>
                 <div class="kv"><span class="kv-key">Manifest</span>
                     <span class="kv-val">${icon('file-json', 'icon--data icon--sm')}
-                    <code>manifest.json</code> — sorgente, suffisso, operatore,
-                    impronta del formato e hash di ogni file</span></div>
+                    <code>manifest.json</code> — source, suffix, operator,
+                    format fingerprint and every file hash</span></div>
             </div>
         </section>
 
         <div class="step-footer">
             <button class="btn btn--primary" id="copy-path-btn">
-                ${icon('package', 'icon--sm')} Copia percorso</button>
+                ${icon('package', 'icon--sm')} Copy path</button>
             <button class="btn btn--secondary" id="open-folder-btn"
-                title="Apre Esplora risorse. PPTB mostra per un attimo il pannello del terminale: è il modo in cui un tool può lanciare un comando.">
-                Apri cartella</button>
+                title="Opens File Explorer. PPTB flashes the terminal panel: that is how a tool runs a command.">
+                Open folder</button>
             <button class="btn btn--secondary" id="history-nav-btn">
-                ${icon('history', 'icon--sm')} Vedi lo storico</button>
-            <button class="btn btn--secondary" id="done-btn">Fine</button>
+                ${icon('history', 'icon--sm')} View history</button>
+            <button class="btn btn--secondary" id="done-btn">Done</button>
         </div>`;
 
     els.stepResult.querySelector('#open-folder-btn')!.addEventListener('click', () => {
         void openFolder(set.folderPath).catch(err =>
-            log(`Non sono riuscito ad aprire la cartella: ${describeError(err)}`, 'error'));
+            log(`Could not open the folder: ${describeError(err)}`, 'error'));
     });
     els.stepResult.querySelector('#copy-path-btn')!.addEventListener('click', ev => {
         const btn = ev.currentTarget as HTMLButtonElement;
         void toolbox.utils.copyToClipboard(set.folderPath).then(() => {
-            btn.innerHTML = `${icon('check', 'icon--sm')} Copiato`;
+            btn.innerHTML = `${icon('check', 'icon--sm')} Copied`;
             setTimeout(() => {
-                btn.innerHTML = `${icon('package', 'icon--sm')} Copia percorso`;
+                btn.innerHTML = `${icon('package', 'icon--sm')} Copy path`;
             }, 1500);
         });
     });
@@ -1761,11 +1762,11 @@ async function renderHistoryStep(): Promise<void> {
     els.stepHistory.innerHTML = `
         <section class="panel panel--fill">
             <div class="panel-head panel-head--lg">
-                <div><h2 class="panel-heading">${icon('history', 'icon--head')}Storico dei packaging</h2>
-                    <div class="panel-sub">conservato 30 giorni, solo su questo dispositivo</div></div>
+                <div><h2 class="panel-heading">${icon('history', 'icon--head')}Packaging history</h2>
+                    <div class="panel-sub">kept for 30 days, on this device only</div></div>
             </div>
             <div class="panel-table" id="history-body">
-                <div class="progress-line"><span class="spinner"></span> lettura…</div>
+                <div class="progress-line"><span class="spinner"></span> reading…</div>
             </div>
         </section>`;
 
@@ -1775,8 +1776,8 @@ async function renderHistoryStep(): Promise<void> {
 
     if (!list.length) {
         body.innerHTML = `<div class="empty-state">
-            <p>Nessun packaging registrato.</p>
-            <p class="hint">Qui compariranno le operazioni, con i percorsi e gli hash dei file.</p>
+            <p>No packaging recorded yet.</p>
+            <p class="hint">Operations will appear here, with their paths and file hashes.</p>
         </div>`;
         return;
     }
@@ -1791,12 +1792,12 @@ async function renderHistoryStep(): Promise<void> {
                         <span class="rec-version">${escapeHtml(r.version)}</span>
                         ${r.suffix
                             ? `<span class="chip chip--muted">${escapeHtml(r.suffix)}</span>`
-                            : '<span class="chip chip--muted">senza suffisso</span>'}
+                            : '<span class="chip chip--muted">no suffix</span>'}
                     </div>
                     <div class="rec-actions">
                         <span class="chip chip--${r.status === 'ok' ? 'success' : 'error'}">${escapeHtml(r.status)}</span>
-                        <button class="btn btn--secondary btn--sm" data-export="${escapeHtml(r.id)}">Esporta</button>
-                        <button class="btn btn--secondary btn--sm" data-delete="${escapeHtml(r.id)}">Elimina</button>
+                        <button class="btn btn--secondary btn--sm" data-export="${escapeHtml(r.id)}">Export</button>
+                        <button class="btn btn--secondary btn--sm" data-delete="${escapeHtml(r.id)}">Delete</button>
                     </div>
                 </div>
 
@@ -1817,7 +1818,7 @@ async function renderHistoryStep(): Promise<void> {
                         <span title="${escapeHtml(formatAbsoluteDate(r.timestamp))}">
                             ${escapeHtml(formatRelativeDate(r.timestamp))}</span>
                         <span>export ${escapeHtml(r.exportMode)} · ${r.exportSeconds.toFixed(1)} s</span>
-                        <span>${r.files.length} file</span>
+                        <span>${r.files.length} files</span>
                     </div>
 
                     <div class="rec-files">${r.files.map(f => `
@@ -1838,11 +1839,11 @@ async function renderHistoryStep(): Promise<void> {
         b.addEventListener('click', async () => {
             const id = b.dataset.delete!;
             const ok = await askConfirm({
-                title: 'Eliminare la voce?',
-                okLabel: 'Elimina',
+                title: 'Delete this entry?',
+                okLabel: 'Delete',
                 danger: true,
-                bodyHtml: `<p>La voce di storico viene rimossa. <strong>I file sul disco non
-                    vengono toccati</strong>: restano nella loro cartella.</p>`,
+                bodyHtml: `<p>The history entry is removed. <strong>The files on disk are not
+                    touched</strong>: they stay in their folder.</p>`,
             });
             if (!ok) return;
             await deleteRecord(id);
@@ -1874,7 +1875,7 @@ function setLogCollapsed(collapsed: boolean): void {
     if (!panel || !btn) return;
     panel.classList.toggle('sidebar-right--collapsed', collapsed);
     btn.setAttribute('aria-expanded', String(!collapsed));
-    btn.setAttribute('title', collapsed ? 'Mostra il log' : 'Riduci il log');
+    btn.setAttribute('title', collapsed ? 'Expand log' : 'Collapse log');
     btn.innerHTML = icon(collapsed ? 'chevron-left' : 'chevron-right', 'icon--sm');
     try { localStorage.setItem(LOG_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch { /* ok */ }
 }
@@ -1893,11 +1894,11 @@ els.historyBtn.addEventListener('click', () => navigateTo('history'));
 /** Il log e' un tracciato di cosa e' stato fatto: deve poter uscire dal tool (FR-017). */
 els.exportLogBtn.addEventListener('click', async () => {
     const ok = await askConfirm({
-        title: 'Esporta il log',
+        title: 'Export the log',
         okLabel: 'CSV',
-        bodyHtml: `<p>${getEntries().length} voci. <strong>CSV</strong> per aprirlo in un foglio,
-            <strong>Annulla</strong> e usa il pulsante di nuovo se preferisci JSON.</p>
-            <p class="hint">Il file resta sul dispositivo: nulla viene trasmesso.</p>`,
+        bodyHtml: `<p>${getEntries().length} entries. <strong>CSV</strong> to open it in a spreadsheet,
+            <strong>Cancel</strong> and press the button again if you prefer JSON.</p>
+            <p class="hint">The file stays on this device: nothing is transmitted.</p>`,
     });
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
     if (ok) await saveTextFile(`nameplate-log-${stamp}.csv`, toCsv());

@@ -95,9 +95,9 @@ export async function deployArtifact(
     expected: { schemaName: string; name: string },
     onProgress?: DeployProgress,
 ): Promise<DeployOutcome> {
-    onProgress?.('avvio dell\'import…');
+    onProgress?.('starting import…');
     const { ImportJobId } = await dataverse.deploySolution(bytes, { publishWorkflows: false });
-    log(`Import avviato (job ${ImportJobId}).`);
+    log(`Import started (job ${ImportJobId}).`);
 
     let lastPercent = -1;
     for (;;) {
@@ -108,35 +108,35 @@ export async function deployArtifact(
         const percent = Math.round(Number(status.progress ?? 0));
         if (percent !== lastPercent) {
             lastPercent = percent;
-            onProgress?.(`import in corso — ${percent}%`, percent);
+            onProgress?.(`importing — ${percent}%`, percent);
         }
         if (status.completedon) {
             const failed = /<result result="failure"/i.test(status.data ?? '');
             const outcome: DeployOutcome = {
                 importJobId: ImportJobId,
                 status: failed ? 'failed' : 'succeeded',
-                message: failed ? estraiErrore(status.data ?? '') : 'import completato',
+                message: failed ? estraiErrore(status.data ?? '') : 'import completed',
                 nameInTarget: null,
                 nameMatches: null,
             };
             if (failed) {
-                log(`Import non riuscito: ${outcome.message}`, 'error');
+                log(`Import failed: ${outcome.message}`, 'error');
                 return outcome;
             }
 
-            onProgress?.('controprova sul nome…');
+            onProgress?.('verifying agent name…');
             const target = await readTargetAgent(expected.schemaName);
             outcome.nameInTarget = target.found ? target.name : null;
             outcome.nameMatches = target.found ? target.name === expected.name : false;
             if (!outcome.nameMatches) {
                 outcome.status = 'failed';
                 outcome.message = target.found
-                    ? `l'import è andato a buon fine ma l'agent nel target si chiama `
-                      + `"${target.name}" invece di "${expected.name}"`
-                    : 'l\'agent non è stato trovato nel target dopo l\'import';
+                    ? `import succeeded but the agent in the target is named `
+                      + `"${target.name}" instead of "${expected.name}"`
+                    : 'the agent was not found in the target after the import';
                 log(outcome.message, 'error');
             } else {
-                log(`Import completato: l'agent nel target si chiama "${target.name}".`, 'success');
+                log(`Import completed: the agent in the target is named "${target.name}".`, 'success');
             }
             return outcome;
         }
@@ -146,5 +146,5 @@ export async function deployArtifact(
 /** Il log di import è XML: si prende il primo messaggio di errore leggibile. */
 function estraiErrore(xml: string): string {
     const m = /errortext="([^"]+)"/i.exec(xml) ?? /<errortext>([^<]+)</i.exec(xml);
-    return m ? m[1]! : 'errore non specificato nel log di import';
+    return m ? m[1]! : 'unspecified error in the import log';
 }

@@ -120,7 +120,7 @@ function replaceElementText(xml: string, tag: string, value: string, file: strin
         // più sicuro che scegliere la prima e sperare (FR-069)
         throw new PackageFormatError(
             `<${tag}> compare ${matches.length} volte in ${file}: il formato del package `
-            + `potrebbe essere cambiato, verifica prima di procedere.`, file);
+            + `may have changed, check before proceeding.`, file);
     }
     const m = matches[0]!;
     return xml.slice(0, m.index) + m[1] + xmlText(value) + m[3] + xml.slice(m.index + m[0].length);

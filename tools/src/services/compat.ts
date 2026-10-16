@@ -145,14 +145,14 @@ function diffList(
     const out: FormatDrift[] = [];
     for (const x of after) {
         if (!before.includes(x) && !optional.includes(x)) {
-            out.push({ against, kind: 'added', what: `${label}: comparso "${x}"`, blocking: false });
+            out.push({ against, kind: 'added', what: `${label}: appeared "${x}"`, blocking: false });
         }
     }
     for (const x of before) {
         // Un elemento opzionale e' serializzato solo quando ha un valore: la sua assenza
         // non e' uno scostamento di formato.
         if (!after.includes(x) && !optional.includes(x)) {
-            out.push({ against, kind: 'removed', what: `${label}: sparito "${x}"`, blocking: false });
+            out.push({ against, kind: 'removed', what: `${label}: disappeared "${x}"`, blocking: false });
         }
     }
     return out;
@@ -180,16 +180,16 @@ function compare(
             what: `SolutionPackageVersion: ${ref.solutionPackageVersion} → ${actual.solutionPackageVersion}`,
         });
     }
-    out.push(...diffList('cartelle di primo livello', ref.topLevelPaths, actual.topLevelPaths, against, ref.optionalTopLevelPaths));
-    out.push(...diffList('elementi di bot.xml', ref.botElements, actual.botElements, against));
-    out.push(...diffList('elementi di botcomponent.xml', ref.botComponentElements, actual.botComponentElements, against, ref.optionalBotComponentElements));
-    out.push(...diffList('chiavi di configuration.json', ref.configurationKeys, actual.configurationKeys, against, ref.optionalConfigurationKeys));
+    out.push(...diffList('top-level folders', ref.topLevelPaths, actual.topLevelPaths, against, ref.optionalTopLevelPaths));
+    out.push(...diffList('bot.xml elements', ref.botElements, actual.botElements, against));
+    out.push(...diffList('botcomponent.xml elements', ref.botComponentElements, actual.botComponentElements, against, ref.optionalBotComponentElements));
+    out.push(...diffList('configuration.json keys', ref.configurationKeys, actual.configurationKeys, against, ref.optionalConfigurationKeys));
 
     // I timbri di versione cambiano a ogni aggiornamento di Dataverse: si segnalano, mai si bloccano
     if (ref.platformStamps && ref.platformStamps.version !== actual.platformStamps.version) {
         out.push({
             against, kind: 'changed', blocking: false,
-            what: `versione della piattaforma: ${ref.platformStamps.version} → ${actual.platformStamps.version}`,
+            what: `platform version: ${ref.platformStamps.version} → ${actual.platformStamps.version}`,
         });
     }
     return out;

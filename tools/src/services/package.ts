@@ -74,7 +74,7 @@ export function readPackage(bytes: Uint8Array): PackageContents {
     if (!botPaths.length) {
         // Senza agent non c'è niente da rinominare: meglio fermarsi che consegnare una copia
         // identica all'originale spacciata per package patchato
-        throw new PackageFormatError('il package non contiene nessun agent (nessuna cartella bots/)');
+        throw new PackageFormatError('the package holds no agent (no bots/ folder)');
     }
 
     const agents: PackagedAgent[] = botPaths.map(path => {
@@ -85,7 +85,7 @@ export function readPackage(bytes: Uint8Array): PackageContents {
             // sostituzioni approssimative (FR-069)
             throw new PackageFormatError(
                 `bot.xml non contiene l'elemento <name> nel formato atteso: il formato del package `
-                + `potrebbe essere cambiato. Verifica ${path} prima di procedere.`, path);
+                + `may have changed. Check ${path} before proceeding.`, path);
         }
         const schemaName = new DOMParser().parseFromString(xml, 'application/xml')
             .documentElement?.getAttribute('schemaname') ?? '';

@@ -53,7 +53,7 @@ function decodeBase64(b64: string): Uint8Array {
 
 function fileFrom(res: Record<string, unknown>, where: string): Uint8Array {
     const b64 = res.ExportSolutionFile as string | undefined;
-    if (!b64) throw new Error(`${where}: risposta senza ExportSolutionFile`);
+    if (!b64) throw new Error(`${where}: response without ExportSolutionFile`);
     return decodeBase64(b64);
 }
 
@@ -87,7 +87,7 @@ async function exportAsync(
     const asyncOperationId = started.AsyncOperationId as string;
     const exportJobId = started.ExportJobId as string;
     if (!asyncOperationId || !exportJobId) {
-        throw new Error('ExportSolutionAsync: risposta senza AsyncOperationId o ExportJobId');
+        throw new Error('ExportSolutionAsync: response without AsyncOperationId or ExportJobId');
     }
 
     const deadline = Date.now() + ASYNC_TIMEOUT_MS;
@@ -98,15 +98,15 @@ async function exportAsync(
         const status = op.statuscode as number;
         if (state === ASYNC_STATE_COMPLETED) {
             if (status !== ASYNC_STATUS_SUCCEEDED) {
-                throw new Error(`job di export non riuscito (statuscode ${status})`);
+                throw new Error(`export job failed (statuscode ${status})`);
             }
             break;
         }
         if (Date.now() > deadline) {
-            throw new Error(`job di export ancora in corso dopo ${ASYNC_TIMEOUT_MS / 60000} minuti`);
+            throw new Error(`export job still running after ${ASYNC_TIMEOUT_MS / 60000} minutes`);
         }
         polls++;
-        onProgress?.(`job di export in coda — ${polls} controlli, ${Math.round((Date.now() - (deadline - ASYNC_TIMEOUT_MS)) / 1000)} s`);
+        onProgress?.(`export job queued — ${polls} polls, ${Math.round((Date.now() - (deadline - ASYNC_TIMEOUT_MS)) / 1000)} s`);
         await sleep(POLL_INTERVAL_MS);
     }
 
@@ -125,7 +125,7 @@ export async function exportSolution(
 ): Promise<ExportResult> {
     const label = managed ? 'managed' : 'unmanaged';
     const t0 = Date.now();
-    onProgress?.(`export ${label} in corso…`);
+    onProgress?.(`exporting ${label}…`);
     try {
         const bytes = await exportSync(solutionName, managed);
         const seconds = (Date.now() - t0) / 1000;
@@ -133,12 +133,12 @@ export async function exportSolution(
         return { bytes, mode: 'sync', seconds };
     } catch (err) {
         // Il fallback non si chiede all'utente: si dichiara mentre avviene (FR-093)
-        log(`L'export ${label} sta richiedendo più del previsto, passo alla modalità asincrona: ${err}`,
+        log(`Export ${label} is taking longer than expected, switching to async mode: ${err}`,
             'warning');
-        onProgress?.(`export ${label}: passo alla modalità asincrona…`);
+        onProgress?.(`export ${label}: switching to async mode…`);
         const bytes = await exportAsync(solutionName, managed, onProgress);
         const seconds = (Date.now() - t0) / 1000;
-        log(`Export ${label} completato in modalità asincrona in ${seconds.toFixed(1)} s `
+        log(`Export ${label} completed in async mode in ${seconds.toFixed(1)} s `
             + `(${bytes.length} byte).`, 'success');
         return { bytes, mode: 'async', seconds };
     }

@@ -187,7 +187,7 @@ export async function findSuffixVariable(solutionId: string): Promise<SuffixVari
         };
     } catch (err) {
         // Informativo: se non si riesce a leggere, non si blocca nulla (FR-089)
-        log(`Impossibile verificare le environment variable della solution: ${err}`, 'warning');
+        log(`Could not check the solution's environment variables: ${err}`, 'warning');
         return null;
     }
 }

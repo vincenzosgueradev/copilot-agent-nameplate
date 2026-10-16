@@ -70,18 +70,18 @@ export async function runPackaging(
 ): Promise<PackagingResult> {
     const pair = await exportPair(solutionUniqueName, onProgress);
 
-    onProgress?.('lettura dei package…');
+    onProgress?.('reading the packages…');
     const managedPkg = readPackage(pair.managed.bytes);
     const unmanagedPkg = readPackage(pair.unmanaged.bytes);
-    log(`Package letti: ${managedPkg.uniqueName} v${managedPkg.version}, `
-        + `${managedPkg.entries.length} entry, ${managedPkg.agents.length} agent.`);
+    log(`Packages read: ${managedPkg.uniqueName} v${managedPkg.version}, `
+        + `${managedPkg.entries.length} entries, ${managedPkg.agents.length} agent(s).`);
     if (managedPkg.drift.length) {
-        log(`Il formato si discosta dal riferimento in ${managedPkg.drift.length} punti: `
+        log(`The format differs from the baseline in ${managedPkg.drift.length} point(s): `
             + managedPkg.drift.map(d => d.what).join('; '), 'warning');
     }
     const unexpected = managedPkg.nameOccurrences.filter(o => !o.expected);
     if (unexpected.length) {
-        log(`Il display name compare in ${unexpected.length} punti non previsti: `
+        log(`The display name appears in ${unexpected.length} unexpected place(s): `
             + unexpected.map(o => `${o.file} ${o.locator}`).join('; '), 'warning');
     }
     managedPkg.exportMode = pair.managed.mode;
@@ -94,13 +94,13 @@ export async function runPackaging(
     log(`Patch Plan: ${plan.length} modifiche `
         + `(${plan.filter(c => c.state !== 'no-change').length} effettive).`);
 
-    onProgress?.('patch e verifica…');
+    onProgress?.('patch and verify…');
     const managed = build(managedPkg, plan);
     const unmanaged = build(unmanagedPkg, plan);
     for (const [label, a] of [['managed', managed], ['unmanaged', unmanaged]] as const) {
-        log(`Verifica ${label}: `
-            + `${a.verification.byteIdenticalEntries}/${a.expectedIdenticalEntries} entry non `
-            + `patchate byte-identiche, valori ${a.verification.patchedValuesConfirmed ? 'confermati' : 'NON confermati'}.`,
+        log(`Verify ${label}: `
+            + `${a.verification.byteIdenticalEntries}/${a.expectedIdenticalEntries} `
+            + `byte-identical unpatched entries, patched values ${a.verification.patchedValuesConfirmed ? 'confirmed' : 'NOT confirmed'}.`,
             a.verification.patchedValuesConfirmed ? 'info' : 'error');
     }
 
@@ -111,8 +111,8 @@ export async function runPackaging(
         log(`Package pronti: managed ${managed.bytes.length} byte, `
             + `unmanaged ${unmanaged.bytes.length} byte.`, 'success');
     } else {
-        log('La verifica non è passata su almeno uno dei due archivi: l\'artefatto non è '
-            + 'utilizzabile. Gli export originali restano importabili.', 'error');
+        log('Verification failed on at least one of the two archives: the artifact is '
+            + 'unusable. The original exports remain importable.', 'error');
     }
 
     return {

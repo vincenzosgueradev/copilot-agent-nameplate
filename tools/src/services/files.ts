@@ -60,7 +60,7 @@ let termId: string | null = null;
  * comando ammesso: li' resta solo copiare il percorso.
  */
 export async function openFolder(path: string): Promise<void> {
-    if (!isWindows) throw new Error('disponibile solo su Windows: usa Copia percorso');
+    if (!isWindows) throw new Error('available on Windows only: use Copy path');
     const term = globalThis.toolboxAPI.terminal;
     if (!termId) termId = (await term.create({ name: 'Copilot Agent Nameplate', visible: false })).id;
     await term.execute(termId, `explorer ${quote(path)}`);
@@ -77,7 +77,7 @@ export async function pathExists(path: string): Promise<boolean> {
 }
 
 export async function selectFolder(title: string): Promise<string | null> {
-    return fs.selectPath({ type: 'folder', title, buttonLabel: 'Usa questa cartella' });
+    return fs.selectPath({ type: 'folder', title, buttonLabel: 'Use this folder' });
 }
 
 export async function writeText(path: string, content: string): Promise<void> {
@@ -115,8 +115,8 @@ let warned = false;
 export function warnAboutDialogs(count: number): void {
     if (warned || hasDirectBinaryWrite()) return;
     warned = true;
-    log(`PPTB non espone una scrittura binaria e non consente a un tool di invocare una shell: `
-        + `verranno chiesti ${count} salvataggi, uno per archivio. Il percorso è già compilato.`,
+    log(`PPTB exposes no binary write and does not let a tool invoke a shell: you will be asked `
+        + `for ${count} saves, one per archive. The path is already filled in.`,
         'warning');
 }
 

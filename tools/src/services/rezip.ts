@@ -94,10 +94,10 @@ export function verificationPassed(v: VerificationResult, expectedEntries: numbe
 
 export function describeVerification(v: VerificationResult, expectedEntries: number): string {
     const parts = [
-        v.archiveReadable ? 'archivio leggibile' : 'archivio NON leggibile',
-        v.entryCountMatches ? 'numero di entry corrispondente' : 'numero di entry DIVERSO',
-        v.patchedValuesConfirmed ? 'valori patchati confermati' : 'valori patchati NON confermati',
-        `${v.byteIdenticalEntries}/${expectedEntries} entry non patchate byte-identiche`,
+        v.archiveReadable ? 'archive readable' : 'archive NOT readable',
+        v.entryCountMatches ? 'entry count matches' : 'entry count DIFFERS',
+        v.patchedValuesConfirmed ? 'patched values confirmed' : 'patched values NOT confirmed',
+        `${v.byteIdenticalEntries}/${expectedEntries} unpatched entries byte-identical`,
     ];
     return parts.join(' · ');
 }
