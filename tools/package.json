@@ -1,6 +1,6 @@
 {
     "name": "copilot-agent-nameplate",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "displayName": "Copilot Agent Nameplate",
     "description": "Rename Copilot Studio agents per environment — without an unmanaged layer. The solution package arrives already named for its target.",
     "type": "module",
