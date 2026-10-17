@@ -361,6 +361,98 @@ describe('avanzamento: le fasi si vedono passare', () => {
     });
 });
 
+describe('posizione di scorrimento', () => {
+    /**
+     * jsdom non fa il layout, quindi nessun elemento scorre davvero: si sostituisce `scrollTop`
+     * con un valore memorizzato, per simulare un utente che ha scorso in fondo.
+     */
+    const SCROLLERS = '.step-panel, #solutions-table-container, .panel-table';
+    function watchScroll(doc: Document) {
+        const store = new Map<Element, number>();
+        const hook = (el: Element) => {
+            if (store.has(el)) return;
+            store.set(el, 0);
+            Object.defineProperty(el, 'scrollTop', {
+                configurable: true, get: () => store.get(el) ?? 0, set: (v: number) => { store.set(el, v); },
+            });
+        };
+        return {
+            /** Porta in fondo ogni contenitore che scorre, anche quelli appena disegnati. */
+            scrollAllDown() { doc.querySelectorAll(SCROLLERS).forEach(el => { hook(el); store.set(el, 480); }); },
+            top: (el: Element | null) => (el ? store.get(el) ?? 0 : -1),
+            hookAll() { doc.querySelectorAll(SCROLLERS).forEach(hook); },
+            set: (el: Element, v: number) => { hook(el); store.set(el, v); },
+        };
+    }
+    const shown = (ui: { doc: Document; step(): string }) => {
+        const ids: Record<string, string> = {
+            welcome: 'solutions-table-container', solution: 'step-solution', suffix: 'step-suffix',
+            review: 'step-review', preview: 'step-preview', verify: 'step-verify', result: 'step-result',
+        };
+        return ui.doc.getElementById(ids[ui.step()]!);
+    };
+
+    it('ogni cambio di schermata, avanti e indietro, riparte dall\'alto', async () => {
+        const ui = await boot(WORLD);
+        const sc = watchScroll(ui.doc);
+        const go = async (label: string, action: () => Promise<void>) => {
+            sc.scrollAllDown();                      // l'utente era in fondo, ovunque
+            await action();
+            sc.hookAll();
+            expect(sc.top(shown(ui)), `dopo "${label}" (${ui.step()}): scorrimento`).toBe(0);
+        };
+
+        await go('apri solution', () => ui.openSolution('S2'));
+        expect(ui.step()).toBe('solution');
+        await go('Set the suffix', () => ui.startRename());
+        expect(ui.step()).toBe('suffix');
+        await go('Next', () => ui.next());
+        expect(ui.step()).toBe('review');
+        await go('Build', () => ui.buildPackage());
+        expect(ui.step()).toBe('preview');
+        await go('Checks', () => ui.toVerify());
+        expect(ui.step()).toBe('verify');
+
+        // e tornando indietro, uno step alla volta
+        await go('Back da verify', () => ui.back());
+        expect(ui.step()).toBe('preview');
+        await go('Back da preview', () => ui.back());
+        expect(ui.step()).toBe('review');
+        await go('Back da review', () => ui.back());
+        expect(ui.step()).toBe('suffix');
+        await go('Back da suffix', () => ui.back());
+        expect(ui.step()).toBe('solution');
+        await go('breadcrumb Solutions', () => ui.crumb('Solutions'));
+        expect(ui.step()).toBe('welcome');
+    });
+
+    it('la tabella interna alla solution riparte dall\'alto anche se un\'altra era in fondo', async () => {
+        const ui = await boot(WORLD);
+        const sc = watchScroll(ui.doc);
+        await ui.openSolution('S2');
+        sc.hookAll();
+        sc.scrollAllDown();
+        await ui.startRename();
+        await ui.back();                              // ridisegna la vista della solution
+        sc.hookAll();
+        expect(sc.top(ui.doc.querySelector('#step-solution .panel-table'))).toBe(0);
+    });
+
+    it('un ridisegno sul posto NON perde la posizione (si digita il suffisso a meta\' pagina)', async () => {
+        const ui = await boot(WORLD);
+        const sc = watchScroll(ui.doc);
+        await ui.openSolution('S2');
+        await ui.startRename();
+        const panel = ui.doc.getElementById('step-suffix')!;
+        sc.hookAll();
+        sc.set(panel, 300);
+        await ui.typeSuffix('UAT');
+        await ui.toggleAgent('beta1 [DEV]');
+        await ui.setAll('force-true');
+        expect(sc.top(panel), 'digitare e cliccare non deve riportare in cima').toBe(300);
+    });
+});
+
 describe('contenuto non fidato: nessun HTML eseguibile', () => {
     const evil = '<img src=x onerror=alert(1)> & "q" [DEV]';
     const world: UiWorld = {

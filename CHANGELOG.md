@@ -25,6 +25,9 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   configuration; the format check also read only the first agent's configuration, so the
   result depended on the order of the files. It now reads all the agents, and those two keys
   are optional.
+- **Every screen now opens at the top.** Moving between steps, forward or back, kept the scroll
+  position of the previous screen, so going back from the bottom of a page landed you at the
+  bottom of the next one. Typing in the suffix field or clicking a toggle does not move the page.
 - **Two agents with the same display name no longer trigger the "unknown place" warning.**
   Each one's name showed up in the other's definition and was reported as an unexpected
   occurrence.

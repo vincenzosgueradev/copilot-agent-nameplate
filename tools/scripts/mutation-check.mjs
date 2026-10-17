@@ -80,6 +80,9 @@ const MUTATIONS = [
     ['app.ts', 'src/app.ts', '.filter(x => x.changes.length)', '.filter(() => true)', 'v1.1.0: blocco anche per gli agent senza cambi'],
     ['app.ts', 'src/app.ts', "const solutionChanges = r.plan.filter(c => c.element === 'Version');", 'const solutionChanges: PatchChange[] = [];', 'v1.1.0: il blocco della solution non compare'],
     ['app.ts', 'src/app.ts', '.localeCompare(nameOf(y.agent.schemaName, y.agent.name)));', '.localeCompare(nameOf(y.agent.schemaName, y.agent.name)) * -1);', 'v1.1.0: blocchi in ordine inverso'],
+    ['app.ts', 'src/app.ts', "scrollToTop(document.getElementById('main-content') ?? els.welcomeScreen);", '', 'ogni schermata eredita lo scorrimento della precedente'],
+    ['app.ts', 'src/app.ts', "const SCROLLERS = '.step-panel, #solutions-table-container, .panel-table';", "const SCROLLERS = '#solutions-table-container';", 'si resetta solo l\'elenco, non gli step'],
+    ['app.ts', 'src/app.ts', "el => { el.scrollTop = 0; }", "el => { el.scrollTop = el.scrollTop; }", 'lo scorrimento non viene azzerato'],
     // ── packaging.ts: il collegamento
     ['packaging.ts', 'src/services/packaging.ts', "expected.publish![c.file] = c.after === 'true';", 'expected.publish![c.file] = true;', 'la verifica riceve publishOnImport sbagliato'],
 ];

@@ -800,6 +800,19 @@ function renderBreadcrumb(): void {
 }
 
 // ── Step navigation ───────────────────────────────────────────────────────────
+
+/** Ogni contenitore che scorre: lo step, la tabella dell'elenco e quella interna alla solution. */
+const SCROLLERS = '.step-panel, #solutions-table-container, .panel-table';
+
+/**
+ * Una schermata nuova parte dall'alto. Il contenitore che scorre e' lo stesso per tutti gli
+ * step, quindi senza questo si ereditava la posizione della schermata precedente: tornando
+ * indietro da fondo pagina si ricominciava dal basso.
+ */
+function scrollToTop(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>(SCROLLERS).forEach(el => { el.scrollTop = 0; });
+}
+
 function navigateTo(step: AppStep): void {
     state.currentStep = step;
     renderBreadcrumb();
@@ -831,6 +844,9 @@ function navigateTo(step: AppStep): void {
         case 'result':  els.stepResult.style.display  = ''; renderResultStep();  break;
         case 'history': els.stepHistory.style.display = ''; void renderHistoryStep(); break;
     }
+    // Una sola volta, per ogni cambio di schermata: i ridisegni sul posto (aggiornamento
+    // silenzioso dell'elenco, digitazione del suffisso) non passano di qui e non perdono la posizione
+    scrollToTop(document.getElementById('main-content') ?? els.welcomeScreen);
 }
 
 // ── Step: suffisso e opzioni ──────────────────────────────────────────────────
