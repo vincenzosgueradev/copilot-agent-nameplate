@@ -930,11 +930,18 @@ const PUBLISH_LABELS: Record<PublishMode, string> = {
     'force-false': 'Force no',
 };
 
-/** L'eccezione di un agent; `''` la toglie e l'agent torna a seguire il valore per tutti. */
-function setPublishMode(schemaName: string, mode: PublishMode | ''): void {
-    const next = { ...(state.options.publishByAgent ?? {}) };
-    if (mode) next[schemaName] = mode; else delete next[schemaName];
-    state.options.publishByAgent = next;
+/** La scelta di un agent: da qui in poi vince sul valore di partenza (`publishOnImport`). */
+function setPublishMode(schemaName: string, mode: PublishMode): void {
+    state.options.publishByAgent = { ...(state.options.publishByAgent ?? {}), [schemaName]: mode };
+}
+
+/** Il toggle di un agent: stessa grammatica del resto dell'interfaccia, il valore attivo evidenziato. */
+function publishToggleHtml(schemaName: string): string {
+    const current = publishModeFor(state.options, schemaName);
+    return `<div class="toggle-group toggle-group--sm" role="group"
+            aria-label="Publish on import">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
+        <button class="toggle-btn${current === m ? ' is-active' : ''}" data-publish="${escapeHtml(schemaName)}"
+            data-val="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}</div>`;
 }
 
 /** Una riga per agent: spunta, nome attuale e nome che avra'. Si riscrive a ogni digitazione. */
@@ -944,11 +951,14 @@ function agentRowsHtml(): string {
     const mixed = suffixesAfter(names, state.suffix);
     return `
         <table class="data-table">
-            <thead><tr><th></th><th>Agent</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
+            <thead><tr><th></th><th>Agent</th><th>Name after the rename</th><th><div class="th-flex">Publish on import
+                <span class="toggle-set-all" title="Set the same value for every ticked agent">all:
+                    <span class="toggle-group toggle-group--sm" role="group">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
+                        <button class="toggle-btn" data-publish-all="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}</span>
+                </span></div></th></tr></thead>
             <tbody>${agents.map(a => {
                 const on = !state.excludedAgents.has(a.id);
                 const next = buildName(a.name, state.suffix);
-                const own = state.options.publishByAgent?.[a.schemaName];
                 return `
                 <tr${on ? '' : ' class="is-off"'}>
                     <td><input type="checkbox" data-agent="${escapeHtml(a.id)}"
@@ -957,16 +967,11 @@ function agentRowsHtml(): string {
                     <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap">${on
                         ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '')
                         : 'left as it is'}</td>
-                    <td>${on ? `
-                        <select data-publish="${escapeHtml(a.schemaName)}"
-                            aria-label="Publish on import for ${escapeHtml(a.name)}">
-                            <option value=""${own ? '' : ' selected'}>Default (${PUBLISH_LABELS[state.options.publishOnImport]})</option>
-                            ${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
-                            <option value="${m}"${own === m ? ' selected' : ''}>${PUBLISH_LABELS[m]}</option>`).join('')}
-                        </select>` : '<span class="cell-muted">—</span>'}</td>
+                    <td>${on ? publishToggleHtml(a.schemaName) : '<span class="cell-muted">—</span>'}</td>
                 </tr>`;
             }).join('')}</tbody>
         </table>
+        <p class="hint" style="margin-top:12px">Publish on import carries the new name to Teams and Microsoft 365 Copilot.</p>
         ${agents.every(a => state.excludedAgents.has(a.id))
             ? '<p class="hint hint--warn" style="margin-top:12px">Select at least one agent.</p>' : ''}
         ${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}`;
@@ -979,7 +984,6 @@ function renderSuffixStep(): void {
     renderBreadcrumb();
 
     const draft = state.suffix;
-    const pub = state.options.publishOnImport;
     els.stepSuffix.innerHTML = `
         <div class="step-header step-header-row">
             <div class="step-id">${icon('tag')}<h2 class="step-title">Suffix for the target environment</h2></div>
@@ -1038,18 +1042,6 @@ function renderSuffixStep(): void {
                             </label>
                         </div>
 
-                        <div class="opt-row" style="padding:12px 16px">
-                            <div>
-                                <div class="opt-label">Publish on import</div>
-                                <div class="hint">carries the name to Teams and M365 Copilot — the default for every agent; change one in the list above</div>
-                            </div>
-                            <div class="toggle-group" id="opt-publish" role="group">
-                                <button class="toggle-btn ${pub === 'keep'        ? 'is-active' : ''}" data-val="keep">Leave as is</button>
-                                <button class="toggle-btn ${pub === 'force-true'  ? 'is-active' : ''}" data-val="force-true">Force yes</button>
-                                <button class="toggle-btn ${pub === 'force-false' ? 'is-active' : ''}" data-val="force-false">Force no</button>
-                            </div>
-                        </div>
-
                     </div>
                 </section>
 
@@ -1094,10 +1086,20 @@ function renderSuffixStep(): void {
         if (host) host.innerHTML = agentRowsHtml();
         nextBtn.disabled = selectedAgents().length === 0;
     };
+    els.stepSuffix.querySelector('#agent-list')!.addEventListener('click', ev => {
+        const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.toggle-btn');
+        if (!btn) return;
+        if (btn.dataset.publish) {
+            setPublishMode(btn.dataset.publish, btn.dataset.val as PublishMode);
+        } else if (btn.dataset.publishAll) {
+            for (const a of selectedAgents()) setPublishMode(a.schemaName, btn.dataset.publishAll as PublishMode);
+        } else {
+            return;
+        }
+        refreshAgents();
+    });
     // Una sola delegation: le righe vengono riscritte a ogni cambio di suffisso
     els.stepSuffix.querySelector('#agent-list')!.addEventListener('change', ev => {
-        const sel = (ev.target as HTMLElement).closest<HTMLSelectElement>('select[data-publish]');
-        if (sel) { setPublishMode(sel.dataset.publish!, sel.value as PublishMode | ''); return; }
         const box = (ev.target as HTMLElement).closest<HTMLInputElement>('input[data-agent]');
         if (!box) return;
         if (box.checked) state.excludedAgents.delete(box.dataset.agent!);
@@ -1131,15 +1133,6 @@ function renderSuffixStep(): void {
         refreshArtifacts();
     });
 
-    document.getElementById('opt-publish')!.addEventListener('click', ev => {
-        const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.toggle-btn');
-        if (!btn) return;
-        state.options.publishOnImport = btn.dataset.val as PackagingOptions['publishOnImport'];
-        refreshAgents();
-        document.querySelectorAll<HTMLElement>('#opt-publish .toggle-btn').forEach(b => {
-            b.classList.toggle('is-active', b === btn);
-        });
-    });
     els.stepSuffix.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('solution'));
     els.stepSuffix.querySelector('#next-btn')!.addEventListener('click', () => navigateTo('review'));
 }

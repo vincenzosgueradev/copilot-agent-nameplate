@@ -1797,6 +1797,20 @@ select option {
 
 .toggle-btn.is-active + .toggle-btn::before { display: none; }
 
+/* Toggle compatto per le righe di una tabella */
+.toggle-group--sm .toggle-btn { padding: 3px 12px; }
+
+/* Intestazione della colonna Publish on import: titolo a sinistra, "all:" a destra */
+.th-flex { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
+.toggle-set-all {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+}
+
 /* Agent escluso dal rename (FR-076): resta com'e, quindi si attenua */
 .data-table tr.is-off td { opacity: 0.55; }
 

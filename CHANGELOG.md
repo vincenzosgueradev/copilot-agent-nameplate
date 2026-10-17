@@ -34,11 +34,12 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
 - **The suffix applies to every agent of the solution.** It is a property of the target
   environment, not of one agent. The flow is now *solution → suffix → review → preview*; the
   agents are no longer picked one by one from the solution view.
-- **Publish on import can be set per agent.** *Leave as is / Force yes / Force no* is now the
-  default for every agent, and each agent in the list has its own choice (*Default*, or one of
-  the three) that overrides it. Useful when one agent is already published and another has
-  never been connected to Teams. The review shows the value each agent will get. Suffix and
-  version bump stay one for the whole solution.
+- **Publish on import can be set per agent.** Each agent in the list has its own
+  *Leave as is / Force yes / Force no* toggle, and an *all:* shortcut in the column header sets
+  the same value for every ticked agent. Useful when one agent is already published and another
+  has never been connected to Teams. The review shows the value each agent will get. The single
+  switch that used to sit in *Options* is gone; suffix and version bump stay one for the whole
+  solution.
 - The suffix step lists the agents of the solution, all ticked by default, with the name each
   one will get, updated as you type. Untick an agent to leave it exactly as it is.
 - The breadcrumb reads `Solutions › {Solution} › Suffix › Review › Preview`.

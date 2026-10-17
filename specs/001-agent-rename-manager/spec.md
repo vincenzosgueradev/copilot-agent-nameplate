@@ -709,10 +709,13 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   prominente: senza publish il nome non arriva sui canali
 - **FR-090a**: `publishOnImport` DEVE poter essere impostato **per agent**, perché dipende dai canali e
   dalla storia di ciascuno (un agent mai collegato a Teams non ha canali da aggiornare, uno già
-  pubblicato sì). L'interruttore di FR-090 è il **valore per tutti**; ogni agent incluso ha una
-  propria scelta: *come il valore per tutti* (**default**), *lascia com'è*, *forza `true`*, *forza
-  `false`*. L'eccezione di un agent batte il valore per tutti; un agent escluso (FR-023) non riceve
-  nessuna modifica nemmeno a `publishOnImport`. La revisione DEVE mostrare il valore effettivo di
+  pubblicato sì). Nella UI ogni agent incluso ha **un proprio toggle** a tre stati (*lascia com'è*,
+  *forza `true`*, *forza `false`*), sempre visibile accanto al nome, senza menu a tendina. Non c'è
+  un interruttore generale separato: nell'intestazione della colonna una scorciatoia *all:* applica lo
+  stesso valore a tutti gli agent inclusi. Il valore di partenza è *lascia com'è*; nel modello
+  (`PackagingOptions.publishOnImport`) resta il valore per gli agent senza scelta esplicita, usato
+  dall'interfaccia headless. Un agent escluso (FR-023) non riceve nessuna modifica nemmeno a
+  `publishOnImport`. La revisione DEVE mostrare il valore effettivo di
   ogni agent, e l'anteprima il valore che il package avrà **dopo** la patch, non quello esportato. Le
   eccezioni sono registrate nelle opzioni del manifest e dello storico (`publishByAgent`, per
   `schemaName`)
