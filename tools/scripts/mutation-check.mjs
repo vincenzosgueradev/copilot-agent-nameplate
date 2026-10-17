@@ -26,7 +26,6 @@ const MUTATIONS = [
     ['patch.ts', 'src/services/patch.ts', "return options.publishByAgent?.[schemaName] ?? options.publishOnImport;", 'return options.publishOnImport;', "l'eccezione per agent viene ignorata"],
     ['patch.ts', 'src/services/patch.ts', 'const clean = suffix.trim();', 'const clean = suffix;', 'il suffisso non viene ripulito'],
     ['patch.ts', 'src/services/patch.ts', 'if (!selected.includes(agent.schemaName)) continue;', 'if (false) continue;', 'gli agent esclusi vengono rinominati'],
-    ['patch.ts', 'src/services/patch.ts', 'if (options.bumpVersion) {', 'if (false) {', 'il bump di versione non parte'],
     ['patch.ts', 'src/services/patch.ts', 'if (agent.publishOnImport !== target) {', 'if (true) {', 'publishOnImport scritto anche quando non cambia'],
     ['patch.ts', 'src/services/patch.ts', "return agent.currentSuffix ? 'suffix-changed' : 'suffix-added';", "return agent.currentSuffix ? 'suffix-added' : 'suffix-changed';", 'stati del piano invertiti'],
     ['patch.ts', 'src/services/patch.ts', 'after.length > TEAMS_NAME_LIMIT', 'after.length >= TEAMS_NAME_LIMIT', 'limite dei 30 caratteri sbagliato di uno'],
@@ -86,9 +85,39 @@ const MUTATIONS = [
     ['styles.css', 'src/styles.css', '.data-table--fill .toggle-group--sm { display: flex; width: 100%; }', '.data-table--fill .toggle-group--sm { display: inline-flex; }', 'il toggle torna a raggrupparsi a sinistra'],
     ['styles.css', 'src/styles.css', '.data-table--fill .toggle-group--sm .toggle-btn { flex: 1;', '.data-table--fill .toggle-group--sm .toggle-btn { flex: 0;', 'i pulsanti del toggle non si dividono la larghezza'],
     ['app.ts', 'src/app.ts', '<col style="width:48px"><col style="width:30%"><col style="width:30%"><col>', '<col style="width:48px"><col style="width:10%"><col style="width:10%"><col>', 'colonne troppo strette'],
-    ['app.ts', 'src/app.ts', 'which never removes components: agents you deleted in the source', 'which keeps things tidy: agents you deleted in the source', 'v1.1.0: il testo non dice che Update non rimuove nulla'],
+    ['app.ts', 'src/app.ts', 'which never removes components: agents you', 'which keeps things tidy: agents you', 'v1.1.0: il testo non dice che Update non rimuove nulla'],
     ['app.ts', 'src/app.ts', '<em>Update</em> and <em>Stage for upgrade</em> keep them.', '', 'v1.1.0: il testo non avverte su Update e Stage for upgrade'],
-    ['app.ts', 'src/app.ts', 'import it as an <strong>Upgrade</strong> (the default)', 'import it as an <strong>Update</strong> (the default)', 'v1.1.0: il testo consiglia Update invece di Upgrade'],
+    ['app.ts', 'src/app.ts', '<strong>Upgrade</strong> (the default) so agents', '<strong>Update</strong> (the default) so agents', 'v1.1.0: il testo consiglia Update invece di Upgrade'],
+    // ── la versione si alza in DEV, non nello zip (FR-073)
+    ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (cmp === 0) return { from, to, changed: false };', '', 'v1.1.0: la stessa versione viene riscritta'],
+    ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (cmp < 0) {', 'if (false) {', 'v1.1.0: si scrive anche una versione piu\' bassa di DEV'],
+    ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (row.ismanaged === true) {', 'if (false) {', 'v1.1.0: si tocca una solution managed'],
+    ['solutionVersion.ts', 'src/services/solutionVersion.ts', "if (String(after.version ?? '') !== to) {", 'if (false) {', 'v1.1.0: la rilettura dopo la scrittura non c\'e\''],
+    ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (d !== 0) return d;', 'return d;', 'v1.1.0: il confronto si ferma al primo segmento'],
+    ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'String(Number(parts[parts.length - 1]) + 1)', 'String(Number(parts[parts.length - 1]) + 2)', 'v1.1.0: la proposta salta un numero'],
+    ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (compareVersions(candidate, current) <= 0) {', 'if (compareVersions(candidate, current) < 0) {', 'v1.1.0: la stessa versione risulta valida'],
+    ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'const VERSION_RE = /^\\d+\\.\\d+\\.\\d+\\.\\d+$/;', 'const VERSION_RE = /^\\d+\\.\\d+\\.\\d+$/;', 'v1.1.0: bastano tre numeri'],
+    ['packaging.ts', 'src/services/packaging.ts', 'if (options.newVersion) {', 'if (false) {', 'v1.1.0: la versione non viene mai scritta in DEV'],
+    ['packaging.ts', 'src/services/packaging.ts', 'version: options.newVersion ?? undefined', 'version: undefined', 'v1.1.0: la verifica non controlla la versione dello zip'],
+    ['app.ts', 'src/app.ts', "state.options.newVersion = state.raiseVersion && !versionIssue() ? chosenVersion().trim() : null;", 'state.options.newVersion = null;', 'v1.1.0: la schermata non passa mai la versione'],
+    ['app.ts', 'src/app.ts', "'Choose a valid new version below to continue.'", "''", 'v1.1.0: nessun invito a correggere la versione'],
+    ['app.ts', 'src/app.ts', 'nextBtn.disabled = selectedAgents().length === 0 || versionIssue() !== null;', 'nextBtn.disabled = selectedAgents().length === 0;', 'v1.1.0: Next acceso con una versione non valida'],
+    ['app.ts', 'src/app.ts', '(state.options.newVersion ?? state.versionFrom ?? sol.version)', 'sol.version', 'v1.1.0: i nomi degli archivi non portano la versione nuova'],
+    ['app.ts', 'src/app.ts', "(raise ? [VERSION_PHASE, ...PACK_PHASES] : [...PACK_PHASES])", '[...PACK_PHASES]', 'v1.1.0: manca la fase "Raise the version in DEV"'],
+    ['app.ts', 'src/app.ts', "if (!state.versionFrom || (!state.packaging && !state.versionTouched)) state.versionFrom = sol.version;", "if (!state.versionFrom) state.versionFrom = sol.version;", 'v1.1.0: la versione di partenza non si rilegge'],
+    ['app.ts', 'src/app.ts', 'versionChange: r.versionChange,', 'versionChange: null,', 'v1.1.0: lo storico non registra la versione'],
+    ['agentCards.ts', 'src/services/agentCards.ts', "|| !value.startsWith(PNG_SIGNATURE)", "", "v1.1.0 (008): un JPEG o un testo diventano \"icona\""],
+    ['agentCards.ts', 'src/services/agentCards.ts', "if (!value || value.length > MAX_ICON_CHARS) return null;", "if (!value) return null;", "v1.1.0 (008): nessun limite alla lunghezza dell'icona"],
+    ['agentCards.ts', 'src/services/agentCards.ts', "if (!BASE64_RE.test(value) ||", "if (false ||", "v1.1.0 (008): caratteri fuori dall'alfabeto base64 accettati"],
+    ['agentCards.ts', 'src/services/agentCards.ts', "if (hit) out.set(a.id, hit); else missing.push(a);", "missing.push(a);", "v1.1.0 (008): la cache viene ignorata"],
+    ['agentCards.ts', 'src/services/agentCards.ts', "hit.modifiedOn === agent.modifiedOn", "true", "v1.1.0 (008): un agent modificato non si rilegge"],
+    ['agentCards.ts', 'src/services/agentCards.ts', "text.length > MAX_DESCRIPTION ?", "false ?", "v1.1.0 (008): descrizione mai tagliata"],
+    ['agentCards.ts', 'src/services/agentCards.ts', "descriptionOf.get(`${a.schemaName}.gpt.default`)", "descriptionOf.get(`${a.schemaName}.topic.x`)", "v1.1.0 (008): si legge il componente sbagliato"],
+    ['agentCards.ts', 'src/services/agentCards.ts', "for (const a of missing) out.set(a.id, EMPTY);", "throw err;", "v1.1.0 (008): una lettura fallita rompe la schermata"],
+    ['app.ts', 'src/app.ts', "el.textContent = card.description ?? 'No description';", "el.innerHTML = card.description ?? 'No description';", "v1.1.0 (008): la descrizione diventa HTML"],
+    ['app.ts', 'src/app.ts', "void loadCards(agents, seq);", "void loadCards(state.agents, seq);", "v1.1.0 (008): si leggono gli agent di tutto l'environment"],
+    ['app.ts', 'src/app.ts', "void loadCards(agents, seq);", "", "v1.1.0 (008): icone e descrizioni non vengono mai lette"],
+    ['app.ts', 'src/app.ts', "const text = card ? (card.description ?? 'No description') : '';", "const text = card ? (card.description ?? '') : '';", "v1.1.0 (008): manca \"No description\""],
     // ── packaging.ts: il collegamento
     ['packaging.ts', 'src/services/packaging.ts', "expected.publish![c.file] = c.after === 'true';", 'expected.publish![c.file] = true;', 'la verifica riceve publishOnImport sbagliato'],
 ];
@@ -97,6 +126,7 @@ const only = process.argv[2];
 const originals = new Map();
 const restore = () => { for (const [file, text] of originals) writeFileSync(at(file), text); originals.clear(); };
 process.on('SIGINT', () => { restore(); process.exit(130); });
+process.on('SIGTERM', () => { restore(); process.exit(143); });
 
 const results = [];
 for (const [, file, from, to, why] of MUTATIONS) {

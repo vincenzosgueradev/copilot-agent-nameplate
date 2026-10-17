@@ -4,7 +4,7 @@
  *
  * Per ogni percorso casuale (con seme fisso) di azioni dell'utente — digitare il suffisso,
  * scegliere un preset, svuotare, togliere la spunta a un agent, scegliere il publish di un agent,
- * applicarlo a tutti, attivare il bump — si tiene un MODELLO scritto dalla spec e dopo ogni azione
+ * applicarlo a tutti, alzare o no la versione e scegliere quale — si tiene un MODELLO scritto dalla spec e dopo ogni azione
  * si confronta con quello che la pagina mostra davvero. In fondo il percorso prosegue fino al
  * salvataggio e si controlla che cosa e' finito nel manifest, nello storico e dentro lo zip.
  */
@@ -15,7 +15,7 @@ import type { PublishMode } from '../src/types';
 import { TEAMS_NAME_LIMIT } from '../src/types';
 import { boot, PUBLISH_LABEL, readProduced, type Driver, type SuffixRow, type UiAgent } from './helpers/ui-harness';
 import { rng } from './helpers/combinatorics';
-import { distinctSuffixes, effectiveMode, expectedName, expectedPublish, expectedVersion } from './helpers/oracle';
+import { distinctSuffixes, effectiveMode, expectedName, expectedPublish } from './helpers/oracle';
 import { FULL } from './helpers/mode';
 
 afterEach(() => { vi.useRealTimers(); });
@@ -25,6 +25,14 @@ const VARIANTS = ['', ' [DEV]', ' [UAT]', ' [DEV] [X]'];
 const PRESETS = ['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'];
 const TYPED = ['', 'UAT', '  PROD  ', 'A&B <1>', 'DEV', 'x'.repeat(20), 'q'];
 const PUBLISH_START: (boolean | null)[] = [null, true, false];
+
+/** La versione che DEV ha all'inizio, e le cose che l'utente puo' scrivere nel campo. */
+const START = '1.0.0.2';
+const TYPED_VERSIONS = ['1.0.0.3', '1.0.0.2', '1.0.0.1', 'abc', '', '2.0.0.0', '1.0.0.10', ' 1.0.0.4 ', '1.0', '1.0.0.9'];
+/** Oracolo del controllo: valida e strettamente piu' alta, confrontando segmenti riempiti a larghezza fissa. */
+const vkey = (v: string) => v.trim().split('.').map(p => p.padStart(8, '0')).join('.');
+const versionProblemOracle = (candidate: string, current: string): boolean =>
+    !/^\d+\.\d+\.\d+\.\d+$/.test(candidate.trim()) || !(vkey(candidate) > vkey(current));
 
 /** Un mondo con `n` agent dai nomi tutti diversi, in vari stati di partenza. */
 function worldOf(n: number, rand: () => number) {
@@ -43,7 +51,10 @@ function worldOf(n: number, rand: () => number) {
 /** Il modello: che cosa DEVE mostrare la schermata e produrre il package. */
 class Model {
     suffix = '';
-    bump = false;
+    /** "Raise the version in DEV": per default si, come nel pannello di export del portale. */
+    raise = true;
+    versionTouched = false;
+    versionInput = '';
     keepCopies = false;
     excluded = new Set<string>();
     modes = new Map<string, PublishMode>();
@@ -63,13 +74,20 @@ class Model {
     mixed = () => distinctSuffixes(this.agents.map(a => ({ name: a.name, selected: this.selected(a) })), this.suffix).length > 1;
 
     /** Quanti entry cambiano davvero: nomi diversi + publishOnImport diversi + versione. */
+    /** Quello che il campo mostra: la proposta (1.0.0.3) o quello che si e' scritto. */
+    chosenVersion = () => (this.versionTouched ? this.versionInput : '1.0.0.3');
+    /** C'e' un problema con la versione scelta? Solo se l'opzione e' attiva. */
+    hasVersionIssue = () => this.raise && versionProblemOracle(this.chosenVersion(), START);
+    /** La versione che finira' in DEV, o null. */
+    newVersion = (): string | null => (this.raise && !this.hasVersionIssue() ? this.chosenVersion().trim() : null);
+    canContinue = () => this.chosen().length > 0 && !this.hasVersionIssue();
+
     changedEntries(): number {
         let n = 0;
         for (const a of this.chosen()) {
             if (this.after(a) !== a.name) n++;
             if (this.modeOf(a) !== 'keep' && this.publishAfter(a) !== a.publish) n++;
         }
-        if (this.bump) n++;
         return n;
     }
 
@@ -95,7 +113,21 @@ class Model {
 
 function assertSuffixStep(ui: Driver, m: Model, where: string): void {
     expect(ui.suffixRows(), `${where}: righe`).toEqual(m.expectedRows());
-    expect(ui.nextDisabled(), `${where}: Next disabilitato`).toBe(m.chosen().length === 0);
+    expect(ui.nextDisabled(), `${where}: Next disabilitato`).toBe(!m.canContinue());
+    // la versione: opzione, campo, messaggio e testo
+    expect(ui.raiseOn(), `${where}: opzione versione`).toBe(m.raise);
+    expect(ui.versionFieldVisible(), `${where}: campo versione visibile`).toBe(m.raise);
+    expect(ui.versionInput(), `${where}: contenuto del campo versione`).toBe(m.chosenVersion());
+    expect(ui.versionIssue() !== '', `${where}: messaggio sulla versione (${ui.versionIssue()})`).toBe(m.hasVersionIssue());
+    const hint = ui.versionHint();
+    if (m.hasVersionIssue()) {
+        expect(hint, `${where}: testo con versione non valida`).toContain('Choose a valid new version');
+    } else if (m.newVersion()) {
+        expect(hint, `${where}: testo con versione`).toContain(`${START} → ${m.newVersion()}`);
+        expect(hint, where).toContain('in DEV before the export');
+    } else {
+        expect(hint, `${where}: testo senza versione`).toContain(`${START} stays as it is in DEV`);
+    }
     expect(ui.allActive(), `${where}: toggle "per tutti"`).toBe(m.commonMode());
     const panel = ui.doc.getElementById('agent-list')!.textContent ?? '';
     expect(panel.includes('different suffixes'), `${where}: avviso suffissi misti`).toBe(m.mixed());
@@ -129,7 +161,16 @@ const ACTIONS: Action[] = [
         for (const a of m.chosen()) m.modes.set(a.name, mode);
         return `all ${mode}`;
     },
-    async (ui, m) => { m.bump = !m.bump; await ui.setBump(m.bump); return `bump ${m.bump}`; },
+    async (ui, m) => { m.raise = !m.raise; await ui.setRaise(m.raise); return `raise ${m.raise}`; },
+    async (ui, m, r) => {
+        const v = TYPED_VERSIONS[Math.floor(r() * TYPED_VERSIONS.length)]!;
+        // il campo si vede solo con l'opzione attiva: con l'opzione spenta si accende prima
+        if (!m.raise) { m.raise = true; await ui.setRaise(true); }
+        await ui.typeVersion(v);
+        m.versionTouched = true;
+        m.versionInput = v;
+        return `version "${v}"`;
+    },
 ];
 
 async function walk(n: number, seed: number, steps: number, e2e: boolean): Promise<void> {
@@ -149,11 +190,8 @@ async function walk(n: number, seed: number, steps: number, e2e: boolean): Promi
         trace.push(await act(ui, m, rand));
         assertSuffixStep(ui, m, where());
     }
-    // il campo bump riflette il modello
-    const hint = ui.doc.getElementById('version-hint')?.textContent ?? '';
-    expect(hint.includes(expectedVersion('1.0.0.2', true)) || !m.bump, `${where()}: hint versione`).toBe(true);
-
-    if (m.chosen().length === 0) return;
+    // Con nessun agent o con una versione non valida Next e' spento: il percorso si ferma qui
+    if (!m.canContinue()) return;
 
     // ── revisione
     await ui.next();
@@ -184,12 +222,15 @@ async function walk(n: number, seed: number, steps: number, e2e: boolean): Promi
     for (const a of m.chosen()) {
         expect(preview.includes(m.after(a)), `${where()}: anteprima cita ${m.after(a)}`).toBe(true);
     }
-    // un blocco per agent selezionato, in ordine di nome finale, piu' la solution se c'e' il bump
+    // un blocco per agent selezionato, in ordine di nome finale; la versione non e' un blocco
     const sortedChosen = [...m.chosen()].sort((a, b) => m.after(a).localeCompare(m.after(b)));
     const groups = Array.from(ui.doc.querySelectorAll('#step-preview .change-group'));
     expect(groups.map(g => g.getAttribute('data-group')),
         `${where()}: blocchi dell'anteprima`)
-        .toEqual([...sortedChosen.map(a => `agent:${a.schema}`), ...(m.bump ? ['solution'] : [])]);
+        .toEqual(sortedChosen.map(a => `agent:${a.schema}`));
+    const note = ui.doc.getElementById('version-note');
+    expect(note !== null, `${where()}: nota sulla versione`).toBe(m.newVersion() !== null);
+    if (note) expect(note.textContent!.replace(/\s+/g, ' '), where()).toContain(`${START} → ${m.newVersion()}`);
     sortedChosen.forEach((a, i) => {
         const rows = Array.from(groups[i]!.querySelectorAll('tbody tr')).map(tr => tr.querySelector('td')!.textContent!.replace(/\s+/g, ' ').trim().split(' ')[0]);
         const publishChanges = m.modeOf(a) !== 'keep' && m.publishAfter(a) !== a.publish;
@@ -215,10 +256,20 @@ async function walk(n: number, seed: number, steps: number, e2e: boolean): Promi
     // ── che cosa e' stato scritto
     const { manifest, zips } = ui.written();
     expect(manifest, `${where()}: manifest`).not.toBeNull();
-    const mf = manifest as { suffix: string; options: { bumpVersion: boolean; publishByAgent?: Record<string, PublishMode> };
+    const mf = manifest as { suffix: string; versionChange: { from: string; to: string; changed: boolean } | null;
+        options: { newVersion: string | null; publishByAgent?: Record<string, PublishMode> };
         agents: { schemaName: string; before: string; after: string; excluded: boolean }[]; confirmations: unknown[] };
     expect(mf.suffix, where()).toBe(m.suffix);
-    expect(mf.options.bumpVersion, where()).toBe(m.bump);
+    expect(mf.options.newVersion, `${where()}: versione nelle opzioni del manifest`).toBe(m.newVersion());
+    expect(mf.versionChange, `${where()}: versionChange nel manifest`)
+        .toEqual(m.newVersion() ? { from: START, to: m.newVersion(), changed: true } : null);
+    const finalVersion = m.newVersion() ?? START;
+    expect(ui.dev.versionOf('S1'), `${where()}: versione in DEV dopo il salvataggio`).toBe(finalVersion);
+    expect(ui.dev.writes.map(w => w.version), `${where()}: scritture in DEV`).toEqual(m.newVersion() ? [m.newVersion()] : []);
+    // la scrittura precede l'export, mai il contrario
+    const exportAt = ui.dev.events.findIndex(e => e.startsWith('export'));
+    const writeAt = ui.dev.events.findIndex(e => e.startsWith('write'));
+    if (m.newVersion()) expect(writeAt, `${where()}: scrittura prima dell'export (${ui.dev.events.join(', ')})`).toBeLessThan(exportAt);
     expect(mf.agents, `${where()}: agenti nel manifest`).toEqual(m.bySchema().map(a => ({
         schemaName: a.schema, before: a.name, after: m.after(a), excluded: !m.selected(a),
     })));
@@ -235,11 +286,12 @@ async function walk(n: number, seed: number, steps: number, e2e: boolean): Promi
         });
     }
     const solutionXml = strFromU8(unzipSync(managed[0]![1])['solution.xml']!);
-    expect(solutionXml.includes(`<Version>${expectedVersion('1.0.0.2', m.bump)}</Version>`), `${where()}: versione nello zip`).toBe(true);
+    expect(solutionXml.includes(`<Version>${finalVersion}</Version>`), `${where()}: versione nello zip`).toBe(true);
 
-    const history = ui.history() as { agents: unknown[]; suffix: string }[];
+    const history = ui.history() as { agents: unknown[]; suffix: string; versionChange: unknown }[];
     expect(history.length, `${where()}: voci di storico`).toBe(1);
     expect(history[0]!.suffix, where()).toBe(m.suffix);
+    expect(history[0]!.versionChange, `${where()}: versionChange nello storico`).toEqual(mf.versionChange);
     expect(history[0]!.agents, `${where()}: agenti nello storico`).toEqual(mf.agents);
 }
 

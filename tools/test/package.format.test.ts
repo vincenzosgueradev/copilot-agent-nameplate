@@ -7,12 +7,12 @@
 
 import { describe, expect, it } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
-import { applyPatch, buildName, buildPatchPlan, bumpVersion } from '../src/services/patch';
+import { applyPatch, buildName, buildPatchPlan } from '../src/services/patch';
 import { PackageFormatError, readPackage, splitSuffix } from '../src/services/package';
 import { DEFAULT_OPTIONS } from '../src/types';
 import { packageFiles, type AgentSpec, type PackageSpec } from './helpers/fixture';
 import { cartesian } from './helpers/combinatorics';
-import { baseOf, expectedName, expectedVersion, suffixOf } from './helpers/oracle';
+import { baseOf, expectedName, suffixOf } from './helpers/oracle';
 
 const agent = (i: number, over: Partial<AgentSpec> = {}): AgentSpec => ({
     schema: `ava_a${i}`, name: `agent${i} [DEV]`, publishOnImport: null, topics: 1, ...over,
@@ -190,11 +190,11 @@ describe('suffisso e versione: casi limite', () => {
         expect(buildName('alpha [DEV]', '   ')).toBe('alpha');
         expect(buildName('alpha', '   ')).toBe('alpha');
     });
-    it('bumpVersion coincide con l\'oracolo', () => {
-        for (const v of ['1.0.0.2', '1.0.0.9', '1.0.0.99', '1', '9', '2.5', '1.0.x', 'abc', '1.0.0.0']) {
-            expect(bumpVersion(v), v).toBe(expectedVersion(v, true));
-        }
-        expect(bumpVersion('1.0.0.9')).toBe('1.0.0.10');
-        expect(bumpVersion('1.0.x')).toBe('1.0.x');
+    it('il tool non modifica <Version> del package: nemmeno con opzioni di ogni tipo', () => {
+        const pkg = readPackage(zipOf({ agents: [agent(1)], version: '3.4.5.6' }));
+        const plan = buildPatchPlan(pkg, 'UAT', ['ava_a1'], { ...DEFAULT_OPTIONS, newVersion: '9.9.9.9', publishOnImport: 'force-true' });
+        expect(plan.every(c => c.file !== 'solution.xml')).toBe(true);
+        const { files } = applyPatch(pkg, plan);
+        expect(new TextDecoder().decode(files['solution.xml']!)).toContain('<Version>3.4.5.6</Version>');
     });
 });

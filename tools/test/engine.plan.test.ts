@@ -16,7 +16,7 @@ import { DEFAULT_OPTIONS, TEAMS_NAME_LIMIT, type PackagingOptions, type PublishM
 import { makePackage } from './helpers/fixture';
 import { FULL } from './helpers/mode';
 import { allPairs, cartesian, cartesianSize, rng, subsets } from './helpers/combinatorics';
-import { effectiveMode, expectedName, expectedNameState, expectedPublish, expectedVersion } from './helpers/oracle';
+import { effectiveMode, expectedName, expectedNameState, expectedPublish } from './helpers/oracle';
 
 
 const NAMES = [
@@ -31,7 +31,6 @@ const PUBLISH: (boolean | null)[] = [null, true, false];
 const SUFFIXES = ['', 'UAT', '  PROD  ', 'DEV', 'A&B <1>', 'x'.repeat(20)];
 const MODES: (PublishMode | undefined)[] = [undefined, 'keep', 'force-true', 'force-false'];
 const GLOBALS: PublishMode[] = ['keep', 'force-true', 'force-false'];
-const BUMP = [false, true];
 
 interface AgentState { name: string; publish: boolean | null }
 
@@ -60,7 +59,6 @@ interface Case {
     suffix: string;
     modes: (PublishMode | undefined)[];
     global: PublishMode;
-    bump: boolean;
 }
 
 /** Confronta il piano reale con quello che l'oracolo prevede. Lancia con il caso nel messaggio. */
@@ -68,7 +66,6 @@ function check(c: Case): void {
     const pkg = packageFor(c.states);
     const options: PackagingOptions = {
         ...DEFAULT_OPTIONS,
-        bumpVersion: c.bump,
         publishOnImport: c.global,
         publishByAgent: Object.fromEntries(
             c.modes.flatMap((m, i) => (m ? [[schemaOf(i), m]] : []))),
@@ -96,13 +93,8 @@ function check(c: Case): void {
             });
         }
     });
-    const nextVersion = expectedVersion(VERSION, c.bump);
-    if (nextVersion !== VERSION) {
-        expected.push({
-            file: 'solution.xml', element: 'Version', before: VERSION, after: nextVersion,
-            state: 'suffix-changed', long: false,
-        });
-    }
+    // La versione non e' un cambio del package: si alza in DEV prima dell'export (FR-073), quindi
+    // il piano non ha mai una riga `Version`, qualunque siano le opzioni
 
     const norm = (rows: { file: string; element: string }[]) =>
         [...rows].sort((a, b) => (a.file + a.element).localeCompare(b.file + b.element));
@@ -128,18 +120,16 @@ describe('piano di patch: matrice esaustiva (1 e 2 agent) — solo test:full', (
                     const selected = Array.from({ length: n }, (_, i) => sel.includes(i));
                     for (const suffix of SUFFIXES) {
                         for (const global of GLOBALS) {
-                            for (const bump of BUMP) {
-                                for (const modes of cartesian(modeDims)) {
-                                    check({ states, selected, suffix, modes, global, bump });
-                                    count++;
-                                }
+                            for (const modes of cartesian(modeDims)) {
+                                check({ states, selected, suffix, modes, global });
+                                count++;
                             }
                         }
                     }
                 }
             }
             const expectedCount = cartesianSize(stateDims) * selections.length * SUFFIXES.length
-                * GLOBALS.length * BUMP.length * cartesianSize(modeDims);
+                * GLOBALS.length * cartesianSize(modeDims);
             expect(count).toBe(expectedCount);
             console.log(`${n} agent: ${count} combinazioni verificate`);
         });
@@ -150,20 +140,19 @@ describe('piano di patch: tutte le coppie + campioni (1-4 agent)', () => {
     for (const n of [1, 2, 3, 4]) {
         it(`${n} agent`, () => {
             const masks = 1 << n;
-            // parametri: suffisso, globale, bump, selezione, e per ogni agent nome/publish/eccezione
+            // parametri: suffisso, globale, selezione, e per ogni agent nome/publish/eccezione
             const sizes = [
-                SUFFIXES.length, GLOBALS.length, BUMP.length, masks,
+                SUFFIXES.length, GLOBALS.length, masks,
                 ...Array.from({ length: n }, () => [NAMES.length, PUBLISH.length, MODES.length]).flat(),
             ];
             const toCase = (row: number[]): Case => ({
                 suffix: SUFFIXES[row[0]!]!,
                 global: GLOBALS[row[1]!]!,
-                bump: BUMP[row[2]!]!,
-                selected: Array.from({ length: n }, (_, i) => Boolean(row[3]! & (1 << i))),
+                selected: Array.from({ length: n }, (_, i) => Boolean(row[2]! & (1 << i))),
                 states: Array.from({ length: n }, (_, i) => ({
-                    name: NAMES[row[4 + i * 3]!]!, publish: PUBLISH[row[5 + i * 3]!]!,
+                    name: NAMES[row[3 + i * 3]!]!, publish: PUBLISH[row[4 + i * 3]!]!,
                 })),
-                modes: Array.from({ length: n }, (_, i) => MODES[row[6 + i * 3]!]),
+                modes: Array.from({ length: n }, (_, i) => MODES[row[5 + i * 3]!]),
             });
 
             const pairRows = allPairs(sizes, 7 + n);

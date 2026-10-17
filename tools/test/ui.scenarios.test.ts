@@ -6,6 +6,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { strFromU8, unzipSync } from 'fflate';
 import { boot, readProduced, type UiWorld } from './helpers/ui-harness';
 import { readSource } from './helpers/source';
 
@@ -201,7 +202,7 @@ describe('salvataggio', () => {
             expect(names.length, `keep=${keep}: ${names.join(', ')}`).toBe(expected);
             if (keep) {
                 expect(names.sort()).toEqual([
-                    'S1_1_0_0_2_managed_UAT.zip', 'S1_1_0_0_2_unmanaged_UAT.zip',
+                    'S1_1_0_0_3_managed_UAT.zip', 'S1_1_0_0_3_unmanaged_UAT.zip',
                     'source_managed.zip', 'source_unmanaged.zip',
                 ]);
             }
@@ -323,22 +324,21 @@ describe('revisione e anteprima: layout', () => {
         expect(/\.art-body\s*\{([^}]*)\}/.exec(css)?.[1]).toMatch(/flex:\s*1/);
     });
 
-    it('"What gets changed" ha un blocco per agent toccato e uno per la solution', async () => {
+    it('"What gets changed" ha un blocco per agent toccato; la versione non e\' un blocco ma una nota', async () => {
         const ui = await boot(WORLD);
         await ui.openSolution('S2');
         await ui.startRename();
         await ui.typeSuffix('UAT');
         await ui.toggleAgent('beta2 [DEV]');
         await ui.setPublish('beta1 [DEV]', 'force-true');
-        await ui.setBump(true);
         await ui.next();
         await ui.buildPackage();
         const groups = Array.from(ui.doc.querySelectorAll('#step-preview .change-group'));
-        expect(groups.map(g => g.getAttribute('data-group'))).toEqual(['agent:ava_b1', 'agent:ava_b3', 'solution']);
+        expect(groups.map(g => g.getAttribute('data-group'))).toEqual(['agent:ava_b1', 'agent:ava_b3']);
         const rowsOf = (g: Element) => Array.from(g.querySelectorAll('tbody tr')).map(tr => tr.querySelector('td')!.textContent!.replace(/\s+/g, ' ').trim());
         expect(rowsOf(groups[0]!)).toEqual(['Name ava_b1/bot.xml'.replace('ava_b1/', 'bots/ava_b1/'), 'Publish on import bots/ava_b1/configuration.json']);
         expect(rowsOf(groups[1]!)).toEqual(['Name bots/ava_b3/bot.xml']);
-        expect(rowsOf(groups[2]!)).toEqual(['Version solution.xml']);
+        expect(ui.doc.getElementById('version-note')!.textContent!.replace(/\s+/g, ' ')).toContain('1.0.0.2 → 1.0.0.3');
         expect(groups[0]!.querySelector('.change-head')!.textContent).toContain('beta1 [UAT]');
         // l'agent escluso non ha un blocco ma e' nominato
         expect(ui.previewText()).toContain('Left as they are: beta2 [DEV]');
@@ -347,14 +347,17 @@ describe('revisione e anteprima: layout', () => {
         expect(ui.doc.querySelector('#step-preview th')?.textContent).not.toBe('File');
     });
 
-    it('senza bump non c\'e\' il blocco della solution', async () => {
-        const ui = await boot(WORLD);
-        await ui.openSolution('S1');
-        await ui.startRename();
-        await ui.typeSuffix('UAT');
-        await ui.next();
-        await ui.buildPackage();
-        expect(ui.doc.querySelector('#step-preview [data-group="solution"]')).toBeNull();
+    it('la versione non e\' mai un blocco dei cambi del package', async () => {
+        for (const raise of [true, false]) {
+            const ui = await boot(WORLD);
+            await ui.openSolution('S1');
+            await ui.startRename();
+            await ui.setRaise(raise);
+            await ui.next();
+            await ui.buildPackage();
+            expect(ui.doc.querySelector('#step-preview [data-group="solution"]'), `raise=${raise}`).toBeNull();
+            expect(ui.doc.getElementById('version-note') !== null, `nota con raise=${raise}`).toBe(raise);
+        }
     });
 });
 
@@ -385,56 +388,236 @@ describe('avanzamento: le fasi si vedono passare', () => {
     });
 });
 
-describe('versione e agent cancellati: il testo dice la conseguenza (FR-073a)', () => {
-    const hint = (ui: { doc: Document }) => (ui.doc.getElementById('version-hint')?.textContent ?? '').replace(/\s+/g, ' ');
-
-    it('senza bump: solo Update, che non rimuove, quindi gli agent cancellati restano', async () => {
-        const ui = await boot(WORLD);
-        await ui.openSolution('S1');
+describe('versione: si alza in DEV a ogni export, come fa il portale (FR-073, FR-073b, FR-067a)', () => {
+    const open = async (world: UiWorld = WORLD, unique = 'S1') => {
+        const ui = await boot(world);
+        await ui.openSolution(unique);
         await ui.startRename();
-        const t = hint(ui);
-        expect(t).toContain('1.0.0.2 stays as it is');
-        expect(t).toContain('Update');
-        expect(t).toContain('never removes components');
-        expect(t).toContain('deleted in the source');
-        expect(t).not.toContain('Upgrade');
+        await ui.typeSuffix('UAT');
+        return ui;
+    };
+    type Ui = Awaited<ReturnType<typeof open>>;
+    const buildAndSave = async (ui: Ui) => { await ui.next(); await ui.buildPackage(); await ui.toVerify(); await ui.save(); };
+    const zipVersion = (ui: Ui): string => {
+        const z = Object.entries(ui.written().zips).find(([p]) => p.includes('_managed_'))![1];
+        return /<Version>([^<]*)</.exec(strFromU8(unzipSync(z)['solution.xml']!))![1]!;
+    };
+    const text = (ui: Ui, id: string) => (ui.doc.getElementById(id)?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+    it('per default propone il numero dopo, lo scrive in DEV PRIMA dell\'export, e lo zip lo porta', async () => {
+        const ui = await open();
+        expect(ui.raiseOn()).toBe(true);
+        expect(ui.versionFieldVisible()).toBe(true);
+        expect(ui.versionInput()).toBe('1.0.0.3');
+        expect(ui.nextDisabled()).toBe(false);
+        const hint = ui.versionHint();
+        expect(hint).toContain('1.0.0.2 → 1.0.0.3');
+        expect(hint).toContain('in DEV before the export');
+        expect(hint).toContain('Upgrade');
+        expect(hint).toContain('removed too');
+        expect(hint).toContain('Update and Stage for upgrade keep them');
+
+        await buildAndSave(ui);
+        expect(ui.dev.versionOf('S1')).toBe('1.0.0.3');
+        expect(ui.dev.events.slice(0, 2)).toEqual(['write S1 1.0.0.3', 'export S1']);
+        expect(zipVersion(ui)).toBe('1.0.0.3');
+        expect(Object.keys(ui.written().zips)[0]).toContain('S1_1_0_0_3_managed_UAT.zip');
+        const mf = ui.written().manifest as { versionChange: unknown; options: { newVersion: string } };
+        expect(mf.versionChange).toEqual({ from: '1.0.0.2', to: '1.0.0.3', changed: true });
+        expect(mf.options.newVersion).toBe('1.0.0.3');
+        expect((ui.history()[0] as { versionChange: unknown }).versionChange).toEqual(mf.versionChange);
     });
 
-    it('con bump: la nuova versione, di importare come Upgrade, e che Update e Stage li tengono', async () => {
-        const ui = await boot(WORLD);
-        await ui.openSolution('S1');
-        await ui.startRename();
-        await ui.setBump(true);
-        const t = hint(ui);
-        expect(t).toContain('1.0.0.2 → 1.0.0.3');
-        expect(t).toContain('Upgrade');
-        expect(t).toContain('removed too');
-        expect(t).toContain('Update and Stage for upgrade keep them');
+    it('spenta: DEV non si tocca, nessuna scrittura, lo zip porta la versione di DEV, e il testo avverte', async () => {
+        const ui = await open();
+        await ui.setRaise(false);
+        expect(ui.versionFieldVisible()).toBe(false);
+        const hint = ui.versionHint();
+        expect(hint).toContain('1.0.0.2 stays as it is in DEV and in the package');
+        expect(hint).toContain('Update');
+        expect(hint).toContain('never removes components');
+        expect(hint).toContain('deleted in the source');
+        expect(hint).not.toContain('Upgrade');
+        await buildAndSave(ui);
+        expect(ui.dev.writes).toEqual([]);
+        expect(ui.dev.versionOf('S1')).toBe('1.0.0.2');
+        expect(zipVersion(ui)).toBe('1.0.0.2');
+        expect((ui.written().manifest as { versionChange: unknown }).versionChange).toBeNull();
     });
 
-    it('lo stesso testo compare nella revisione, per entrambi i casi', async () => {
-        for (const bump of [false, true]) {
-            const ui = await boot(WORLD);
-            await ui.openSolution('S1');
-            await ui.startRename();
-            await ui.setBump(bump);
-            const under = hint(ui);
+    it('una versione scelta a mano viene scritta e portata dallo zip', async () => {
+        const ui = await open();
+        await ui.typeVersion('2.0.0.0');
+        expect(ui.versionHint()).toContain('1.0.0.2 → 2.0.0.0');
+        await buildAndSave(ui);
+        expect(ui.dev.versionOf('S1')).toBe('2.0.0.0');
+        expect(zipVersion(ui)).toBe('2.0.0.0');
+    });
+
+    it('una versione non valida o non piu\' alta blocca Next e dice perche\'; correggerla lo sblocca', async () => {
+        const ui = await open();
+        const cases: [string, RegExp][] = [
+            ['', /Enter a version/], ['   ', /Enter a version/], ['abc', /four numbers/], ['1.0', /four numbers/],
+            ['1.0.0.2', /higher than the version in DEV \(1\.0\.0\.2\)/], ['1.0.0.1', /higher than the version in DEV/],
+        ];
+        for (const [value, message] of cases) {
+            await ui.typeVersion(value);
+            expect(ui.nextDisabled(), JSON.stringify(value)).toBe(true);
+            expect(ui.versionIssue(), JSON.stringify(value)).toMatch(message);
+            expect(ui.versionHint(), JSON.stringify(value)).toContain('Choose a valid new version');
             await ui.next();
-            const review = ui.text('review');
-            expect(review, `bump=${bump}`).toContain(under.replace(/\s+/g, ' ').trim());
+            expect(ui.step(), `Next non deve avanzare con ${JSON.stringify(value)}`).toBe('suffix');
+        }
+        await ui.typeVersion('1.0.0.5');
+        expect(ui.nextDisabled()).toBe(false);
+        expect(ui.versionIssue()).toBe('');
+    });
+
+    it('con l\'opzione spenta una versione non valida non blocca; riaccesa, blocca di nuovo', async () => {
+        const ui = await open();
+        await ui.typeVersion('abc');
+        expect(ui.nextDisabled()).toBe(true);
+        await ui.setRaise(false);
+        expect(ui.nextDisabled()).toBe(false);
+        expect(ui.versionIssue()).toBe('');
+        await ui.setRaise(true);
+        expect(ui.versionInput()).toBe('abc');
+        expect(ui.nextDisabled()).toBe(true);
+    });
+
+    it('la revisione ripete lo stesso testo, in entrambi i casi', async () => {
+        for (const raise of [true, false]) {
+            const ui = await open();
+            await ui.setRaise(raise);
+            const under = ui.versionHint();
+            await ui.next();
+            expect(text(ui, 'review-version'), `raise=${raise}`).toBe(under);
         }
     });
 
-    it('il testo segue la versione della solution', async () => {
+    it('tornare indietro e ricostruire NON alza la versione una seconda volta (FR-073b)', async () => {
+        const ui = await open();
+        await ui.next();
+        await ui.buildPackage();
+        expect(ui.dev.versionOf('S1')).toBe('1.0.0.3');
+        await ui.back();                         // anteprima → revisione
+        await ui.back();                         // revisione → suffisso
+        expect(ui.versionInput(), 'la proposta resta ferma').toBe('1.0.0.3');
+        await ui.setPublish('agent1 [DEV]', 'force-true');   // cambia qualcosa: serve un nuovo package
+        await ui.next();
+        await ui.buildPackage();
+        expect(ui.dev.writes.length, 'una sola scrittura').toBe(1);
+        expect(ui.dev.versionOf('S1')).toBe('1.0.0.3');
+        expect(text(ui, 'version-note')).toContain('DEV was already at 1.0.0.3: nothing was written');
+    });
+
+    it('dopo il salvataggio la prossima operazione riparte dal numero nuovo', async () => {
+        const ui = await open();
+        await buildAndSave(ui);
+        await ui.crumb('Solutions');
+        await ui.openSolution('S1');
+        expect(ui.text('solution')).toContain('1.0.0.3');
+        await ui.startRename();
+        expect(ui.versionInput()).toBe('1.0.0.4');
+        expect(ui.versionHint()).toContain('1.0.0.3 → 1.0.0.4');
+    });
+
+    it('lo stesso package per un altro ambiente: si spegne l\'opzione e porta la versione che DEV ha gia\'', async () => {
+        const ui = await open();
+        await buildAndSave(ui);                                  // UAT → 1.0.0.3
+        await ui.crumb('Solutions');
+        await ui.openSolution('S1');
+        await ui.startRename();
+        await ui.typeSuffix('PROD');
+        await ui.setRaise(false);
+        await buildAndSave(ui);
+        expect(ui.dev.writes.length, 'nessuna scrittura la seconda volta').toBe(1);
+        const zips = Object.keys(ui.written().zips);
+        expect(zips.some(p => p.endsWith('S1_1_0_0_3_managed_UAT.zip'))).toBe(true);
+        expect(zips.some(p => p.endsWith('S1_1_0_0_3_managed_PROD.zip'))).toBe(true);
+    });
+
+    it('cambiando solution la versione si ricalcola da quella nuova', async () => {
+        const ui = await open();
+        await ui.typeVersion('5.0.0.0');
+        await ui.crumb('Solutions');
+        await ui.openSolution('S2');
+        await ui.startRename();
+        expect(ui.versionInput()).toBe('1.0.0.3');
+        expect(ui.raiseOn()).toBe(true);
+    });
+
+    it('tornando indietro la scelta si conserva', async () => {
+        const ui = await open();
+        await ui.typeVersion('2.0.0.0');
+        await ui.next();
+        await ui.back();
+        expect(ui.versionInput()).toBe('2.0.0.0');
+        expect(ui.raiseOn()).toBe(true);
+    });
+
+    it('segue la versione della solution, anche quando l\'ultimo numero va a due cifre', async () => {
         const w: UiWorld = {
             solutions: [{ unique: 'S1', version: '2.7.0.9' }],
             agents: [{ name: 'x [DEV]', schema: 'ava_a1', solution: 'S1', publish: null }],
         };
-        const ui = await boot(w);
-        await ui.openSolution('S1');
-        await ui.startRename();
-        await ui.setBump(true);
-        expect(hint(ui)).toContain('2.7.0.9 → 2.7.0.10');
+        const ui = await open(w);
+        expect(ui.versionInput()).toBe('2.7.0.10');
+        expect(ui.versionHint()).toContain('2.7.0.9 → 2.7.0.10');
+    });
+
+    it('l\'elenco degli artefatti mostra il nome col numero che avra\'', async () => {
+        const ui = await open();
+        expect(ui.text('suffix')).toContain('S1_1_0_0_3_managed_UAT.zip');
+        await ui.typeVersion('2.0.0.0');
+        expect(ui.text('suffix')).toContain('S1_2_0_0_0_managed_UAT.zip');
+        await ui.setRaise(false);
+        expect(ui.text('suffix')).toContain('S1_1_0_0_2_managed_UAT.zip');
+    });
+
+    describe('quando la versione non si riesce ad alzare, non si esporta', () => {
+        const failed = async (ui: Ui) => {
+            await ui.next();
+            await ui.buildPackage();
+            expect(ui.step()).toBe('preview');
+            expect(ui.previewText()).toContain('The package could not be prepared');
+            expect(ui.dev.events.some(e => e.startsWith('export'))).toBe(false);
+            return ui.previewText();
+        };
+        it('qualcuno l\'ha alzata nel frattempo', async () => {
+            const ui = await open();
+            ui.dev.solutions.find(s => s.unique === 'S1')!.version = '1.0.0.9';
+            expect(await failed(ui)).toContain('already at 1.0.0.9');
+            expect(ui.dev.writes).toEqual([]);
+        });
+        it('la scrittura viene rifiutata (permessi)', async () => {
+            const ui = await open();
+            ui.dev.failWriteWith = 'Principal user is missing prvWriteSolution privilege';
+            expect(await failed(ui)).toContain('prvWriteSolution');
+            expect(ui.dev.versionOf('S1')).toBe('1.0.0.2');
+        });
+        it('la scrittura non ha effetto', async () => {
+            const ui = await open();
+            ui.dev.ignoreWrites = true;
+            const shown = await failed(ui);
+            expect(shown).toContain('reads 1.0.0.2 after writing 1.0.0.3');
+            expect(shown).toContain('The export was not started');
+        });
+    });
+
+    it('le fasi dell\'avanzamento: con la versione c\'e\' "Raise the version in DEV" per prima, senza no', async () => {
+        for (const raise of [true, false]) {
+            const ui = await open();
+            await ui.setRaise(raise);
+            await ui.next();
+            await ui.startBuild();
+            const labels = Array.from(ui.doc.querySelectorAll('#preview-progress .ph')).map(li => li.textContent!.trim());
+            expect(labels, `raise=${raise}`).toEqual([
+                ...(raise ? ['Raise the version in DEV'] : []),
+                'Export managed', 'Export unmanaged', 'Read the packages', 'Patch and verify',
+            ]);
+            await ui.tick(6000);
+        }
     });
 });
 

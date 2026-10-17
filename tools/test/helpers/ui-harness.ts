@@ -12,6 +12,7 @@ import { vi } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
 import indexHtml from '../../src/index.html?raw';
 import { makePackage } from './fixture';
+import { installFakeDev, makeDev, type FakeDev } from './fake-dev';
 import type { AgentListItem, PublishMode, Solution } from '../../src/types';
 
 export interface UiAgent {
@@ -23,6 +24,11 @@ export interface UiAgent {
     connected?: boolean;
     /** Nome del componente GPT intero invece del nome base. */
     gptFull?: boolean;
+    /** Valore grezzo di `bot.iconbase64` (spec 008). */
+    icon?: string | null;
+    /** `botcomponent.description` del componente GPT (spec 008). */
+    description?: string | null;
+    modifiedOn?: string;
 }
 
 export interface UiSolution {
@@ -48,22 +54,22 @@ export async function flush(rounds = 80): Promise<void> {
     for (let i = 0; i < rounds; i++) await Promise.resolve();
 }
 
-function solutionFixture(s: UiSolution, world: UiWorld): Solution {
+function solutionFixture(s: UiSolution, world: UiWorld, dev?: FakeDev): Solution {
     return {
         solutionId: `sol-${s.unique}`, uniqueName: s.unique, friendlyName: `Solution ${s.unique}`,
         isManaged: s.managed === true, isVisible: true, publisherPrefix: 'ava', publisherName: 'Contoso',
-        version: s.version ?? '1.0.0.2', createdOn: '2026-10-10T10:00:00Z',
+        version: dev ? dev.versionOf(s.unique) : (s.version ?? '1.0.0.2'), createdOn: '2026-10-10T10:00:00Z',
         agentCount: world.agents.filter(a => a.solution === s.unique).length,
         exportable: s.managed !== true,
     };
 }
 
-export function fixtures(world: UiWorld): { agents: AgentListItem[]; solutions: Solution[] } {
-    const solutions = world.solutions.map(s => solutionFixture(s, world));
+export function fixtures(world: UiWorld, dev?: FakeDev): { agents: AgentListItem[]; solutions: Solution[] } {
+    const solutions = world.solutions.map(s => solutionFixture(s, world, dev));
     const agents = world.agents.map(a => ({
         id: `bot-${a.schema}`, name: a.name, schemaName: a.schema,
         solution: solutions.find(s => s.uniqueName === a.solution) ?? null,
-        isActive: true, createdOn: '2026-10-10T10:00:00Z', modifiedOn: '2026-10-10T10:00:00Z',
+        isActive: true, createdOn: '2026-10-10T10:00:00Z', modifiedOn: a.modifiedOn ?? '2026-10-10T10:00:00Z',
         publishedOn: '2026-10-10T10:00:00Z',
     }));
     return { agents, solutions };
@@ -78,8 +84,14 @@ export interface FakeFs {
 
 export interface Driver {
     world: UiWorld;
+    /** Il DEV finto: versioni, scritture, ordine delle chiamate. */
+    dev: FakeDev;
     fs: FakeFs;
     doc: Document;
+    /** Le letture di icona e descrizione (spec 008): cosa e' stato chiesto, e come farle fallire. */
+    cards: { bot: string[][]; component: string[][]; failWith?: string };
+    /** Icona e descrizione mostrate per un agent nella schermata attuale. */
+    cardOf(name: string): { img: string | null; generic: boolean; description: string; title: string; none: boolean } | null;
     // ── navigazione
     openSolution(unique: string): Promise<void>;
     startRename(): Promise<void>;
@@ -93,7 +105,16 @@ export interface Driver {
     toggleAgent(name: string): Promise<void>;
     setPublish(name: string, mode: PublishMode): Promise<void>;
     setAll(mode: PublishMode): Promise<void>;
-    setBump(on: boolean): Promise<void>;
+    /** L'opzione "Raise the version in DEV". */
+    setRaise(on: boolean): Promise<void>;
+    typeVersion(value: string): Promise<void>;
+    raiseOn(): boolean;
+    versionInput(): string;
+    /** Il messaggio sotto il campo (vuoto = nessun problema). */
+    versionIssue(): string;
+    versionFieldVisible(): boolean;
+    /** Il testo sotto l'opzione. */
+    versionHint(): string;
     setKeepCopies(on: boolean): Promise<void>;
     suffixRows(): SuffixRow[];
     suffixInput(): string;
@@ -165,24 +186,43 @@ export async function boot(world: UiWorld): Promise<Driver> {
         },
         terminal: { create: async () => ({ id: 't' }), execute: async () => {}, setVisibility: async () => {} },
     };
+    const dev = makeDev(world.solutions.map(s => ({
+        id: `sol-${s.unique}`, unique: s.unique, version: s.version ?? '1.0.0.2', managed: s.managed,
+    })));
     g.dataverseAPI = {};
+    installFakeDev(dev, g.dataverseAPI as object);
+    const cards: Driver['cards'] = { bot: [], component: [] };
+    (g.dataverseAPI as Record<string, unknown>).fetchXmlQuery = async (xml: string) => {
+        const ids = Array.from(xml.matchAll(/<value>([^<]*)<\/value>/g)).map(m => m[1]!);
+        const mine = world.agents.filter(a => ids.includes(`bot-${a.schema}`));
+        if (/entity name="bot"/.test(xml)) {
+            cards.bot.push(ids);
+            if (cards.failWith) throw new Error(cards.failWith);
+            return { value: mine.map(a => ({ botid: `bot-${a.schema}`, iconbase64: a.icon ?? null, modifiedon: a.modifiedOn ?? 'm' })) };
+        }
+        cards.component.push(ids);
+        if (cards.failWith) throw new Error(cards.failWith);
+        return { value: mine.map(a => ({ schemaname: `${a.schema}.gpt.default`, description: a.description ?? null })) };
+    };
 
-    const data = fixtures(world);
     vi.doMock('../../src/services/solutions', async () => {
         const actual = await vi.importActual<typeof import('../../src/services/solutions')>(
             '../../src/services/solutions');
         return {
             ...actual,
-            fetchAgentsAndSolutions: async () => data,
+            // Le versioni sono quelle che DEV ha adesso: dopo un export sono salite
+            fetchAgentsAndSolutions: async () => fixtures(world, dev),
             findSuffixVariable: async () => null,
         };
     });
     vi.doMock('../../src/services/export', () => ({
         exportPair: async (solutionName: string) => {
+            dev.events.push(`export ${solutionName}`);
             const mine = world.agents.filter(a => a.solution === solutionName);
             const spec = (managed: boolean) => makePackage({
                 uniqueName: solutionName, managed,
-                version: world.solutions.find(s => s.unique === solutionName)?.version ?? '1.0.0.2',
+                // L'export porta la versione che DEV ha NEL MOMENTO in cui parte
+                version: dev.versionOf(solutionName),
                 agents: mine.map(a => ({
                     schema: a.schema, name: a.name, publishOnImport: a.publish,
                     connected: a.connected, gptName: a.gptFull ? a.name : undefined, topics: 1,
@@ -228,7 +268,19 @@ export async function boot(world: UiWorld): Promise<Driver> {
     };
 
     const driver: Driver = {
-        world, fs, doc,
+        world, dev, fs, doc, cards,
+        cardOf(name) {
+            const id = `bot-${schemaOf(name)}`;
+            const icon = stepEl().querySelector(`[data-card-icon="${id}"]`);
+            if (!icon) return null;
+            const desc = stepEl().querySelector<HTMLElement>(`[data-card-desc="${id}"]`);
+            return {
+                img: icon.querySelector('img')?.getAttribute('src') ?? null,
+                generic: !icon.querySelector('img') && !!icon.querySelector('.icon'),
+                description: norm(desc?.textContent), title: desc?.getAttribute('title') ?? '',
+                none: desc?.classList.contains('agent-desc--none') ?? false,
+            };
+        },
         step: visibleStep,
         text: step => norm(doc.getElementById(STEP_IDS[step]!)?.textContent),
 
@@ -262,10 +314,21 @@ export async function boot(world: UiWorld): Promise<Driver> {
         async setAll(mode) {
             await click($(`#agent-list .toggle-btn[data-publish-all="${mode}"]`), `all ${mode}`);
         },
-        async setBump(on) {
-            const box = $<HTMLInputElement>('#opt-bump')!;
-            if (box.checked !== on) await click(box, 'bump');
+        async setRaise(on) {
+            const box = $<HTMLInputElement>('#opt-version')!;
+            if (box.checked !== on) await click(box, 'raise the version');
         },
+        async typeVersion(value) {
+            const input = $<HTMLInputElement>('#version-input')!;
+            input.value = value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            await flush();
+        },
+        raiseOn: () => $<HTMLInputElement>('#opt-version')?.checked ?? false,
+        versionInput: () => $<HTMLInputElement>('#version-input')?.value ?? '',
+        versionIssue: () => norm($('#version-issue')?.textContent),
+        versionFieldVisible: () => { const f = $('#version-field'); return !!f && !f.hasAttribute('hidden'); },
+        versionHint: () => norm($('#version-hint')?.textContent),
         async setKeepCopies(on) {
             const box = $<HTMLInputElement>('#opt-keep')!;
             if (box.checked !== on) await click(box, 'keep copies');
@@ -281,7 +344,7 @@ export async function boot(world: UiWorld): Promise<Driver> {
                 const cells = Array.from(tr.querySelectorAll('td'));
                 const active = tr.querySelector('.toggle-btn.is-active');
                 return {
-                    name: norm(cells[1]?.textContent),
+                    name: norm(cells[1]?.querySelector('.agent-name')?.textContent ?? cells[1]?.textContent),
                     checked: (tr.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
                     nameAfter: norm(cells[2]?.textContent),
                     publish: active ? PUBLISH_BY_LABEL[norm(active.textContent)] ?? null : null,

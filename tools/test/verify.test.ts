@@ -11,29 +11,31 @@ import { buildZip, verificationPassed, verifyZip } from '../src/services/rezip';
 import { DEFAULT_OPTIONS } from '../src/types';
 import { makePackage } from './helpers/fixture';
 
+/** La versione che l'export porta dopo che il tool l'ha alzata in DEV: la verifica deve ritrovarla. */
+const EXPORTED_VERSION = '1.0.0.3';
+
 const SPEC = {
-    version: '1.0.0.2',
+    version: EXPORTED_VERSION,
     agents: [
         { schema: 'ava_a1', name: 'one [DEV]', publishOnImport: null, topics: 1 },
         { schema: 'ava_a2', name: 'two [DEV]', publishOnImport: true, topics: 1 },
     ],
 };
 
-/** Un caso completo: piano con nome, publish per agent e bump di versione. */
+/** Un caso completo: piano con nome e publish per agent, e un export che porta la versione alzata in DEV. */
 function scenario() {
     const pkg = readPackage(makePackage(SPEC));
     const plan = buildPatchPlan(pkg, 'UAT', ['ava_a1', 'ava_a2'], {
-        ...DEFAULT_OPTIONS, bumpVersion: true,
+        ...DEFAULT_OPTIONS,
         publishByAgent: { ava_a1: 'force-true', ava_a2: 'force-false' },
     });
     const { files, patchedPaths } = applyPatch(pkg, plan);
     const names: Record<string, string> = {};
     const publish: Record<string, boolean> = {};
-    let version: string | undefined;
+    const version: string = EXPORTED_VERSION;
     for (const c of plan) {
         if (c.element === 'name') names[c.file] = c.after;
         if (c.element === 'publishOnImport') publish[c.file] = c.after === 'true';
-        if (c.element === 'Version') version = c.after;
     }
     const good = buildZip(files);
     const verify = (zip: Uint8Array, over: { names?: typeof names; publish?: typeof publish; version?: string } = {}) =>
@@ -131,6 +133,27 @@ describe('verifyZip respinge lo zip sbagliato', () => {
         const files = unzipSync(s.good);
         files['bots/ava_a1/configuration.json'] = strToU8('{ broken');
         expect(s.verify(rezip(files)).patchedValuesConfirmed).toBe(false);
+    });
+    it('uno zip che porta una versione diversa da quella scritta in DEV (export vecchio) viene respinto', () => {
+        const s = scenario();
+        const files = unzipSync(s.good);
+        files['solution.xml'] = strToU8(
+            strFromU8(files['solution.xml']!).replace(`<Version>${EXPORTED_VERSION}</Version>`, '<Version>1.0.0.2</Version>'));
+        expect(s.verify(rezip(files)).patchedValuesConfirmed).toBe(false);
+    });
+    it('uno zip senza <Version> viene respinto', () => {
+        const s = scenario();
+        const files = unzipSync(s.good);
+        files['solution.xml'] = strToU8(strFromU8(files['solution.xml']!).replace(/<Version>[^<]*<\/Version>/, ''));
+        expect(s.verify(rezip(files)).patchedValuesConfirmed).toBe(false);
+    });
+    it('senza una versione attesa la verifica non la controlla', () => {
+        const s = scenario();
+        const files = unzipSync(s.good);
+        files['solution.xml'] = strToU8(
+            strFromU8(files['solution.xml']!).replace(`<Version>${EXPORTED_VERSION}</Version>`, '<Version>7.7.7.7</Version>'));
+        const v = verifyZip(rezip(files), s.pkg, s.names, s.patchedPaths, { publish: s.publish });
+        expect(v.patchedValuesConfirmed).toBe(true);
     });
     it('versione diversa da quella prevista', () => {
         const s = scenario();

@@ -20,3 +20,11 @@ const NodeUint8Array = new TextEncoder().encode('').constructor as Uint8ArrayCon
 if (globalThis.Uint8Array !== NodeUint8Array) {
     (globalThis as unknown as { Uint8Array: Uint8ArrayConstructor }).Uint8Array = NodeUint8Array;
 }
+
+/**
+ * `dataverse.ts` cattura `globalThis.dataverseAPI` una volta sola, all'import: ci vuole un oggetto
+ * gia' al suo posto quando i moduli si caricano. I test lo riempiono con `installFakeDev`.
+ */
+if (!(globalThis as { dataverseAPI?: unknown }).dataverseAPI) {
+    (globalThis as unknown as { dataverseAPI: object }).dataverseAPI = {};
+}

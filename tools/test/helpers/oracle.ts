@@ -52,16 +52,6 @@ export function expectedPublish(
     return mode === 'force-true';
 }
 
-/** FR-073: incrementa l'ultimo segmento numerico. */
-export function expectedVersion(version: string, bump: boolean): string {
-    if (!bump) return version;
-    const parts = version.split('.');
-    const last = Number(parts[parts.length - 1]);
-    if (Number.isNaN(last)) return version;
-    parts[parts.length - 1] = String(last + 1);
-    return parts.join('.');
-}
-
 /** FR-023a: i suffissi distinti che gli agent avranno dopo il rename. */
 export function distinctSuffixes(
     agents: { name: string; selected: boolean }[], suffix: string,
