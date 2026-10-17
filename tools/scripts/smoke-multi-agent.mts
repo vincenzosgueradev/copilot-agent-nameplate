@@ -114,7 +114,8 @@ if (t3.some(c => c.file.includes(`/${a1.schemaName}/`))) fail("un agent escluso 
     const zip = buildZip(applied.files);
     const expectedNames: Record<string, string> = {};
     for (const c of plan) if (c.element === 'name') expectedNames[c.file] = c.after;
-    const v = verifyZip(zip, pkg, expectedNames, applied.patchedPaths);
+    const v = verifyZip(zip, pkg, expectedNames, applied.patchedPaths,
+        { publish: Object.fromEntries(plan.filter(c => c.element === 'publishOnImport').map(c => [c.file, c.after === 'true'])) });
     if (!v.archiveReadable || !v.entryCountMatches || !v.patchedValuesConfirmed) {
         fail('lo zip con publish diversi per agent non supera la verifica');
     }

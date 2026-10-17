@@ -17,6 +17,14 @@ import type { PackageContents, VerificationResult } from '../types';
 
 const decoder = new TextDecoder('utf-8', { fatal: false });
 
+/** Valori, oltre ai nomi, che la patch scrive e che la verifica deve ritrovare nello zip. */
+export interface ExpectedValues {
+    /** Percorso di `configuration.json` → valore di `publishOnImport`. */
+    publish?: Record<string, boolean>;
+    /** `<Version>` di `solution.xml`. */
+    version?: string;
+}
+
 /** Costruisce lo zip dalla mappa dei file. */
 export function buildZip(files: Record<string, Uint8Array>): Uint8Array {
     return zipSync(files, { level: 6 });
@@ -35,6 +43,10 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
  * che il patch sia finito dove doveva, non solo che il file sia leggibile. Ci entra anche un
  * agent lasciato invariato, perché confermare un nome che non doveva cambiare è comunque utile.
  *
+ * `expected` aggiunge gli altri valori scritti dalla patch: il `publishOnImport` di ogni agent
+ * (per percorso di `configuration.json`) e la `<Version>` di `solution.xml`. Senza, uno zip in
+ * cui quei valori non sono finiti dove dovevano risulterebbe verificato lo stesso.
+ *
  * `patchedPaths` è un'altra cosa: sono le entry **davvero riscritte**, le uniche da escludere
  * dal conteggio byte-identiche. Tenerle separate evita di contare come "patchata" una entry che
  * il piano menzionava ma non ha toccato — errore trovato dal primo smoke check su suffisso
@@ -45,6 +57,7 @@ export function verifyZip(
     original: PackageContents,
     expectedNames: Record<string, string>,
     patchedPaths: string[],
+    expected: ExpectedValues = {},
 ): VerificationResult {
     const result: VerificationResult = {
         archiveReadable: false,
@@ -80,6 +93,26 @@ export function verifyZip(
             .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
         return actual === expected;
     });
+
+    // Gli altri valori scritti: publishOnImport per agent e versione della solution
+    const publishOk = Object.entries(expected.publish ?? {}).every(([path, value]) => {
+        const data = files[path];
+        if (!data) return false;
+        try {
+            const cfg: unknown = JSON.parse(decoder.decode(data));
+            return typeof cfg === 'object' && cfg !== null && !Array.isArray(cfg)
+                && (cfg as { publishOnImport?: unknown }).publishOnImport === value;
+        } catch {
+            return false;
+        }
+    });
+    const versionOk = expected.version === undefined || (() => {
+        const data = files['solution.xml'];
+        if (!data) return false;
+        const m = /<SolutionManifest>[\s\S]*?<Version>([^<]*)<\/Version>/.exec(decoder.decode(data));
+        return m?.[1]?.trim() === expected.version;
+    })();
+    result.patchedValuesConfirmed = result.patchedValuesConfirmed && publishOk && versionOk;
 
     return result;
 }

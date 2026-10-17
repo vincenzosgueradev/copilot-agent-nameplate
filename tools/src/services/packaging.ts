@@ -13,7 +13,7 @@
 import { exportPair, type ExportProgress } from './export';
 import { readPackage } from './package';
 import { applyPatch, buildPatchPlan } from './patch';
-import { buildZip, verifyZip, verificationPassed } from './rezip';
+import { buildZip, verifyZip, verificationPassed, type ExpectedValues } from './rezip';
 import { log } from './log';
 import type { PackageContents, PackagingOptions, PatchChange, VerificationResult } from '../types';
 
@@ -43,7 +43,13 @@ function build(pkg: PackageContents, plan: PatchChange[]): BuiltArchive {
     const expectedNames: Record<string, string> = {};
     for (const c of plan) if (c.element === 'name') expectedNames[c.file] = c.after;
 
-    const verification = verifyZip(bytes, pkg, expectedNames, patchedPaths);
+    const expected: ExpectedValues = { publish: {} };
+    for (const c of plan) {
+        if (c.element === 'publishOnImport') expected.publish![c.file] = c.after === 'true';
+        if (c.element === 'Version') expected.version = c.after;
+    }
+
+    const verification = verifyZip(bytes, pkg, expectedNames, patchedPaths, expected);
     return {
         bytes,
         source: pkg,
