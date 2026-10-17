@@ -1403,6 +1403,22 @@ function renderPreviewResult(r: PackagingResult): void {
         <div class="stat"><dt>Export</dt>
             <dd>${r.exportSeconds.toFixed(1)}<span class="stat-sub">s ${escapeHtml(r.exportMode)}</span></dd></div>`;
 
+    // Publish on import per agent: il valore nel package esportato e quello che avra' dopo la
+    // patch (l'opzione "Force yes/no" lo cambia solo se il plan lo prevede)
+    const outcomes = agentOutcomes(pkg, r.plan);
+    const publishRows = pkg.agents.map(a => {
+        const change = r.plan.find(c => c.element === 'publishOnImport'
+            && c.file === a.file.replace(/bot.xml$/, 'configuration.json'));
+        return {
+            after: outcomes.find(o => o.schemaName === a.schemaName)?.after ?? a.name,
+            excluded: outcomes.find(o => o.schemaName === a.schemaName)?.excluded ?? false,
+            publishBefore: a.publishOnImport,
+            publishAfter: change ? change.after === 'true' : a.publishOnImport,
+            channels: a.channels,
+        };
+    });
+    const publishLabelOf = (v: boolean | null) => v === null ? 'not specified' : v ? 'yes' : 'no';
+
     // Il contenuto vero sta nei pannelli sotto la card: la card tiene solo il riepilogo
     const panels = document.getElementById('preview-panels');
     if (panels) {
@@ -1428,21 +1444,29 @@ function renderPreviewResult(r: PackagingResult): void {
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('send', 'icon--head')}Publish and channels</h3>
-                    <span class="panel-sub">read from the package just exported</span>
+                    <span class="panel-sub">per agent, as exported and as it will be after the patch</span>
                 </div>
                 <div class="panel-body">
-                    ${pkg.agents.map(a => `
+                    ${publishRows.map(row => `
+                        <h4 class="section-title" style="margin-top:${row === publishRows[0] ? 0 : 16}px">
+                            ${escapeHtml(row.after)}${row.excluded
+                                ? ' <span class="cell-muted">— left as it is</span>' : ''}</h4>
                         <div class="kv"><span class="kv-key">Publish on import</span>
-                            <span class="kv-val kv-val--strong">${a.publishOnImport === null
-                                ? 'not specified' : a.publishOnImport ? 'yes' : 'no'}</span></div>
+                            <span class="kv-val kv-val--strong">${row.publishBefore === row.publishAfter
+                                ? publishLabelOf(row.publishAfter)
+                                : `<span class="cell-muted">${publishLabelOf(row.publishBefore)}</span>
+                                   ${icon('arrow-right', 'icon--xs')}
+                                   ${publishLabelOf(row.publishAfter)}`}</span></div>
                         <div class="kv"><span class="kv-key">Channels</span>
-                            <span class="kv-val">${a.channels.length
-                                ? `<span class="channel-row">${a.channels.map(channelChip).join('')}</span>`
+                            <span class="kv-val">${row.channels.length
+                                ? `<span class="channel-row">${row.channels.map(channelChip).join('')}</span>`
                                 : '<span class="cell-muted">none</span>'}</span></div>`).join('')}
-                    ${pkg.agents.some(a => a.publishOnImport !== true) ? `
+                    ${publishRows.some(r => r.publishAfter !== true) ? `
                     <p class="hint hint--warn" style="margin-top:12px">
                         Without a publish in the target environment the name changes only in
                         Copilot Studio and <strong>stays the old one on Teams and M365</strong>.
+                        Not publishing on import: ${publishRows.filter(r => r.publishAfter !== true)
+                            .map(r => escapeHtml(r.after)).join(', ')}.
                     </p>` : ''}
                 </div>
             </section>`;
