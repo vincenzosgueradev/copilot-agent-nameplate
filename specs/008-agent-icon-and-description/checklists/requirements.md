@@ -18,7 +18,7 @@
 - [x] Edge case: icona non PNG/troppo grande/con prefisso, descrizione con HTML, lettura fallita
 - [x] Ambito delimitato: sola lettura; nessuna traccia nel package, nel manifest, nello storico
 - [x] Dipendenze e assunzioni elencate
-- [x] **La sorgente della descrizione è nota e verificata** su un export reale (research §2, FR-010)
+- [x] Ambito ridotto alla sola icona su richiesta dell'utente (2026-10-18): la descrizione non fa parte del requisito
 - [ ] **Da fare su un DEV vero**: la lettura via Web API di icona e descrizione è provata (task T002)
 
 ## Feature Readiness

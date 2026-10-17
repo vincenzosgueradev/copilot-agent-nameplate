@@ -1,5 +1,7 @@
 # Quickstart: validare icona e descrizione
 
+> **Aggiornamento 2026-10-18**: la descrizione dell'agent è stata **tolta dal requisito** (spec.md, FR-004/FR-010 ritirati). Dove questo documento parla di descrizione, la parte non è implementata: resta come riferimento.
+
 **Feature**: `008-agent-icon-and-description` | Prerequisito: una solution con almeno tre agent: uno con icona personalizzata, uno con quella predefinita, uno con una **descrizione** scritta in Copilot Studio.
 
 ## D0 — Dove sta la descrizione ✅ *fatto il 2026-10-18*

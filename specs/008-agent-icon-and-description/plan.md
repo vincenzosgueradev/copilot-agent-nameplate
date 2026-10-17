@@ -1,5 +1,7 @@
 # Implementation Plan: Icona e descrizione dell'agent
 
+> **Aggiornamento 2026-10-18**: la descrizione dell'agent è stata **tolta dal requisito** (spec.md, FR-004/FR-010 ritirati). Dove questo documento parla di descrizione, la parte non è implementata: resta come riferimento.
+
 **Branch**: `008-agent-icon-and-description` | **Date**: 2026-10-18 | **Spec**: [spec.md](spec.md)
 
 **Input**: [spec.md](spec.md), [research.md](research.md)

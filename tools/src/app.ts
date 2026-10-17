@@ -1039,32 +1039,20 @@ function agentIconHtml(id: string, size: 16 | 20 | 24 = 24): string {
     return `<span class="agent-icon agent-icon--${size}" data-card-icon="${escapeHtml(id)}">${inner}</span>`;
 }
 
-/** Nome con icona e descrizione sotto: la cella dell'agent nelle liste (spec 008). */
+/** Icona e nome: la cella dell'agent nelle liste (spec 008). */
 function agentCellHtml(a: AgentListItem): string {
-    const card = state.cards.get(a.id);
-    const text = card ? (card.description ?? 'No description') : '';
-    const cls = card && !card.description ? ' agent-desc--none' : '';
-    return `<div class="agent-cell">${agentIconHtml(a.id)}
-        <span class="agent-text"><span class="agent-name">${escapeHtml(a.name)}</span>
-        <span class="agent-desc${cls}" data-card-desc="${escapeHtml(a.id)}" title="${escapeHtml(card?.description ?? '')}">${escapeHtml(text)}</span></span></div>`;
+    return `<div class="agent-cell">${agentIconHtml(a.id)}<span class="agent-name">${escapeHtml(a.name)}</span></div>`;
 }
 
-/** Riempie sul posto icone e descrizioni: le righe hanno altezza fissa, quindi non si spostano. */
+/** Riempie sul posto le icone: le righe hanno altezza fissa, quindi non si spostano. */
 function paintCards(): void {
     document.querySelectorAll<HTMLElement>('[data-card-icon]').forEach(el => {
         const size = el.classList.contains('agent-icon--16') ? 16 : el.classList.contains('agent-icon--20') ? 20 : 24;
         el.outerHTML = agentIconHtml(el.dataset.cardIcon ?? '', size);
     });
-    document.querySelectorAll<HTMLElement>('[data-card-desc]').forEach(el => {
-        const card = state.cards.get(el.dataset.cardDesc ?? '');
-        if (!card) return;
-        el.textContent = card.description ?? 'No description';
-        el.title = card.description ?? '';
-        el.classList.toggle('agent-desc--none', !card.description);
-    });
 }
 
-/** Legge icone e descrizioni degli agent della solution aperta, dopo che la lista e' gia' disegnata. */
+/** Legge le icone degli agent della solution aperta, dopo che la lista e' gia' disegnata. */
 async function loadCards(agents: AgentListItem[], seq: number): Promise<void> {
     if (!agents.length) return;
     const cards = await loadAgentCards(agents);

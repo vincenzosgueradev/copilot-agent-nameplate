@@ -100,13 +100,12 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   the ones left as they were, so an agent kept on purpose can be told from one forgotten.
 - `npm run smoke:multi`: checks the two-agent case (uniform suffix, exclusion respected,
   excluded agent byte-identical).
-- **Agent icon and description in the lists.** The solution view and the suffix step show
-  each agent's icon (Copilot Studio's own) with its description under the name, the review
-  shows the small icon and the search results carry it in the chip. They are read, read-only,
-  only for the solution you open, after the list is drawn, and cached for the session. An
-  icon is shown only if it is a valid PNG, a description only as plain text; if the read
-  fails the lists keep the default icon and a warning goes to the log. Nothing is added to
-  the package, the manifest or the history.
+- **Agent icon in the lists.** The solution view and the suffix step show each agent's icon
+  (Copilot Studio's own) next to the name, the review shows the small icon and the search
+  results carry it in the chip. It is read, read-only, only for the solution you open, after
+  the list is drawn, and cached for the session. An icon is shown only if it is a valid PNG;
+  if the read fails the lists keep the default icon and a warning goes to the log. Nothing is
+  added to the package, the manifest or the history.
 
 ### Upgrade notes
 - History records written by 1.0.0 only list the agents that were renamed; they have no

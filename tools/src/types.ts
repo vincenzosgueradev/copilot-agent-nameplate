@@ -32,15 +32,13 @@ export interface AgentOutcome {
     excluded?: boolean;
 }
 
-/** Un agent come compare nelle liste. Fonte autoritativa: la tabella `bot` (FR-024). */
-/** Icona e descrizione di un agent, solo per mostrarle (spec 008). Mai nel package. */
+/** Icona di un agent, solo per mostrarla (spec 008). Mai nel package. */
 export interface AgentCard {
     /** `data:image/png;base64,…` oppure `null` se assente o non valida. */
     iconDataUri: string | null;
-    /** Testo normalizzato, oppure `null` se assente. */
-    description: string | null;
 }
 
+/** Un agent come compare nelle liste. Fonte autoritativa: la tabella `bot` (FR-024). */
 export interface AgentListItem {
     id: string;
     name: string;

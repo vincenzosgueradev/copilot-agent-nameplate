@@ -26,8 +26,6 @@ export interface UiAgent {
     gptFull?: boolean;
     /** Valore grezzo di `bot.iconbase64` (spec 008). */
     icon?: string | null;
-    /** `botcomponent.description` del componente GPT (spec 008). */
-    description?: string | null;
     modifiedOn?: string;
 }
 
@@ -88,10 +86,10 @@ export interface Driver {
     dev: FakeDev;
     fs: FakeFs;
     doc: Document;
-    /** Le letture di icona e descrizione (spec 008): cosa e' stato chiesto, e come farle fallire. */
-    cards: { bot: string[][]; component: string[][]; failWith?: string };
-    /** Icona e descrizione mostrate per un agent nella schermata attuale. */
-    cardOf(name: string): { img: string | null; generic: boolean; description: string; title: string; none: boolean } | null;
+    /** Le letture dell'icona (spec 008): cosa e' stato chiesto, e come farle fallire. */
+    cards: { bot: string[][]; failWith?: string };
+    /** Icona mostrata per un agent nella schermata attuale. */
+    cardOf(name: string): { img: string | null; generic: boolean } | null;
     // ── navigazione
     openSolution(unique: string): Promise<void>;
     startRename(): Promise<void>;
@@ -191,7 +189,7 @@ export async function boot(world: UiWorld): Promise<Driver> {
     })));
     g.dataverseAPI = {};
     installFakeDev(dev, g.dataverseAPI as object);
-    const cards: Driver['cards'] = { bot: [], component: [] };
+    const cards: Driver['cards'] = { bot: [] };
     (g.dataverseAPI as Record<string, unknown>).fetchXmlQuery = async (xml: string) => {
         const ids = Array.from(xml.matchAll(/<value>([^<]*)<\/value>/g)).map(m => m[1]!);
         const mine = world.agents.filter(a => ids.includes(`bot-${a.schema}`));
@@ -200,9 +198,7 @@ export async function boot(world: UiWorld): Promise<Driver> {
             if (cards.failWith) throw new Error(cards.failWith);
             return { value: mine.map(a => ({ botid: `bot-${a.schema}`, iconbase64: a.icon ?? null, modifiedon: a.modifiedOn ?? 'm' })) };
         }
-        cards.component.push(ids);
-        if (cards.failWith) throw new Error(cards.failWith);
-        return { value: mine.map(a => ({ schemaname: `${a.schema}.gpt.default`, description: a.description ?? null })) };
+        throw new Error('query non prevista dal DEV finto');
     };
 
     vi.doMock('../../src/services/solutions', async () => {
@@ -273,12 +269,9 @@ export async function boot(world: UiWorld): Promise<Driver> {
             const id = `bot-${schemaOf(name)}`;
             const icon = stepEl().querySelector(`[data-card-icon="${id}"]`);
             if (!icon) return null;
-            const desc = stepEl().querySelector<HTMLElement>(`[data-card-desc="${id}"]`);
             return {
                 img: icon.querySelector('img')?.getAttribute('src') ?? null,
                 generic: !icon.querySelector('img') && !!icon.querySelector('.icon'),
-                description: norm(desc?.textContent), title: desc?.getAttribute('title') ?? '',
-                none: desc?.classList.contains('agent-desc--none') ?? false,
             };
         },
         step: visibleStep,

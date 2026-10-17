@@ -14,7 +14,7 @@ dice che cosa i test **non** coprono e come controllarlo a mano.
 | [005](005-flow-and-layout-refinements/spec.md) | Perfezionamenti di flusso e layout: tabelle, anteprima per agent, scorrimento, fasi | Implementata | 1.1.0 | estende 001 FR-044, FR-075 |
 | [006](006-quality-gates/spec.md) | Cancelli di qualità: matrici di test, test della schermata, controllo per mutazione | Implementata | (sviluppo) | Constitution 1.3.0 |
 | [007](007-release-process/spec.md) | Processo di rilascio: changelog, versione, pubblicazione | Implementata (manca il primo publish vero) | (processo) | Constitution 1.2.0 |
-| [008](008-agent-icon-and-description/spec.md) | Icona e descrizione dell'agent nelle liste | **Implementata** (resta da provare la lettura reale via Web API, T002) | — | estende 002 |
+| [008](008-agent-icon-and-description/spec.md) | Icona dell'agent nelle liste | **Implementata** (resta da provare la lettura reale via Web API, T002) | — | estende 002 |
 
 ## Come leggere le specifiche successive
 

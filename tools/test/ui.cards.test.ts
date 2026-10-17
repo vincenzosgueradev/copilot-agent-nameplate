@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Spec 008 — icona e descrizione dell'agent nelle liste: percorsi della schermata.
+ * Spec 008 — icona dell'agent nelle liste: percorsi della schermata.
  * Ogni scenario dice, nel nome, la regola che difende.
  */
 
@@ -16,10 +16,10 @@ const URI = `data:image/png;base64,${PNG}`;
 const world = (): UiWorld => ({
     solutions: [{ unique: 'S1' }, { unique: 'S2' }],
     agents: [
-        { name: 'ok [DEV]', schema: 'ava_a1', solution: 'S1', publish: true, icon: PNG, description: 'agente per utenti' },
-        { name: 'plain [DEV]', schema: 'ava_a2', solution: 'S1', publish: null, icon: null, description: null },
-        { name: 'bad [DEV]', schema: 'ava_a3', solution: 'S1', publish: null, icon: '/9j/4AAQSkZJRg', description: '   ' },
-        { name: 'other [DEV]', schema: 'ava_b1', solution: 'S2', publish: null, icon: PNG, description: 'di S2' },
+        { name: 'ok [DEV]', schema: 'ava_a1', solution: 'S1', publish: true, icon: PNG },
+        { name: 'plain [DEV]', schema: 'ava_a2', solution: 'S1', publish: null, icon: null },
+        { name: 'bad [DEV]', schema: 'ava_a3', solution: 'S1', publish: null, icon: '/9j/4AAQSkZJRg' },
+        { name: 'other [DEV]', schema: 'ava_b1', solution: 'S2', publish: null, icon: PNG },
     ],
 });
 
@@ -44,32 +44,12 @@ describe('icone (FR-001, FR-002, FR-003)', () => {
     });
 });
 
-describe('descrizioni (FR-004)', () => {
-    it('testo, "No description" attenuato se manca o e\' vuota, testo intero nel title', async () => {
-        const ui = await boot(world());
-        await ui.openSolution('S1');
-        expect(ui.cardOf('ok [DEV]')).toMatchObject({ description: 'agente per utenti', title: 'agente per utenti', none: false });
-        expect(ui.cardOf('plain [DEV]')).toMatchObject({ description: 'No description', title: '', none: true });
-        expect(ui.cardOf('bad [DEV]')).toMatchObject({ description: 'No description', none: true });
-    });
-
-    it('la descrizione con HTML resta testo: nessun elemento nuovo, nessun handler', async () => {
-        const w = world();
-        w.agents[0]!.description = '<img src=x onerror=alert(1)><b>grassetto</b>';
-        const ui = await boot(w);
-        await ui.openSolution('S1');
-        expect(ui.cardOf('ok [DEV]')!.description).toBe('<img src=x onerror=alert(1)><b>grassetto</b>');
-        expect(ui.doc.querySelectorAll('img[src="x"], [onerror], b').length).toBe(0);
-    });
-});
-
 describe('quando si legge (FR-005, FR-006, FR-009)', () => {
-    it('una lettura per tabella, solo per gli agent della solution aperta', async () => {
+    it('una lettura, solo per gli agent della solution aperta', async () => {
         const ui = await boot(world());
         expect(ui.cards.bot).toHaveLength(0);          // l'elenco delle solution non legge nulla
         await ui.openSolution('S1');
         expect(ui.cards.bot.map(r => [...r].sort())).toEqual([['bot-ava_a1', 'bot-ava_a2', 'bot-ava_a3']]);
-        expect(ui.cards.component.map(r => [...r].sort())).toEqual([['bot-ava_a1', 'bot-ava_a2', 'bot-ava_a3']]);
     });
 
     it('riaprire la stessa solution non rilegge; un\'altra solution legge solo i suoi agent', async () => {
@@ -92,7 +72,7 @@ describe('quando si legge (FR-005, FR-006, FR-009)', () => {
 });
 
 describe('lettura fallita (FR-005)', () => {
-    it('le liste restano usabili con icone generiche e "No description"; il rename prosegue', async () => {
+    it('le liste restano usabili con icone generiche; il rename prosegue', async () => {
         const ui = await boot(world());
         ui.cards.failWith = '403 forbidden';
         await ui.openSolution('S1');
@@ -106,13 +86,13 @@ describe('lettura fallita (FR-005)', () => {
     });
 });
 
-describe('le stesse carte in tutte le liste (FR-007)', () => {
-    it('passo del suffisso e revisione mostrano l\'icona; la descrizione sta nel suffisso', async () => {
+describe('la stessa icona in tutte le liste (FR-007)', () => {
+    it('passo del suffisso e revisione mostrano l\'icona', async () => {
         const ui = await boot(world());
         await ui.openSolution('S1');
         await ui.startRename();
-        expect(ui.cardOf('ok [DEV]')).toMatchObject({ img: URI, description: 'agente per utenti' });
-        expect(ui.cardOf('plain [DEV]')).toMatchObject({ generic: true, description: 'No description' });
+        expect(ui.cardOf('ok [DEV]')).toMatchObject({ img: URI });
+        expect(ui.cardOf('plain [DEV]')).toMatchObject({ generic: true });
         await ui.typeSuffix('UAT');
         await ui.next();
         expect(ui.step()).toBe('review');
@@ -133,7 +113,7 @@ describe('le stesse carte in tutte le liste (FR-007)', () => {
 });
 
 describe('niente nel package (FR-008)', () => {
-    it('manifest e storico non contengono icone o descrizioni; bot.xml resta quello dell\'export', async () => {
+    it('manifest e storico non contengono icone; bot.xml resta quello dell\'export', async () => {
         const ui = await boot(world());
         await ui.openSolution('S1');
         await ui.startRename();
@@ -144,12 +124,8 @@ describe('niente nel package (FR-008)', () => {
         await ui.save();
         const { manifest, zips } = ui.written();
         const dump = JSON.stringify(manifest) + JSON.stringify(ui.history());
-        for (const secret of [PNG, URI, 'agente per utenti']) {
-            expect(dump.includes(secret), secret).toBe(false);
-        }
-        const zip = Object.values(zips)[0]!;
-        const files = unzipSync(zip);
-        const botXml = strFromU8(files['bots/ava_a1/bot.xml']!);
-        expect(botXml).toContain('<iconbase64>iVBORw0KGgo=</iconbase64>');
+        for (const secret of [PNG, URI]) expect(dump.includes(secret), secret).toBe(false);
+        const files = unzipSync(Object.values(zips)[0]!);
+        expect(strFromU8(files['bots/ava_a1/bot.xml']!)).toContain('<iconbase64>iVBORw0KGgo=</iconbase64>');
     });
 });

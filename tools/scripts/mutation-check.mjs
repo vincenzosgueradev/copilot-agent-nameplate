@@ -111,13 +111,9 @@ const MUTATIONS = [
     ['agentCards.ts', 'src/services/agentCards.ts', "if (!BASE64_RE.test(value) ||", "if (false ||", "v1.1.0 (008): caratteri fuori dall'alfabeto base64 accettati"],
     ['agentCards.ts', 'src/services/agentCards.ts', "if (hit) out.set(a.id, hit); else missing.push(a);", "missing.push(a);", "v1.1.0 (008): la cache viene ignorata"],
     ['agentCards.ts', 'src/services/agentCards.ts', "hit.modifiedOn === agent.modifiedOn", "true", "v1.1.0 (008): un agent modificato non si rilegge"],
-    ['agentCards.ts', 'src/services/agentCards.ts', "text.length > MAX_DESCRIPTION ?", "false ?", "v1.1.0 (008): descrizione mai tagliata"],
-    ['agentCards.ts', 'src/services/agentCards.ts', "descriptionOf.get(`${a.schemaName}.gpt.default`)", "descriptionOf.get(`${a.schemaName}.topic.x`)", "v1.1.0 (008): si legge il componente sbagliato"],
     ['agentCards.ts', 'src/services/agentCards.ts', "for (const a of missing) out.set(a.id, EMPTY);", "throw err;", "v1.1.0 (008): una lettura fallita rompe la schermata"],
-    ['app.ts', 'src/app.ts', "el.textContent = card.description ?? 'No description';", "el.innerHTML = card.description ?? 'No description';", "v1.1.0 (008): la descrizione diventa HTML"],
     ['app.ts', 'src/app.ts', "void loadCards(agents, seq);", "void loadCards(state.agents, seq);", "v1.1.0 (008): si leggono gli agent di tutto l'environment"],
     ['app.ts', 'src/app.ts', "void loadCards(agents, seq);", "", "v1.1.0 (008): icone e descrizioni non vengono mai lette"],
-    ['app.ts', 'src/app.ts', "const text = card ? (card.description ?? 'No description') : '';", "const text = card ? (card.description ?? '') : '';", "v1.1.0 (008): manca \"No description\""],
     // ── packaging.ts: il collegamento
     ['packaging.ts', 'src/services/packaging.ts', "expected.publish![c.file] = c.after === 'true';", 'expected.publish![c.file] = true;', 'la verifica riceve publishOnImport sbagliato'],
 ];
