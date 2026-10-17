@@ -23,7 +23,6 @@ export interface Solution {
     exportable: boolean;
 }
 
-/** Un agent come compare nelle liste. Fonte autoritativa: la tabella `bot` (FR-024). */
 /** Che cosa è successo a un agent in un'operazione di rename. */
 export interface AgentOutcome {
     schemaName: string;
@@ -33,6 +32,7 @@ export interface AgentOutcome {
     excluded?: boolean;
 }
 
+/** Un agent come compare nelle liste. Fonte autoritativa: la tabella `bot` (FR-024). */
 export interface AgentListItem {
     id: string;
     name: string;
