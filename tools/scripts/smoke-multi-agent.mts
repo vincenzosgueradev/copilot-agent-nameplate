@@ -105,6 +105,37 @@ const t3 = publishChanges(buildPatchPlan(pkg, 'UAT', [a2.schemaName],
     { ...DEFAULT_OPTIONS, publishOnImport: opposite(a1.publishOnImport) }));
 if (t3.some(c => c.file.includes(`/${a1.schemaName}/`))) fail("un agent escluso ha ricevuto publishOnImport");
 
+// 2c. fino in fondo: valori diversi per agent, scritti nello zip e riletti da un package nuovo
+{
+    const { buildZip, verifyZip } = await import('../src/services/rezip.js');
+    const want = { [a1.schemaName]: 'force-false', [a2.schemaName]: 'force-true' } as const;
+    const plan = buildPatchPlan(pkg, 'UAT', all, { ...DEFAULT_OPTIONS, publishByAgent: want });
+    const applied = applyPatch(pkg, plan);
+    const zip = buildZip(applied.files);
+    const expectedNames: Record<string, string> = {};
+    for (const c of plan) if (c.element === 'name') expectedNames[c.file] = c.after;
+    const v = verifyZip(zip, pkg, expectedNames, applied.patchedPaths);
+    if (!v.archiveReadable || !v.entryCountMatches || !v.patchedValuesConfirmed) {
+        fail('lo zip con publish diversi per agent non supera la verifica');
+    }
+    const back = readPackage(zip);
+    const got = Object.fromEntries(back.agents.map(a => [a.schemaName, a.publishOnImport]));
+    console.log(`riletto dallo zip : ${a1.schemaName}=${got[a1.schemaName]} | ${a2.schemaName}=${got[a2.schemaName]}`);
+    if (got[a1.schemaName] !== false || got[a2.schemaName] !== true) {
+        fail('i publishOnImport riletti dallo zip non corrispondono a quelli scelti per agent');
+    }
+    // il resto della configurazione di ogni agent non si e' mosso: solo publishOnImport
+    for (const a of pkg.agents) {
+        const path = a.file.replace(/bot\.xml$/, 'configuration.json');
+        const before = JSON.parse(dec.decode(files[path]!)) as Record<string, unknown>;
+        const after = JSON.parse(dec.decode(applied.files[path]!)) as Record<string, unknown>;
+        const diff = [...new Set([...Object.keys(before), ...Object.keys(after)])]
+            .filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
+        if (diff.some(k => k !== 'publishOnImport')) fail(`${path}: cambiate altre chiavi: ${diff.join(', ')}`);
+    }
+    console.log('scritto nello zip : valori per agent corretti, nessun\'altra chiave cambiata, verifica ok');
+}
+
 // 3. nessun falso allarme sul caso reale
 const unexpected = pkg.nameOccurrences.filter(o => !o.expected);
 console.log(`occorrenze nome   : ${pkg.nameOccurrences.length} trovate, ${unexpected.length} impreviste`);
