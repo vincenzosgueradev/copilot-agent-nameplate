@@ -29,11 +29,11 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
 - Opening an agent from the search results now opens its solution, with that agent highlighted.
 - The finished state of the package build stays on screen for about two seconds before the
   preview appears, so the change of screen no longer feels abrupt.
-- The preview's *Publish and channels* panel is now **per agent** and shows the value in the
-  exported package next to the one it will have after the patch (for example
-  `not specified → yes` when *Force yes* is on). Before, it showed only the exported value,
-  so it looked as if the option had been ignored, and with two agents it repeated the same
-  labels without saying which agent each belonged to.
+- The preview's *Publish and channels* panel is now **per agent** and shows the value the
+  package will carry **after** the patch (for example `yes` when *Force yes* is on). Before,
+  it showed the value of the exported package, so it looked as if the option had been
+  ignored, and with two agents it repeated the same labels without saying which agent each
+  belonged to.
 
 ### Added
 - **Mixed-suffix warning.** If, after the rename, the agents of a solution would carry

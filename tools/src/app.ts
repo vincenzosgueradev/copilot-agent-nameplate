@@ -1406,8 +1406,9 @@ function renderPreviewResult(r: PackagingResult): void {
         <div class="stat"><dt>Export</dt>
             <dd>${r.exportSeconds.toFixed(1)}<span class="stat-sub">s ${escapeHtml(r.exportMode)}</span></dd></div>`;
 
-    // Publish on import per agent: il valore nel package esportato e quello che avra' dopo la
-    // patch (l'opzione "Force yes/no" lo cambia solo se il plan lo prevede)
+    // Publish on import per agent: il valore che avra' il package dopo la patch, non quello
+    // esportato (che sta gia' nella tabella dei cambi). "Force yes/no" lo cambia solo se il
+    // plan lo prevede.
     const outcomes = agentOutcomes(pkg, r.plan);
     const publishRows = pkg.agents.map(a => {
         const change = r.plan.find(c => c.element === 'publishOnImport'
@@ -1415,7 +1416,6 @@ function renderPreviewResult(r: PackagingResult): void {
         return {
             after: outcomes.find(o => o.schemaName === a.schemaName)?.after ?? a.name,
             excluded: outcomes.find(o => o.schemaName === a.schemaName)?.excluded ?? false,
-            publishBefore: a.publishOnImport,
             publishAfter: change ? change.after === 'true' : a.publishOnImport,
             channels: a.channels,
         };
@@ -1447,7 +1447,7 @@ function renderPreviewResult(r: PackagingResult): void {
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('send', 'icon--head')}Publish and channels</h3>
-                    <span class="panel-sub">per agent, as exported and as it will be after the patch</span>
+                    <span class="panel-sub">what the package will carry, per agent</span>
                 </div>
                 <div class="panel-body">
                     ${publishRows.map(row => `
@@ -1455,11 +1455,7 @@ function renderPreviewResult(r: PackagingResult): void {
                             ${escapeHtml(row.after)}${row.excluded
                                 ? ' <span class="cell-muted">— left as it is</span>' : ''}</h4>
                         <div class="kv"><span class="kv-key">Publish on import</span>
-                            <span class="kv-val kv-val--strong">${row.publishBefore === row.publishAfter
-                                ? publishLabelOf(row.publishAfter)
-                                : `<span class="cell-muted">${publishLabelOf(row.publishBefore)}</span>
-                                   ${icon('arrow-right', 'icon--xs')}
-                                   ${publishLabelOf(row.publishAfter)}`}</span></div>
+                            <span class="kv-val kv-val--strong">${publishLabelOf(row.publishAfter)}</span></div>
                         <div class="kv"><span class="kv-key">Channels</span>
                             <span class="kv-val">${row.channels.length
                                 ? `<span class="channel-row">${row.channels.map(channelChip).join('')}</span>`
