@@ -1802,6 +1802,11 @@ select option {
 /* Tabella a tutta larghezza: le colonne si dividono lo spazio invece di ammucchiarsi a sinistra */
 .data-table--fill { table-layout: fixed; }
 
+/* In una tabella a tutta larghezza il toggle riempie la sua colonna, con tre pulsanti uguali:
+   cosi' l'ultima colonna non resta vuota a destra e il toggle "per tutti" coincide con quelli di riga */
+.data-table--fill .toggle-group--sm { display: flex; width: 100%; }
+.data-table--fill .toggle-group--sm .toggle-btn { flex: 1; text-align: center; white-space: nowrap; }
+
 /* Piede della tabella degli agent: la nota a sinistra, "per tutti" a destra, e il toggle sotto
    la colonna dei toggle di riga, che e' la stessa colonna. */
 .data-table tfoot td { border-top: 1px solid var(--color-border); border-bottom: none; }

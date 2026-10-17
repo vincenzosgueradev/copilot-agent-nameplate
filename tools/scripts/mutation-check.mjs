@@ -83,6 +83,9 @@ const MUTATIONS = [
     ['app.ts', 'src/app.ts', "scrollToTop(document.getElementById('main-content') ?? els.welcomeScreen);", '', 'ogni schermata eredita lo scorrimento della precedente'],
     ['app.ts', 'src/app.ts', "const SCROLLERS = '.step-panel, #solutions-table-container, .panel-table';", "const SCROLLERS = '#solutions-table-container';", 'si resetta solo l\'elenco, non gli step'],
     ['app.ts', 'src/app.ts', "el => { el.scrollTop = 0; }", "el => { el.scrollTop = el.scrollTop; }", 'lo scorrimento non viene azzerato'],
+    ['styles.css', 'src/styles.css', '.data-table--fill .toggle-group--sm { display: flex; width: 100%; }', '.data-table--fill .toggle-group--sm { display: inline-flex; }', 'il toggle torna a raggrupparsi a sinistra'],
+    ['styles.css', 'src/styles.css', '.data-table--fill .toggle-group--sm .toggle-btn { flex: 1;', '.data-table--fill .toggle-group--sm .toggle-btn { flex: 0;', 'i pulsanti del toggle non si dividono la larghezza'],
+    ['app.ts', 'src/app.ts', '<col style="width:48px"><col style="width:30%"><col style="width:30%"><col>', '<col style="width:48px"><col style="width:10%"><col style="width:10%"><col>', 'colonne troppo strette'],
     // ── packaging.ts: il collegamento
     ['packaging.ts', 'src/services/packaging.ts', "expected.publish![c.file] = c.after === 'true';", 'expected.publish![c.file] = true;', 'la verifica riceve publishOnImport sbagliato'],
 ];

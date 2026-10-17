@@ -292,6 +292,30 @@ describe('revisione e anteprima: layout', () => {
         expect(ui.reviewRows().every(r => r.length.includes('/'))).toBe(true);
     });
 
+    it('il toggle riempie la sua colonna: tre pulsanti uguali, a tutta larghezza', () => {
+        const group = /\.data-table--fill \.toggle-group--sm\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+        expect(group).toMatch(/display:\s*flex/);
+        expect(group).toMatch(/width:\s*100%/);
+        const btn = /\.data-table--fill \.toggle-group--sm \.toggle-btn\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+        expect(btn).toMatch(/flex:\s*1/);
+    });
+
+    it('le colonne della tabella degli agent si dividono la larghezza', async () => {
+        const ui = await boot(WORLD);
+        await ui.openSolution('S2');
+        await ui.startRename();
+        const widths = Array.from(ui.doc.querySelectorAll('#agent-list colgroup col'))
+            .map(c => (c as HTMLElement).style.width);
+        // checkbox stretta; agente e nome ricevono una quota; l'ultima prende il resto
+        expect(widths[0]).toBe('48px');
+        expect(widths[1]).toMatch(/%$/);
+        expect(widths[2]).toBe(widths[1]);
+        expect(widths[3]).toBe('');
+        const share = (w: string) => Number(w.replace('%', ''));
+        expect(share(widths[1]!) + share(widths[2]!)).toBeLessThanOrEqual(70);   // lascia spazio al toggle
+        expect(share(widths[1]!) + share(widths[2]!)).toBeGreaterThanOrEqual(50);
+    });
+
     it('le descrizioni degli artefatti non hanno una larghezza massima', () => {
         const rule = /\.art-desc\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
         expect(rule).not.toBe('');

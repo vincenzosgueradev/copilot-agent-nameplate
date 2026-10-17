@@ -981,7 +981,7 @@ function agentRowsHtml(): string {
     const mixed = suffixesAfter(names, state.suffix);
     return `
         <table class="data-table data-table--fill">
-            <colgroup><col style="width:48px"><col style="width:28%"><col style="width:28%"><col></colgroup>
+            <colgroup><col style="width:48px"><col style="width:30%"><col style="width:30%"><col></colgroup>
             <thead><tr><th></th><th>Agent</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
             <tbody>${agents.map(a => {
                 const on = !state.excludedAgents.has(a.id);

@@ -54,8 +54,9 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
 - The suffix step lists the agents of the solution, all ticked by default, with the name each
   one will get, updated as you type. Untick an agent to leave it exactly as it is.
 - The breadcrumb reads `Solutions › {Solution} › Suffix › Review › Preview`.
-- **The agent table uses the full width** of the panel, and the global actions sit in its last
-  row instead of in the column header.
+- **The agent table uses the full width** of the panel: the columns share it, and each
+  *Leave as is / Force yes / Force no* toggle fills its column with three equal buttons instead of
+  huddling on the left. The global actions sit in its last row instead of in the column header.
 - **The review stacks its two panels** (*Rename* and *Options*) one under the other, at full
   width, so the last column is no longer cut off.
 - **"What gets changed" is grouped by agent.** Each touched agent has its own block with its
