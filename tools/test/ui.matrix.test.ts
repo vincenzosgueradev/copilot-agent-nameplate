@@ -73,6 +73,13 @@ class Model {
         return n;
     }
 
+    /** Il valore comune degli agent spuntati, o null se sono misti o non ce n'e'. */
+    commonMode = (): PublishMode | null => {
+        const chosen = this.chosen();
+        const first = chosen[0] ? this.modeOf(chosen[0]) : null;
+        return first && chosen.every(a => this.modeOf(a) === first) ? first : null;
+    };
+
     expectedRows(): SuffixRow[] {
         return this.agents.map(a => {
             const on = this.selected(a);
@@ -89,6 +96,7 @@ class Model {
 function assertSuffixStep(ui: Driver, m: Model, where: string): void {
     expect(ui.suffixRows(), `${where}: righe`).toEqual(m.expectedRows());
     expect(ui.nextDisabled(), `${where}: Next disabilitato`).toBe(m.chosen().length === 0);
+    expect(ui.allActive(), `${where}: toggle "per tutti"`).toBe(m.commonMode());
     const panel = ui.doc.getElementById('agent-list')!.textContent ?? '';
     expect(panel.includes('different suffixes'), `${where}: avviso suffissi misti`).toBe(m.mixed());
     expect(panel.includes('Select at least one agent'), `${where}: avviso nessun agent`).toBe(m.chosen().length === 0);
@@ -249,20 +257,88 @@ describe('schermata: percorsi casuali contro il modello', () => {
 });
 
 // Il modo in cui il pannello e' fatto, perche' un layout storto e' un difetto come un altro
-describe('schermata: struttura della tabella degli agent', () => {
-    it('le azioni globali stanno SOTTO la tabella, non nell\'intestazione', async () => {
-        const rand = rng(1);
-        const ui = await boot(worldOf(3, rand));
+describe('toggle "per tutti": si accende quando i valori sono tutti uguali', () => {
+    const three = () => ({
+        solutions: [{ unique: 'S1' }],
+        agents: ['a', 'b', 'c'].map((n, i) => ({ name: `${n} [DEV]`, schema: `ava_${n}`, solution: 'S1', publish: i === 0 ? true : null })),
+    });
+    it('parte su "Leave as is" perche\' tutti i toggle di riga lo sono', async () => {
+        const ui = await boot(three());
         await ui.openSolution('S1');
         await ui.startRename();
-        const host = ui.doc.getElementById('agent-list')!;
-        const table = host.querySelector('table')!;
-        const foot = host.querySelector('.table-foot')!;
-        expect(foot, 'barra delle azioni globali').not.toBeNull();
+        expect(ui.allActive()).toBe('keep');
+    });
+    it('un clic lo accende e lo tiene acceso, e accende ogni riga', async () => {
+        const ui = await boot(three());
+        await ui.openSolution('S1');
+        await ui.startRename();
+        await ui.setAll('force-true');
+        expect(ui.allActive()).toBe('force-true');
+        expect(ui.suffixRows().map(r => r.publish)).toEqual(['force-true', 'force-true', 'force-true']);
+        await ui.setAll('force-false');
+        expect(ui.allActive()).toBe('force-false');
+    });
+    it('si spegne se una riga diverge e si riaccende quando tornano uguali', async () => {
+        const ui = await boot(three());
+        await ui.openSolution('S1');
+        await ui.startRename();
+        await ui.setAll('force-true');
+        await ui.setPublish('b [DEV]', 'keep');
+        expect(ui.allActive()).toBeNull();
+        await ui.setPublish('b [DEV]', 'force-true');
+        expect(ui.allActive()).toBe('force-true');
+    });
+    it('conta solo gli agent spuntati: un escluso non lo spegne', async () => {
+        const ui = await boot(three());
+        await ui.openSolution('S1');
+        await ui.startRename();
+        await ui.setPublish('c [DEV]', 'force-false');
+        expect(ui.allActive()).toBeNull();
+        await ui.toggleAgent('c [DEV]');                 // c esce: restano a, b entrambi "keep"
+        expect(ui.allActive()).toBe('keep');
+        await ui.setAll('force-true');                   // tocca solo a e b
+        await ui.toggleAgent('c [DEV]');                 // c rientra con il suo force-false
+        expect(ui.allActive()).toBeNull();
+    });
+    it('senza agent spuntati non e\' acceso', async () => {
+        const ui = await boot(three());
+        await ui.openSolution('S1');
+        await ui.startRename();
+        for (const r of ui.suffixRows()) await ui.toggleAgent(r.name);
+        expect(ui.allActive()).toBeNull();
+    });
+});
+
+describe('schermata: struttura della tabella degli agent', () => {
+    it('le azioni globali stanno nel piede della tabella, non nell\'intestazione', async () => {
+        const ui = await boot(worldOf(3, rng(1)));
+        await ui.openSolution('S1');
+        await ui.startRename();
+        const table = ui.doc.querySelector('#agent-list table')!;
+        const foot = table.querySelector('tfoot')!;
+        expect(foot, 'piede della tabella').not.toBeNull();
         expect(foot.querySelectorAll('[data-publish-all]').length).toBe(3);
-        expect(table.querySelector('[data-publish-all]'), 'niente "all" nell\'intestazione').toBeNull();
-        // ordine nel documento: la tabella precede la barra
-        expect(table.compareDocumentPosition(foot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(table.querySelector('thead [data-publish-all]'), 'niente "all" nell\'intestazione').toBeNull();
+        expect(table.querySelector('tbody [data-publish-all]')).toBeNull();
+        // il piede segue il corpo
+        expect(table.querySelector('tbody')!.compareDocumentPosition(foot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+    it('il toggle "per tutti" sta nella STESSA colonna dei toggle di riga, con gli stessi pulsanti', async () => {
+        const ui = await boot(worldOf(3, rng(1)));
+        await ui.openSolution('S1');
+        await ui.startRename();
+        const table = ui.doc.querySelector('#agent-list table')!;
+        // colonna del toggle di riga: la quarta; nel piede la prima cella copre le prime tre
+        const rowCell = table.querySelector('tbody tr td:nth-child(4)')!;
+        const footCells = Array.from(table.querySelectorAll('tfoot tr td'));
+        expect(footCells.length).toBe(2);
+        expect(footCells[0]!.getAttribute('colspan')).toBe('3');
+        const footCell = footCells[1]!;
+        const cols = (c: Element) => Array.from(c.querySelectorAll('.toggle-btn')).map(b => b.textContent?.trim());
+        expect(cols(footCell)).toEqual(cols(rowCell));
+        expect(footCell.querySelector('.toggle-group')!.className).toBe(rowCell.querySelector('.toggle-group')!.className);
+        // e la tabella ha un layout fisso: le colonne sono le stesse in ogni riga
+        expect(table.classList.contains('data-table--fill')).toBe(true);
     });
     it('la tabella usa tutta la larghezza: layout fisso e colonne definite', async () => {
         const ui = await boot(worldOf(2, rng(2)));

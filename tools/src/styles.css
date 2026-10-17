@@ -1802,24 +1802,21 @@ select option {
 /* Tabella a tutta larghezza: le colonne si dividono lo spazio invece di ammucchiarsi a sinistra */
 .data-table--fill { table-layout: fixed; }
 
-/* Barra sotto la tabella: la nota a sinistra, le azioni per tutti a destra */
-.table-foot {
+/* Piede della tabella degli agent: la nota a sinistra, "per tutti" a destra, e il toggle sotto
+   la colonna dei toggle di riga, che e' la stessa colonna. */
+.data-table tfoot td { border-top: 1px solid var(--color-border); border-bottom: none; }
+.data-table td.foot-cell { white-space: normal; overflow: visible; }
+.foot-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--sp-3) var(--sp-5);
-    margin-top: var(--sp-4);
-    padding-top: var(--sp-4);
-    border-top: 1px solid var(--color-border);
+    gap: var(--sp-4);
 }
-.table-foot .hint { margin: 0; }
-.toggle-set-all {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sp-3);
+.foot-row .hint { margin: 0; }
+.foot-label {
     font-size: var(--fs-sm);
     color: var(--color-text-muted);
+    white-space: nowrap;
 }
 
 /* Agent escluso dal rename (FR-076): resta com'e, quindi si attenua */

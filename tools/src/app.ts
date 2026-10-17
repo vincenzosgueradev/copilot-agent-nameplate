@@ -945,6 +945,19 @@ function publishToggleHtml(schemaName: string): string {
             data-val="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}</div>`;
 }
 
+/**
+ * Il toggle "per tutti". Mostra il valore comune quando tutti gli agent spuntati ne hanno uno
+ * solo, e nessuno quando sono misti: un pulsante che non resta acceso dopo il clic sembra rotto.
+ */
+function bulkToggleHtml(): string {
+    const chosen = selectedAgents();
+    const first = chosen[0] ? publishModeFor(state.options, chosen[0].schemaName) : null;
+    const common = first && chosen.every(a => publishModeFor(state.options, a.schemaName) === first) ? first : null;
+    return `<div class="toggle-group toggle-group--sm" role="group" aria-label="Publish on import for all ticked agents">${
+        (Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
+        <button class="toggle-btn${common === m ? ' is-active' : ''}" data-publish-all="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}</div>`;
+}
+
 /** Una riga per agent: spunta, nome attuale e nome che avra'. Si riscrive a ogni digitazione. */
 function agentRowsHtml(): string {
     const agents = solutionAgents();
@@ -968,14 +981,18 @@ function agentRowsHtml(): string {
                     <td>${on ? publishToggleHtml(a.schemaName) : '<span class="cell-muted">—</span>'}</td>
                 </tr>`;
             }).join('')}</tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" class="foot-cell">
+                        <div class="foot-row">
+                            <span class="hint">Publish on import carries the new name to Teams and Microsoft 365 Copilot.</span>
+                            <span class="foot-label">Set for all ticked agents</span>
+                        </div>
+                    </td>
+                    <td>${bulkToggleHtml()}</td>
+                </tr>
+            </tfoot>
         </table>
-        <div class="table-foot">
-            <span class="hint">Publish on import carries the new name to Teams and Microsoft 365 Copilot.</span>
-            <span class="toggle-set-all">Set publish on import for all ticked agents:
-                <span class="toggle-group toggle-group--sm" role="group">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
-                    <button class="toggle-btn" data-publish-all="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}</span>
-            </span>
-        </div>
         ${agents.every(a => state.excludedAgents.has(a.id))
             ? '<p class="hint hint--warn" style="margin-top:12px">Select at least one agent.</p>' : ''}
         ${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}`;

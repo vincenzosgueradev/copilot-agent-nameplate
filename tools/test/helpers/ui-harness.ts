@@ -97,6 +97,8 @@ export interface Driver {
     setKeepCopies(on: boolean): Promise<void>;
     suffixRows(): SuffixRow[];
     suffixInput(): string;
+    /** Il valore acceso nel toggle "per tutti", o `null` se nessuno lo e'. */
+    allActive(): PublishMode | null;
     nextDisabled(): boolean;
     // ── revisione, anteprima, verifica, salvataggio
     reviewRows(): ReviewRow[];
@@ -267,6 +269,10 @@ export async function boot(world: UiWorld): Promise<Driver> {
         async setKeepCopies(on) {
             const box = $<HTMLInputElement>('#opt-keep')!;
             if (box.checked !== on) await click(box, 'keep copies');
+        },
+        allActive: () => {
+            const on = $('#agent-list tfoot .toggle-btn.is-active');
+            return on ? PUBLISH_BY_LABEL[norm(on.textContent)] ?? null : null;
         },
         suffixInput: () => $<HTMLInputElement>('#suffix-input')?.value ?? '',
         nextDisabled: () => $<HTMLButtonElement>('#next-btn', stepEl())?.disabled ?? true,

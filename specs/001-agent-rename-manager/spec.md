@@ -718,8 +718,10 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   dalla storia di ciascuno (un agent mai collegato a Teams non ha canali da aggiornare, uno già
   pubblicato sì). Nella UI ogni agent incluso ha **un proprio toggle** a tre stati (*lascia com'è*,
   *forza `true`*, *forza `false`*), sempre visibile accanto al nome, senza menu a tendina. Non c'è
-  un interruttore generale separato: nell'intestazione della colonna una scorciatoia *all:* applica lo
-  stesso valore a tutti gli agent inclusi. Il valore di partenza è *lascia com'è*; nel modello
+  un interruttore generale separato: l'**ultima riga della stessa tabella**, incolonnata sotto i
+  toggle di riga, applica lo stesso valore a tutti gli agent inclusi. Quel toggle mostra come attivo
+  il valore comune quando tutti gli agent spuntati ne hanno uno solo, e nessuno quando sono misti o
+  non ce n'è nessuno spuntato. Il valore di partenza è *lascia com'è*; nel modello
   (`PackagingOptions.publishOnImport`) resta il valore per gli agent senza scelta esplicita, usato
   dall'interfaccia headless. Un agent escluso (FR-023) non riceve nessuna modifica nemmeno a
   `publishOnImport`. La revisione DEVE mostrare il valore effettivo di

@@ -42,16 +42,17 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   environment, not of one agent. The flow is now *solution → suffix → review → preview*; the
   agents are no longer picked one by one from the solution view.
 - **Publish on import can be set per agent.** Each agent in the list has its own
-  *Leave as is / Force yes / Force no* toggle, and a bar under the table sets the same value for
-  every ticked agent. Useful when one agent is already published and another
+  *Leave as is / Force yes / Force no* toggle, and a last row of the table, lined up under
+  those toggles, sets the same value for every ticked agent. It stays lit when all ticked agents
+  share one value and goes dark when they differ. Useful when one agent is already published and another
   has never been connected to Teams. The review shows the value each agent will get. The single
   switch that used to sit in *Options* is gone; suffix and version bump stay one for the whole
   solution.
 - The suffix step lists the agents of the solution, all ticked by default, with the name each
   one will get, updated as you type. Untick an agent to leave it exactly as it is.
 - The breadcrumb reads `Solutions › {Solution} › Suffix › Review › Preview`.
-- **The agent table uses the full width** of the panel, and the global actions sit under it
-  instead of in the column header.
+- **The agent table uses the full width** of the panel, and the global actions sit in its last
+  row instead of in the column header.
 - **The review stacks its two panels** (*Rename* and *Options*) one under the other, at full
   width, so the last column is no longer cut off.
 - **"What gets changed" is grouped by agent.** Each touched agent has its own block with its
