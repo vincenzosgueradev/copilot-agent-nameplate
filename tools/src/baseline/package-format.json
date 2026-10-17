@@ -73,9 +73,11 @@
         "optionalKeys": [
             "publishOnImport",
             "publishOnCreate",
-            "deferredProvisioning"
+            "deferredProvisioning",
+            "channels",
+            "isLightweightBot"
         ],
-        "$comment": "publishOnImport e' assente su 28 agent su 40 nell'environment di riferimento. Assente significa 'non specificato': il comportamento di default all'import non e' documentato da Microsoft (research.md §12)."
+        "$comment": "channels e isLightweightBot mancano in un agent mai collegato a un canale (verificato su un agent nuovo di testAgentTool, 2026-10-17); le chiavi si leggono da tutti gli agent del package. publishOnImport e' assente su 28 agent su 40 nell'environment di riferimento. Assente significa 'non specificato': il comportamento di default all'import non e' documentato da Microsoft (research.md §12)."
     },
     "knownNameOccurrences": [
         {
@@ -87,9 +89,9 @@
         {
             "file": "botcomponents/<schemaname>.gpt.default/botcomponent.xml",
             "locator": "botcomponent/name",
-            "holds": "baseName",
+            "holds": "baseName or displayName",
             "patched": false,
-            "$comment": "Contiene il nome base senza suffisso. Non va patchato, ma va riconosciuto per non segnalarlo come anomalia quando il suffisso e' vuoto e i due valori coincidono (FR-096)."
+            "$comment": "Contiene il nome base per un agent rinominato dopo la creazione, il nome intero con suffisso per uno creato gia' con il suffisso (verificato su testAgentTool, 2026-10-17). Non va patchato, ma va riconosciuto per non segnalarlo come anomalia (FR-096)."
         }
     ],
     "expectedDisplayNameOccurrences": 1

@@ -37,16 +37,23 @@ export function computeFingerprint(
 
     const botPath = Object.keys(files).find(p => /^bots\/[^/]+\/bot\.xml$/.test(p));
     const botComponentPath = Object.keys(files).find(p => /^botcomponents\/[^/]+\/botcomponent\.xml$/.test(p));
-    const configPath = Object.keys(files).find(p => /^bots\/[^/]+\/configuration\.json$/.test(p));
-
-    let configurationKeys: string[] = [];
-    if (configPath) {
+    // Le chiavi di configuration.json si leggono da **tutti** gli agent e si uniscono: con piu'
+    // agent il primo file dello zip e' un'estrazione arbitraria, e un agent mai collegato a un
+    // canale non scrive chiavi che un altro scrive. Una chiave "sparisce" solo se manca ovunque.
+    const keySet = new Set<string>();
+    for (const path of Object.keys(files)) {
+        if (!/^bots\/[^/]+\/configuration\.json$/.test(path)) continue;
         try {
-            configurationKeys = Object.keys(JSON.parse(text(configPath))).sort();
+            const parsed: unknown = JSON.parse(text(path));
+            // Solo un oggetto ha chiavi di configurazione: un array o un valore semplice no
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                for (const k of Object.keys(parsed)) keySet.add(k);
+            }
         } catch {
-            configurationKeys = [];
+            // un JSON illeggibile non contribuisce chiavi; l'errore vero esce in readPackage
         }
     }
+    const configurationKeys = [...keySet].sort();
 
     return {
         solutionPackageVersion: root?.getAttribute('SolutionPackageVersion') ?? '',
@@ -79,7 +86,6 @@ export function findNameOccurrences(
     files: Record<string, Uint8Array>,
     text: (path: string) => string,
     displayName: string,
-    baseName: string,
     ownBotPath: string,
 ): NameOccurrence[] {
     const found: NameOccurrence[] = [];
@@ -111,10 +117,11 @@ export function findNameOccurrences(
             if (m[2] !== displayName) continue;
             const tag = m[1];
             const isOwnName = path === ownBotPath && tag === 'name';
-            // Il nome del componente GPT porta il nome base: quando il suffisso è vuoto i due
-            // valori coincidono, e sarebbe un falso allarme segnalarlo (FR-096)
-            const isKnownBase = isKnownBaseNameHolder(path) && tag === 'name'
-                && displayName === baseName;
+            // Il nome del componente GPT e' un posto noto, e il tool non lo tocca. Porta il nome
+            // base per un agent rinominato dopo la creazione, ma il nome *intero* (suffisso
+            // compreso) per uno creato gia' con il suffisso: in entrambi i casi non e' un
+            // secondo display name sconosciuto, quindi non va segnalato come anomalia (FR-096)
+            const isKnownBase = isKnownBaseNameHolder(path) && tag === 'name';
             found.push({
                 file: path,
                 locator: `<${tag}>`,

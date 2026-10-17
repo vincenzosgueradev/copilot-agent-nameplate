@@ -136,7 +136,7 @@ export function readPackage(bytes: Uint8Array): PackageContents {
 
     const fingerprint = computeFingerprint(files, text);
     const nameOccurrences = agents.flatMap(a =>
-        findNameOccurrences(files, text, a.name, a.baseName, a.file));
+        findNameOccurrences(files, text, a.name, a.file));
 
     return {
         bytes,

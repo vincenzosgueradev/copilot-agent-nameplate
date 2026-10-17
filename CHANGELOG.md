@@ -15,6 +15,18 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   to a single agent, so a solution holding `agente1 [DEV]` and `agente2 [DEV]` could be
   promoted as `agente2 [UAT]` next to `agente1 [DEV]`: mixed names in the same environment,
   with no warning. The rename now covers the whole solution (see *Changed*).
+- **False warning on an agent created with its suffix already in the name.** An agent created
+  in Copilot Studio as `Name [DEV]` also carries `[DEV]` in the name of its GPT component. The
+  tool reported that as "the name appears in places the tool does not know" and asked for
+  a confirmation on every save. It is now recognised, left untouched on purpose, and the
+  checks screen says so.
+- **False "package format differs" warning for an agent never connected to Teams or
+  Microsoft 365 Copilot.** Such an agent has no `channels` and no `isLightweightBot` in its
+  configuration; the format check also read only the first agent's configuration, so the
+  result depended on the order of the files. It now reads all the agents, and those two keys
+  are optional.
+- The confirmation banner said "a single entry changed" whatever the number; it now states
+  the real count.
 - The package inventory flagged the components of every agent after the first one as
   "beyond the agent", which forced an unnecessary confirmation on multi-agent solutions.
 

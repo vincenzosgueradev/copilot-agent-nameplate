@@ -1523,6 +1523,11 @@ function renderVerifyStep(): void {
 
     const pkg = r.managed.source;
     const unexpected = pkg.nameOccurrences.filter(o => !o.expected);
+    // Posti noti che il tool non tocca e che portano ancora il suffisso vecchio: un agent
+    // creato gia' con `[DEV]` ce l'ha anche nel nome del suo componente GPT (FR-096)
+    const keptOld = pkg.nameOccurrences.filter(
+        o => o.expected && !o.willBePatched && splitSuffix(o.value).currentSuffix !== null);
+    const changedEntries = pkg.entries.length - r.managed.expectedIdenticalEntries;
     const extra = pkg.inventory.filter(c => !c.relatedToSelectedAgent);
     const v = r.managed.verification;
     const vu = r.unmanaged.verification;
@@ -1592,6 +1597,12 @@ function renderVerifyStep(): void {
                         `<code>${escapeHtml(o.file)}</code> ${escapeHtml(o.locator)}`).join(', ')}.
                     Those places would <strong>not</strong> be patched.
                 </div>` : ''}
+                ${keptOld.length ? `
+                <p class="hint" style="margin-top:12px">
+                    Left as it is, on purpose: the name of the agent's GPT component, which keeps
+                    its old suffix (${keptOld.map(o => `<code>${escapeHtml(o.file)}</code>`).join(', ')}).
+                    It is an internal name; the one shown on channels comes from the agent.
+                </p>` : ''}
                 ${pkg.drift.length ? `
                 <h4 class="section-title">Package format</h4>
                 <div class="note note--warn">
@@ -1605,7 +1616,7 @@ function renderVerifyStep(): void {
 
         <div class="result-banner result-banner--${r.valid ? 'success' : 'error'}">
             ${r.valid
-                ? 'Packages ready and verified: managed and unmanaged, with a single entry changed.'
+                ? `Packages ready and verified: managed and unmanaged, with ${changedEntries} ${changedEntries === 1 ? 'entry' : 'entries'} changed.`
                 : 'The checks did not pass: the artifact is unusable. The original exports remain importable.'}
         </div>
 

@@ -246,7 +246,7 @@ conflitto con gli upgrade successivi della solution.
 - **Occorrenza nota da non confondere con un'anomalia**:
   `botcomponents/<schema>.gpt.default/botcomponent.xml` → `<name>` contiene il **nome base senza
   suffisso**. È il nome del componente, non il display name: non viene patchato, ma il tool deve
-  conoscerlo per non segnalarlo quando il suffisso è vuoto. → FR-096.
+  conoscerlo per non segnalarlo, né quando il suffisso è vuoto né quando porta il nome intero. → FR-096.
 
 ### Session 2026-10-15 (dipendenze, supportabilità, scelta della strada)
 
@@ -753,8 +753,15 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   dietro conferma esplicita** che quei punti non verranno patchati. **Motivo**: lo scenario
   pericoloso non è che `<name>` sparisca (FR-069 lo copre) ma che ne compaia un secondo, lasciando
   un patch incompleto e silenzioso. Il tool DEVE conoscere l'occorrenza legittima di
-  `botcomponents/<schema>.gpt.default/botcomponent.xml` → `<name>` (nome base, non display name) e
-  NON DEVE segnalarla quando il suffisso è vuoto e i due valori coincidono
+  `botcomponents/<schema>.gpt.default/botcomponent.xml` → `<name>`, che il tool non patcha: porta il
+  nome base per un agent rinominato dopo la creazione, il **nome intero con suffisso** per uno creato
+  già con il suffisso (verificato 2026-10-17 su due agent della stessa solution). Il tool NON DEVE
+  segnalarla come anomalia in nessuno dei due casi; quando porta ancora un suffisso vecchio DEVE
+  dirlo, nella schermata dei controlli, come scelta consapevole
+- **FR-096a**: L'impronta del formato (FR-097) DEVE leggere le chiavi di `configuration.json` da
+  **tutti** gli agent del package e unirle: con più agent il primo file dello zip è arbitrario, e un
+  agent mai collegato a un canale non scrive `channels` né `isLightweightBot`, che quindi sono chiavi
+  opzionali nella baseline
 - **FR-097**: Il tool DEVE calcolare a ogni export un'**impronta del formato** del package:
   `SolutionPackageVersion` e i timbri di versione della piattaforma in `solution.xml`, l'elenco
   delle cartelle di primo livello, i nomi degli elementi di `bot.xml` e `botcomponent.xml`, le
