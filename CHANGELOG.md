@@ -27,6 +27,8 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
 - The breadcrumb reads `Solutions › {Solution} › Suffix › Review › Preview`.
 - The review step shows one row per agent instead of a single agent.
 - Opening an agent from the search results now opens its solution, with that agent highlighted.
+- The finished state of the package build stays on screen for about two seconds before the
+  preview appears, so the change of screen no longer feels abrupt.
 - The preview's *Publish and channels* panel is now **per agent** and shows the value in the
   exported package next to the one it will have after the patch (for example
   `not specified → yes` when *Force yes* is on). Before, it showed only the exported value,

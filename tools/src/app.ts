@@ -1319,6 +1319,9 @@ function packProgressHtml(phase: number, msg: string, seconds: number): string {
         <p class="pack-msg">${escapeHtml(msg)} · <strong>${seconds} s</strong></p>`;
 }
 
+/** Quanto resta visibile lo stato "completed" prima di passare al risultato: 900 ms sembravano uno scatto. */
+const DONE_HOLD_MS = 1800;
+
 let previewSeq = 0;
 
 async function runPreview(
@@ -1353,7 +1356,7 @@ async function runPreview(
         phase = PACK_PHASES.length;
         lastText = 'completed';
         paint();
-        await new Promise(r => window.setTimeout(r, 900));
+        await new Promise(r => window.setTimeout(r, DONE_HOLD_MS));
         if (seq !== previewSeq) return;
 
         state.packaging = result;
