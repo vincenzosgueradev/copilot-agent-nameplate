@@ -223,6 +223,8 @@ function buildManifest(
         suffix,
         export: { mode: result.exportMode, seconds: Number(result.exportSeconds.toFixed(1)) },
         options,
+        // La versione alzata in DEV prima dell'export (FR-073c): da qui si capisce che DEV e artefatto coincidono
+        versionChange: result.versionChange,
         agents: agentOutcomes(pkg, result.plan),
         fingerprint: pkg.fingerprint,
         drift: pkg.drift,

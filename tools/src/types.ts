@@ -33,6 +33,14 @@ export interface AgentOutcome {
 }
 
 /** Un agent come compare nelle liste. Fonte autoritativa: la tabella `bot` (FR-024). */
+/** Icona e descrizione di un agent, solo per mostrarle (spec 008). Mai nel package. */
+export interface AgentCard {
+    /** `data:image/png;base64,…` oppure `null` se assente o non valida. */
+    iconDataUri: string | null;
+    /** Testo normalizzato, oppure `null` se assente. */
+    description: string | null;
+}
+
 export interface AgentListItem {
     id: string;
     name: string;
@@ -51,8 +59,11 @@ export interface AgentListItem {
 export type PublishMode = 'keep' | 'force-true' | 'force-false';
 
 export interface PackagingOptions {
-    /** Incrementa l'ultimo segmento di `<Version>` in solution.xml (FR-073). */
-    bumpVersion: boolean;
+    /**
+     * Versione a cui portare la solution **in DEV** prima dell'export (FR-073). `null` = non si
+     * tocca: l'export porta la versione che DEV ha gia'. Non si scrive mai dentro lo zip.
+     */
+    newVersion: string | null;
     /** Valore di partenza per **tutti** gli agent; ogni agent puo' cambiarlo (FR-090a). */
     publishOnImport: PublishMode;
     /**
@@ -69,7 +80,7 @@ export interface PackagingOptions {
 }
 
 export const DEFAULT_OPTIONS: PackagingOptions = {
-    bumpVersion: false,
+    newVersion: null,
     publishOnImport: 'keep',
     keepSourceArtifacts: false,
 };
@@ -228,7 +239,7 @@ export type PatchState =
 export interface PatchChange {
     file: string;
     /** `publishOnImport` è JSON, non XML. */
-    element: 'name' | 'Version' | 'publishOnImport';
+    element: 'name' | 'publishOnImport';
     before: string | null;
     after: string;
     state: PatchState;
@@ -295,6 +306,8 @@ export interface DeploymentRecord {
  */
 export interface PackagingRecord {
     id: string;
+    /** Versione alzata in DEV prima dell'export, o `null` se non e' stata toccata. Assente nei record piu' vecchi. */
+    versionChange?: { from: string; to: string; changed: boolean } | null;
     timestamp: string;
     user: string;
     sourceEnvironmentUrl: string;

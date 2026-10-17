@@ -119,7 +119,7 @@ async function inspectPackage(input: Json): Promise<Json> {
 function optionsFrom(input: Json): PackagingOptions {
     const o = (input.options ?? {}) as Partial<PackagingOptions>;
     return {
-        bumpVersion: o.bumpVersion === true,
+        newVersion: typeof o.newVersion === 'string' && o.newVersion.trim() ? o.newVersion.trim() : null,
         publishOnImport: o.publishOnImport ?? DEFAULT_OPTIONS.publishOnImport,
         publishByAgent: o.publishByAgent ?? {},
         keepSourceArtifacts: o.keepSourceArtifacts !== false,

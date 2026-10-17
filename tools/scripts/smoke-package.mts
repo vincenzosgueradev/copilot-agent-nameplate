@@ -59,7 +59,7 @@ for (const o of pkg.nameOccurrences) {
 const selected = pkg.agents.map(a => a.schemaName);
 const options = {
     ...DEFAULT_OPTIONS,
-    bumpVersion: process.argv.includes('--bump'),
+    newVersion: null,
     publishOnImport: process.argv.includes('--publish=false') ? 'force-false' as const
         : process.argv.includes('--publish=true') ? 'force-true' as const
         : 'keep' as const,

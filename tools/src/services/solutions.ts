@@ -15,7 +15,7 @@ import type { AgentListItem, Solution } from '../types';
 const SYSTEM_SOLUTIONS = new Set(['Default', 'Active', 'Basic']);
 
 /** Escape per i valori interpolati in FetchXML. */
-function xmlValue(s: string): string {
+export function xmlValue(s: string): string {
     return s.replace(/[&<>"']/g, c =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }

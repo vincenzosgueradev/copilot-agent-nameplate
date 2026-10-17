@@ -3,7 +3,9 @@
 /**
  * Accesso a Dataverse — **sola lettura**.
  *
- * Questo modulo NON espone alcun metodo di scrittura, ed è deliberato: un `UPDATE` su un
+ * Questo modulo NON espone alcun metodo di scrittura, ed è deliberato. L'unica scrittura che il
+ * tool fa, la versione della solution unmanaged in DEV prima dell'export (FR-067a), vive a parte in
+ * `solutionVersion.ts`, cosi' resta una sola, visibile e dichiarata in spec. Il motivo: un `UPDATE` su un
  * componente che proviene da una managed solution crea un *unmanaged layer* nell'environment
  * di destinazione, che da quel momento vince su ogni upgrade successivo della solution
  * (FR-067, SC-010). Il rename avviene nel package, mai sui record.

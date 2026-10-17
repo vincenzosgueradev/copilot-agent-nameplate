@@ -38,9 +38,14 @@ the empty list is intentional.
 `customizations.xml` are never touched. No global find-and-replace — the schema name appears in
 **31 out of 34 entries**, and a blanket substitution would destroy the solution.
 
-Optionally, `<Version>` in `solution.xml` (bump) and `publishOnImport` in
-`configuration.json` can also be updated. Every other entry stays **byte-identical**, and the
-tool verifies this entry by entry before delivering the file.
+Optionally `publishOnImport` in `configuration.json` can also be set, per agent. Every other
+entry stays **byte-identical**, and the tool verifies this entry by entry before delivering the file.
+
+**The version is not patched in the package.** Following Microsoft's guidance, the tool raises the
+version of the unmanaged solution **in DEV, before the export** (the default, editable like in the
+portal's export pane), so DEV, the package and the target stay aligned and the next export continues
+from the new number. It is the only thing the tool ever writes to Dataverse. To import the same
+version into a second environment, turn the option off: DEV is already at that number.
 
 ## Teams and M365 Copilot
 
@@ -87,9 +92,8 @@ testAgentTool_1.0.0.2_UAT_20261015-143022/
 └── source_unmanaged.zip                       role: restore
 ```
 
-Two artifacts at the same `<Version>` are told apart by the **SHA-256 hash** in the manifest,
-not by the version number: this is why forcing a version bump is unnecessary — it would only
-create version drift across environments.
+Two artifacts at the same `<Version>` (one for UAT, one for PROD, built from the same DEV
+version) are told apart by the suffix in the file name and by the **SHA-256 hash** in the manifest.
 
 ## Development
 
@@ -106,7 +110,7 @@ Verifies the invariant that underpins everything — one element modified, every
 byte-identical — against a real export:
 
 ```bash
-npm run smoke -- <path-to-zip> [suffix] [--bump] [--publish=false]
+npm run smoke -- <path-to-zip> [suffix] [--publish=false]
 ```
 
 Requires `@xmldom/xmldom` (devDependency): the production code runs in the browser and uses

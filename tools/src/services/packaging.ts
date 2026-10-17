@@ -11,6 +11,7 @@
  */
 
 import { exportPair, type ExportProgress } from './export';
+import { raiseSolutionVersion, type VersionChange } from './solutionVersion';
 import { readPackage } from './package';
 import { applyPatch, buildPatchPlan } from './patch';
 import { buildZip, verifyZip, verificationPassed, type ExpectedValues } from './rezip';
@@ -34,19 +35,21 @@ export interface PackagingResult {
     exportSeconds: number;
     /** `true` solo se **entrambi** gli archivi hanno superato la verifica (FR-085). */
     valid: boolean;
+    /** La versione scritta in DEV prima dell'export, o `null` se non e' stata toccata (FR-073c). */
+    versionChange: VersionChange | null;
 }
 
-function build(pkg: PackageContents, plan: PatchChange[]): BuiltArchive {
+function build(pkg: PackageContents, plan: PatchChange[], options: PackagingOptions): BuiltArchive {
     const { files, patchedPaths } = applyPatch(pkg, plan);
     const bytes = buildZip(files);
 
     const expectedNames: Record<string, string> = {};
     for (const c of plan) if (c.element === 'name') expectedNames[c.file] = c.after;
 
-    const expected: ExpectedValues = { publish: {} };
+    // La versione non e' patchata: la verifica controlla che l'export porti quella scritta in DEV
+    const expected: ExpectedValues = { publish: {}, version: options.newVersion ?? undefined };
     for (const c of plan) {
         if (c.element === 'publishOnImport') expected.publish![c.file] = c.after === 'true';
-        if (c.element === 'Version') expected.version = c.after;
     }
 
     const verification = verifyZip(bytes, pkg, expectedNames, patchedPaths, expected);
@@ -60,14 +63,6 @@ function build(pkg: PackageContents, plan: PatchChange[]): BuiltArchive {
 }
 
 /**
- * Esporta la coppia e produce i due archivi patchati, senza scrivere nulla su disco.
- *
- * Il Patch Plan viene calcolato sull'archivio **managed** ed è quello che l'anteprima mostra;
- * l'unmanaged riceve lo stesso piano. I due export hanno le stesse entry e differiscono solo
- * in `solution.xml` (verificato, research.md §10), quindi i percorsi del piano valgono per
- * entrambi — e se un domani non fosse più vero, la verifica indipendente se ne accorge.
- */
-/**
  * Lettura dei package e patch sono calcoli istantanei: senza una pausa le due fasi scattano
  * insieme e l'utente non le vede passare. La pausa c'e' solo se qualcuno ascolta l'avanzamento
  * (la schermata); i test e l'uso headless non aspettano.
@@ -76,6 +71,17 @@ const PHASE_PAUSE_MS = 700;
 const pause = (listener: unknown): Promise<void> =>
     listener ? new Promise(resolve => setTimeout(resolve, PHASE_PAUSE_MS)) : Promise.resolve();
 
+/**
+ * Esporta la coppia e produce i due archivi patchati, senza scrivere nulla su disco.
+ *
+ * Se `options.newVersion` c'e', prima alza la versione della solution **in DEV** (FR-073) e solo
+ * dopo averla riletta esporta: lo zip porta la versione di DEV, non una inventata dal tool.
+ *
+ * Il Patch Plan viene calcolato sull'archivio **managed** ed è quello che l'anteprima mostra;
+ * l'unmanaged riceve lo stesso piano. I due export hanno le stesse entry e differiscono solo
+ * in `solution.xml` (verificato, research.md §10), quindi i percorsi del piano valgono per
+ * entrambi — e se un domani non fosse più vero, la verifica indipendente se ne accorge.
+ */
 export async function runPackaging(
     solutionUniqueName: string,
     suffix: string,
@@ -83,6 +89,17 @@ export async function runPackaging(
     options: PackagingOptions,
     onProgress?: ExportProgress,
 ): Promise<PackagingResult> {
+    let versionChange: VersionChange | null = null;
+    if (options.newVersion) {
+        onProgress?.('raising the version in DEV…');
+        versionChange = await raiseSolutionVersion(solutionUniqueName, options.newVersion);
+        log(versionChange.changed
+            ? `Version of ${solutionUniqueName} in DEV raised: ${versionChange.from} → ${versionChange.to}.`
+            : `Version of ${solutionUniqueName} in DEV is already ${versionChange.to}: nothing to write.`,
+            'success');
+        await pause(onProgress);
+    }
+
     const pair = await exportPair(solutionUniqueName, onProgress);
 
     onProgress?.('reading the packages…');
@@ -112,8 +129,8 @@ export async function runPackaging(
 
     onProgress?.('patch and verify…');
     await pause(onProgress);
-    const managed = build(managedPkg, plan);
-    const unmanaged = build(unmanagedPkg, plan);
+    const managed = build(managedPkg, plan, options);
+    const unmanaged = build(unmanagedPkg, plan, options);
     for (const [label, a] of [['managed', managed], ['unmanaged', unmanaged]] as const) {
         log(`Verify ${label}: `
             + `${a.verification.byteIdenticalEntries}/${a.expectedIdenticalEntries} `
@@ -139,5 +156,6 @@ export async function runPackaging(
         exportMode: pair.managed.mode === 'async' || pair.unmanaged.mode === 'async' ? 'async' : 'sync',
         exportSeconds: pair.managed.seconds + pair.unmanaged.seconds,
         valid,
+        versionChange,
     };
 }

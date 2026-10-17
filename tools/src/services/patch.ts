@@ -41,15 +41,6 @@ function stateFor(agent: PackagedAgent, newName: string, suffix: string): PatchS
     return agent.currentSuffix ? 'suffix-changed' : 'suffix-added';
 }
 
-/** Incrementa l'ultimo segmento: `1.0.0.2` → `1.0.0.3` (FR-073). */
-export function bumpVersion(version: string): string {
-    const parts = version.split('.');
-    const last = Number(parts[parts.length - 1]);
-    if (!parts.length || Number.isNaN(last)) return version;
-    parts[parts.length - 1] = String(last + 1);
-    return parts.join('.');
-}
-
 /** `publishOnImport` effettivo di un agent: la sua eccezione, o il valore per tutti (FR-090a). */
 export function publishModeFor(options: PackagingOptions, schemaName: string): PublishMode {
     return options.publishByAgent?.[schemaName] ?? options.publishOnImport;
@@ -97,20 +88,8 @@ export function buildPatchPlan(
         }
     }
 
-    if (options.bumpVersion) {
-        const after = bumpVersion(pkg.version);
-        if (after !== pkg.version) {
-            changes.push({
-                file: 'solution.xml',
-                element: 'Version',
-                before: pkg.version,
-                after,
-                state: 'suffix-changed',
-                exceedsTeamsLimit: false,
-            });
-        }
-    }
-
+    // La versione non e' un cambio del package: si alza in DEV prima dell'export (FR-073), e lo zip
+    // la porta gia'. Qui non si tocca `<Version>`.
     return changes;
 }
 
@@ -179,8 +158,6 @@ export function applyPatch(pkg: PackageContents, changes: PatchChange[]): Patche
 
         if (change.element === 'name') {
             touch(change.file, replaceElementText(text, 'name', change.after, change.file));
-        } else if (change.element === 'Version') {
-            touch(change.file, replaceElementText(text, 'Version', change.after, change.file));
         } else {
             // configuration.json: unico file che viene riserializzato. È un file patchato,
             // quindi la verifica byte-per-byte non lo riguarda (FR-070 vale sulle entry
