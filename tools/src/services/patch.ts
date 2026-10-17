@@ -11,7 +11,7 @@
  * schemaname trasformerebbe l'upgrade in un agent nuovo lasciando il vecchio orfano.
  */
 
-import { TEAMS_NAME_LIMIT, type PackageContents, type PackagedAgent, type AgentOutcome, type PackagingOptions, type PatchChange, type PatchState } from '../types';
+import { TEAMS_NAME_LIMIT, type PackageContents, type PackagedAgent, type AgentOutcome, type PackagingOptions, type PatchChange, type PublishMode, type PatchState } from '../types';
 import { PackageFormatError, splitSuffix } from './package';
 
 const decoder = new TextDecoder('utf-8', { fatal: false });
@@ -50,6 +50,11 @@ export function bumpVersion(version: string): string {
     return parts.join('.');
 }
 
+/** `publishOnImport` effettivo di un agent: la sua eccezione, o il valore per tutti (FR-090a). */
+export function publishModeFor(options: PackagingOptions, schemaName: string): PublishMode {
+    return options.publishByAgent?.[schemaName] ?? options.publishOnImport;
+}
+
 /**
  * Il Patch Plan: ciò che verrà scritto, mostrato **prima** di scrivere (FR-075).
  * Calcolarlo non modifica nulla.
@@ -76,8 +81,9 @@ export function buildPatchPlan(
             exceedsTeamsLimit: after.length > TEAMS_NAME_LIMIT,
         });
 
-        if (options.publishOnImport !== 'keep') {
-            const target = options.publishOnImport === 'force-true';
+        const publishMode = publishModeFor(options, agent.schemaName);
+        if (publishMode !== 'keep') {
+            const target = publishMode === 'force-true';
             if (agent.publishOnImport !== target) {
                 changes.push({
                     file: agent.file.replace(/bot\.xml$/, 'configuration.json'),

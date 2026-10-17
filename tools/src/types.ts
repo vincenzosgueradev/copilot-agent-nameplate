@@ -47,11 +47,19 @@ export interface AgentListItem {
 
 // ── Opzioni e sessione ───────────────────────────────────────────────────────
 
+/** Tre stati; `keep` **non tocca il file** (FR-090). */
+export type PublishMode = 'keep' | 'force-true' | 'force-false';
+
 export interface PackagingOptions {
     /** Incrementa l'ultimo segmento di `<Version>` in solution.xml (FR-073). */
     bumpVersion: boolean;
-    /** Tre stati; `keep` **non tocca il file** (FR-090). */
-    publishOnImport: 'keep' | 'force-true' | 'force-false';
+    /** Valore di partenza per **tutti** gli agent; ogni agent puo' cambiarlo (FR-090a). */
+    publishOnImport: PublishMode;
+    /**
+     * Eccezioni per agent, per `schemaName`. Un agent assente segue `publishOnImport`. Assente
+     * nei record storici precedenti alla 1.0.1.
+     */
+    publishByAgent?: Record<string, PublishMode>;
     /**
      * Conserva le copie aggiuntive: l'unmanaged patchato e i due export originali (FR-078,
      * FR-088). Spento, l'artifact set e' il minimo che serve per importare — il managed

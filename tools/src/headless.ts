@@ -121,6 +121,7 @@ function optionsFrom(input: Json): PackagingOptions {
     return {
         bumpVersion: o.bumpVersion === true,
         publishOnImport: o.publishOnImport ?? DEFAULT_OPTIONS.publishOnImport,
+        publishByAgent: o.publishByAgent ?? {},
         keepSourceArtifacts: o.keepSourceArtifacts !== false,
     };
 }

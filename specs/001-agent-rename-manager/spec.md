@@ -707,6 +707,19 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   documentato da Microsoft (research §12) e il tool NON DEVE promettere un esito che non può
   garantire. Quando il risultato è che l'agent non verrà pubblicato, l'avviso di FR-080 DEVE essere
   prominente: senza publish il nome non arriva sui canali
+- **FR-090a**: `publishOnImport` DEVE poter essere impostato **per agent**, perché dipende dai canali e
+  dalla storia di ciascuno (un agent mai collegato a Teams non ha canali da aggiornare, uno già
+  pubblicato sì). L'interruttore di FR-090 è il **valore per tutti**; ogni agent incluso ha una
+  propria scelta: *come il valore per tutti* (**default**), *lascia com'è*, *forza `true`*, *forza
+  `false`*. L'eccezione di un agent batte il valore per tutti; un agent escluso (FR-023) non riceve
+  nessuna modifica nemmeno a `publishOnImport`. La revisione DEVE mostrare il valore effettivo di
+  ogni agent, e l'anteprima il valore che il package avrà **dopo** la patch, non quello esportato. Le
+  eccezioni sono registrate nelle opzioni del manifest e dello storico (`publishByAgent`, per
+  `schemaName`)
+- **FR-023c**: Le impostazioni per agent sono **solo** l'inclusione (FR-076) e `publishOnImport`
+  (FR-090a). Il **suffisso** resta unico per l'environment di destinazione (FR-023) e il **bump di
+  versione** resta della solution, perché `<Version>` sta in `solution.xml`: un suffisso diverso
+  per agent produrrebbe di nuovo nomi misti nello stesso environment, il difetto che FR-023 corregge
 - **FR-091**: L'anteprima DEVE **sempre** mostrare l'inventario completo del package — per tipo, con
   conteggio e nomi dove disponibili — perché l'artefatto è la **solution intera** e all'import
   viaggia tutto, non solo l'agent. Quando il package contiene componenti diversi dall'agent

@@ -77,6 +77,34 @@ if (!kept.excluded || kept.after !== kept.before) fail("l'agent escluso non risu
 const { patchedPaths } = applyPatch(pkg, planOne);
 if (patchedPaths.some(p => p.includes(`/${keep}/`))) fail("l'agent escluso e' stato toccato");
 
+// 2b. publishOnImport per agent (FR-090a): l'eccezione di un agent batte il valore per tutti
+const [a1, a2] = pkg.agents as [typeof pkg.agents[number], typeof pkg.agents[number]];
+const publishChanges = (plan: ReturnType<typeof buildPatchPlan>) =>
+    plan.filter(c => c.element === 'publishOnImport');
+const opposite = (v: boolean | null) => v === true ? 'force-false' as const : 'force-true' as const;
+
+// valore per tutti = "lascia", eccezione solo su a2 che cambia il suo valore
+const t1 = publishChanges(buildPatchPlan(pkg, 'UAT', all,
+    { ...DEFAULT_OPTIONS, publishByAgent: { [a2.schemaName]: opposite(a2.publishOnImport) } }));
+console.log(`eccezione su a2    : ${t1.map(c => `${c.file} -> ${c.after}`).join(' | ')}`);
+if (t1.length !== 1 || t1[0]!.file !== a2.file.replace(/bot\.xml$/, 'configuration.json')) {
+    fail("un'eccezione su un agent deve cambiare solo quell'agent");
+}
+
+// valore per tutti che cambierebbe a1, ma a1 ha l'eccezione "lascia": a1 non si tocca
+const t2 = publishChanges(buildPatchPlan(pkg, 'UAT', all,
+    { ...DEFAULT_OPTIONS, publishOnImport: opposite(a1.publishOnImport),
+      publishByAgent: { [a1.schemaName]: 'keep' } }));
+console.log(`a1 "lascia", gli altri seguono: ${t2.map(c => `${c.file} -> ${c.after}`).join(' | ') || 'nessun cambio'}`);
+if (t2.some(c => c.file === a1.file.replace(/bot\.xml$/, 'configuration.json'))) {
+    fail("l'agent con l'eccezione \"lascia\" e' stato toccato");
+}
+
+// un agent escluso non riceve nemmeno il suo publishOnImport
+const t3 = publishChanges(buildPatchPlan(pkg, 'UAT', [a2.schemaName],
+    { ...DEFAULT_OPTIONS, publishOnImport: opposite(a1.publishOnImport) }));
+if (t3.some(c => c.file.includes(`/${a1.schemaName}/`))) fail("un agent escluso ha ricevuto publishOnImport");
+
 // 3. nessun falso allarme sul caso reale
 const unexpected = pkg.nameOccurrences.filter(o => !o.expected);
 console.log(`occorrenze nome   : ${pkg.nameOccurrences.length} trovate, ${unexpected.length} impreviste`);
@@ -95,4 +123,4 @@ const caught = probe.nameOccurrences.filter(o => !o.expected && o.file === topic
 console.log(`caso negativo     : ${caught.length} occorrenza imprevista segnalata in ${topic}`);
 if (caught.length !== 1) fail('un nome in un posto sconosciuto non e\' stato segnalato');
 
-console.log('OK — suffisso uniforme, esclusione rispettata, nessun falso allarme, rete di sicurezza attiva');
+console.log('OK — suffisso uniforme, esclusione e publish per agent rispettati, nessun falso allarme, rete di sicurezza attiva');

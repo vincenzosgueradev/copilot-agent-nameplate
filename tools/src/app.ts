@@ -14,7 +14,7 @@ import { openFolder, saveJsonFile, saveTextFile, selectFolder } from './services
 import { addRecord, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
 import { runPackaging, type PackagingResult } from './services/packaging';
-import { agentOutcomes, buildName, bumpVersion } from './services/patch';
+import { agentOutcomes, buildName, bumpVersion, publishModeFor } from './services/patch';
 import { splitSuffix } from './services/package';
 import { icon } from './icons';
 import {
@@ -27,6 +27,7 @@ import {
     type PackageComponent,
     type PackagingOptions,
     type PackagingRecord,
+    type PublishMode,
     type Solution,
     type VerificationResult,
 } from './types';
@@ -582,6 +583,7 @@ function selectSolution(solutionId: string, highlightAgentId = ''): void {
     if (state.browsingSolutionId !== solutionId) {
         // Un'altra solution: bozza, esclusioni e package gia' preparato non valgono piu'
         state.excludedAgents.clear();
+        state.options.publishByAgent = {};
         state.suffix = '';
         state.packaging = null;
     }
@@ -922,6 +924,19 @@ function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): s
             : `${n} archives: <strong>${n} saves</strong>, one per file.`}</p>`;
 }
 
+const PUBLISH_LABELS: Record<PublishMode, string> = {
+    'keep': 'Leave as is',
+    'force-true': 'Force yes',
+    'force-false': 'Force no',
+};
+
+/** L'eccezione di un agent; `''` la toglie e l'agent torna a seguire il valore per tutti. */
+function setPublishMode(schemaName: string, mode: PublishMode | ''): void {
+    const next = { ...(state.options.publishByAgent ?? {}) };
+    if (mode) next[schemaName] = mode; else delete next[schemaName];
+    state.options.publishByAgent = next;
+}
+
 /** Una riga per agent: spunta, nome attuale e nome che avra'. Si riscrive a ogni digitazione. */
 function agentRowsHtml(): string {
     const agents = solutionAgents();
@@ -929,10 +944,11 @@ function agentRowsHtml(): string {
     const mixed = suffixesAfter(names, state.suffix);
     return `
         <table class="data-table">
-            <thead><tr><th></th><th>Agent</th><th>Name after the rename</th></tr></thead>
+            <thead><tr><th></th><th>Agent</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
             <tbody>${agents.map(a => {
                 const on = !state.excludedAgents.has(a.id);
                 const next = buildName(a.name, state.suffix);
+                const own = state.options.publishByAgent?.[a.schemaName];
                 return `
                 <tr${on ? '' : ' class="is-off"'}>
                     <td><input type="checkbox" data-agent="${escapeHtml(a.id)}"
@@ -941,6 +957,13 @@ function agentRowsHtml(): string {
                     <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap">${on
                         ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '')
                         : 'left as it is'}</td>
+                    <td>${on ? `
+                        <select data-publish="${escapeHtml(a.schemaName)}"
+                            aria-label="Publish on import for ${escapeHtml(a.name)}">
+                            <option value=""${own ? '' : ' selected'}>Default (${PUBLISH_LABELS[state.options.publishOnImport]})</option>
+                            ${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
+                            <option value="${m}"${own === m ? ' selected' : ''}>${PUBLISH_LABELS[m]}</option>`).join('')}
+                        </select>` : '<span class="cell-muted">—</span>'}</td>
                 </tr>`;
             }).join('')}</tbody>
         </table>
@@ -1018,7 +1041,7 @@ function renderSuffixStep(): void {
                         <div class="opt-row" style="padding:12px 16px">
                             <div>
                                 <div class="opt-label">Publish on import</div>
-                                <div class="hint">carries the name to Teams and M365 Copilot</div>
+                                <div class="hint">carries the name to Teams and M365 Copilot — the default for every agent; change one in the list above</div>
                             </div>
                             <div class="toggle-group" id="opt-publish" role="group">
                                 <button class="toggle-btn ${pub === 'keep'        ? 'is-active' : ''}" data-val="keep">Leave as is</button>
@@ -1073,6 +1096,8 @@ function renderSuffixStep(): void {
     };
     // Una sola delegation: le righe vengono riscritte a ogni cambio di suffisso
     els.stepSuffix.querySelector('#agent-list')!.addEventListener('change', ev => {
+        const sel = (ev.target as HTMLElement).closest<HTMLSelectElement>('select[data-publish]');
+        if (sel) { setPublishMode(sel.dataset.publish!, sel.value as PublishMode | ''); return; }
         const box = (ev.target as HTMLElement).closest<HTMLInputElement>('input[data-agent]');
         if (!box) return;
         if (box.checked) state.excludedAgents.delete(box.dataset.agent!);
@@ -1110,6 +1135,7 @@ function renderSuffixStep(): void {
         const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.toggle-btn');
         if (!btn) return;
         state.options.publishOnImport = btn.dataset.val as PackagingOptions['publishOnImport'];
+        refreshAgents();
         document.querySelectorAll<HTMLElement>('#opt-publish .toggle-btn').forEach(b => {
             b.classList.toggle('is-active', b === btn);
         });
@@ -1139,11 +1165,6 @@ function renderReviewStep(): void {
     const mixed = suffixesAfter(
         solutionAgents().map(a => ({ name: a.name, selected: !state.excludedAgents.has(a.id) })),
         state.suffix);
-    const publishLabel = {
-        'keep': 'Leave as is',
-        'force-true': 'Force yes',
-        'force-false': 'Force no',
-    }[state.options.publishOnImport];
 
     els.stepReview.innerHTML = `
         <div class="step-header step-header-row">
@@ -1166,13 +1187,14 @@ function renderReviewStep(): void {
                             ? `<strong>[${escapeHtml(state.suffix)}]</strong>`
                             : '<span class="cell-muted">none — removes the existing one</span>'}</span></div>
                     <table class="data-table" style="margin-top:12px">
-                        <thead><tr><th>Agent</th><th>Resulting name</th>
+                        <thead><tr><th>Agent</th><th>Resulting name</th><th>Publish on import</th>
                             <th class="col-num">Length</th></tr></thead>
                         <tbody>${rows.map(r => `
                             <tr>
                                 <td class="cell-muted">${escapeHtml(r.agent.name)}
                                     <code>${escapeHtml(r.agent.schemaName)}</code></td>
                                 <td class="cell-strong cell-nowrap">${escapeHtml(r.next)}</td>
+                                <td class="cell-nowrap">${PUBLISH_LABELS[publishModeFor(state.options, r.agent.schemaName)]}</td>
                                 <td class="col-num ${r.next.length > TEAMS_NAME_LIMIT ? 'kv-val--warn' : ''}">${r.next.length} / ${TEAMS_NAME_LIMIT}</td>
                             </tr>`).join('')}</tbody>
                     </table>
@@ -1204,8 +1226,6 @@ function renderReviewStep(): void {
                 <div class="panel-body">
                     <div class="kv"><span class="kv-key">Package version</span>
                         <span class="kv-val">${versionHintHtml(sol.version, state.options.bumpVersion)}</span></div>
-                    <div class="kv"><span class="kv-key">Publish on import</span>
-                        <span class="kv-val">${escapeHtml(publishLabel)}</span></div>
                     <div class="kv"><span class="kv-key">Artifacts produced</span>
                         <span class="kv-val">${state.options.keepSourceArtifacts
                             ? `4 archives <span class="cell-muted">— managed, unmanaged and the two originals</span>`
@@ -2110,6 +2130,7 @@ toolbox.events.on((_event: unknown, payload: { event: string }) => {
         state.agents = [];
         state.solutions = [];
         state.excludedAgents.clear();
+        state.options.publishByAgent = {};
         state.highlightAgentId = '';
         state.activeSolution = null;
         state.browsingSolutionId = null;
