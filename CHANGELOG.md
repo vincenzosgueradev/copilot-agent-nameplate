@@ -25,6 +25,13 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   configuration; the format check also read only the first agent's configuration, so the
   result depended on the order of the files. It now reads all the agents, and those two keys
   are optional.
+- **Two agents with the same display name no longer trigger the "unknown place" warning.**
+  Each one's name showed up in the other's definition and was reported as an unexpected
+  occurrence.
+- **The checks now confirm every value the tool writes.** After building the archive the tool
+  re-reads it and used to confirm only the agent names. It now also confirms each agent's
+  *publish on import* and the solution version, and a changed entry with extra bytes at the end
+  is no longer counted as untouched.
 - The confirmation banner said "a single entry changed" whatever the number; it now states
   the real count.
 - The package inventory flagged the components of every agent after the first one as
