@@ -49,16 +49,27 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   those toggles, sets the same value for every ticked agent. It stays lit when all ticked agents
   share one value and goes dark when they differ. Useful when one agent is already published and another
   has never been connected to Teams. The review shows the value each agent will get. The single
-  switch that used to sit in *Options* is gone; suffix and version bump stay one for the whole
+  switch that used to sit in *Options* is gone; suffix and version stay one for the whole
   solution.
 - The suffix step lists the agents of the solution, all ticked by default, with the name each
   one will get, updated as you type. Untick an agent to leave it exactly as it is.
 - The breadcrumb reads `Solutions › {Solution} › Suffix › Review › Preview`.
-- **The version option now says what it means for deleted agents.** Without a bump the package
-  keeps the same version and the target can only take it as an *Update*, which never removes
-  components, so agents deleted in the source stay in the target. With a bump it says to import
-  as an *Upgrade*, and that *Update* and *Stage for upgrade* keep them. The wording is the same
-  under *Bump the version* and in the review.
+- **The version is now raised in DEV, like the portal does, not inside the zip.** Until now
+  *Bump the version* changed `<Version>` only in the package: DEV stayed at `1.0.0.2` while UAT
+  got `1.0.0.3`, so the next export produced `1.0.0.3` again and the import failed with *"The
+  import solution must have a higher version than the existing solution it is upgrading"*, or left
+  two different contents under one number. Now, for every export, the tool proposes the next
+  number (editable, on by default), **writes it to the unmanaged solution in DEV before
+  exporting**, reads it back, and the package carries it. DEV, package and target stay aligned and
+  the next export continues from there. It is the only thing the tool writes to Dataverse, and the
+  review says so. A version that is not four numbers, or not higher than DEV's, is refused with the
+  reason; if the write fails or someone raised DEV in the meantime, nothing is exported.
+- **The version text says what it means for deleted agents.** Without raising the version the
+  target can only take the package as an *Update*, which never removes components, so agents
+  deleted in the source stay there. With it, import as an *Upgrade* (the default) to remove them;
+  *Update* and *Stage for upgrade* keep them. Same wording under the option and in the review.
+- The file names in the artifact list use the version the package will carry.
+- The progress shows a first phase, *Raise the version in DEV*, when the version is raised.
 - **The agent table uses the full width** of the panel: the columns share it, and each
   *Leave as is / Force yes / Force no* toggle fills its column with three equal buttons instead of
   huddling on the left. The global actions sit in its last row instead of in the column header.
@@ -89,6 +100,13 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   the ones left as they were, so an agent kept on purpose can be told from one forgotten.
 - `npm run smoke:multi`: checks the two-agent case (uniform suffix, exclusion respected,
   excluded agent byte-identical).
+- **Agent icon and description in the lists.** The solution view and the suffix step show
+  each agent's icon (Copilot Studio's own) with its description under the name, the review
+  shows the small icon and the search results carry it in the chip. They are read, read-only,
+  only for the solution you open, after the list is drawn, and cached for the session. An
+  icon is shown only if it is a valid PNG, a description only as plain text; if the read
+  fails the lists keep the default icon and a warning goes to the log. Nothing is added to
+  the package, the manifest or the history.
 
 ### Upgrade notes
 - History records written by 1.0.0 only list the agents that were renamed; they have no

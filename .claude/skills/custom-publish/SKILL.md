@@ -33,6 +33,9 @@ All commands run from `tools/` unless said otherwise.
    - Not on `main`, or `main` has commits not on the remote → say so and ask.
 3. **Checks** — all must pass, report each in one line:
    - `npx tsc --noEmit`
+   - `npm test`, then `npm run test:full`, then `npm run test:mutation` (Constitution — Testing
+     Standard). Any failure, or any mutation that survives, is a stop: report which one and
+     do not publish.
    - `npm run validate` (pptb-validate; if the binary is missing, say that the validation
      gate of the constitution could not be run, and treat it as a stop)
    - `npm run smoke -- <path to a managed zip from a previous artifact set>` and

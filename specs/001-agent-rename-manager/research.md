@@ -868,3 +868,54 @@ verificate: nessuna dipendenza può rompersi (sopra); viene modificato **un solo
 verificabile entry per entry (§9, §14); l'export originale resta nell'artifact set, quindi ogni
 problema è riproducibile senza il patch (§10). Il tool deve dichiararlo apertamente, nella
 documentazione e nel `manifest.json` (FR-102).
+
+
+---
+
+## §16 — La versione si alza in DEV, non nello zip
+
+**Status**: ✅ Analisi del 2026-10-17, dopo un errore reale in UAT
+(*"The import solution must have a higher version than the existing solution it is upgrading"*) e
+un'osservazione dell'utente su cosa succede al giro successivo.
+
+### Il difetto del bump nello zip
+
+FR-073 (prima stesura) incrementava `<Version>` **solo dentro l'artefatto**. Quindi DEV restava a
+`1.0.0.2` e UAT riceveva `1.0.0.3`:
+
+1. All'export successivo il tool parte di nuovo da `1.0.0.2`, produce `1.0.0.3` — la versione che UAT
+   ha già — e l'Upgrade fallisce con l'errore sopra. Il tool calcola dalla versione dell'**origine**,
+   non da ciò che è già stato distribuito.
+2. Se intanto in DEV la versione sale davvero a `1.0.0.3` (per esempio con l'incremento automatico
+   dell'export del portale), esistono **due contenuti diversi sotto lo stesso numero**: non si sa più
+   quale `1.0.0.3` sia in UAT.
+3. Nulla lega più la versione dell'artefatto a quella di DEV e del source control.
+
+### Che cosa fa Microsoft
+
+| Fonte | Che cosa dice |
+|---|---|
+| [Upgrade or update a solution](https://learn.microsoft.com/power-apps/maker/data-platform/update-solutions) | *"Increment the version number when you export the solution as managed"*, nell'ambiente di sviluppo; un update deve avere una versione più alta del parent |
+| [Export a solution](https://learn.microsoft.com/power-automate/export-flow-solution) | Il pannello di export propone la versione **già incrementata** e permette di cambiarla |
+| [Build Tools — Set Solution Version](https://learn.microsoft.com/power-platform/alm/devops-build-tool-tasks#solution-tasks) | Imposta la versione **nella solution dell'ambiente**, poi si esporta |
+| `pac solution online-version` | Scrive la versione della solution nell'ambiente connesso |
+| ALM Accelerator, `UseSolutionVersionFromDataverse` | La versione esportata resta la stessa in tutti gli ambienti e finisce nel source control |
+| [Pipelines](https://learn.microsoft.com/power-platform/alm/pipelines) | Upgrade come comportamento predefinito; ritoccare `solution.xml` è citato solo come espediente di un amministratore |
+
+Il principio è uno: **una sola fonte di verità**, la solution sorgente. La versione si alza lì e
+l'export la porta con sé.
+
+### Decisione
+
+Il tool alza la `version` della solution **unmanaged sorgente**, in DEV, **prima** dell'export, a ogni
+packaging (FR-073). La proposta è l'incremento dell'ultimo segmento, modificabile come nel pannello del
+portale. L'artefatto porta quindi la versione di DEV e il giro successivo riparte da lì.
+
+È una scrittura su Dataverse, e va dichiarata come **eccezione** a FR-067 (FR-067a): riguarda la
+solution unmanaged dell'environment di sviluppo, non un componente che arriva da una managed; non crea
+alcun unmanaged layer e non cambia il contenuto di nessun componente. Dopo la scrittura il tool rilegge
+il valore, e la verifica dello zip controlla che `solution.xml` porti proprio quella versione.
+
+**Non verificato su un DEV reale**: l'aggiornamento di `solution.version` via `dataverseAPI.update`
+(`pac solution online-version` e i Build Tools lo fanno, quindi il campo è scrivibile per una solution
+unmanaged, ma va provato prima di pubblicare).

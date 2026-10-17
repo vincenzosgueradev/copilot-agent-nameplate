@@ -42,6 +42,22 @@ Se il codice è stato **stravolto** (molti file, flusso riscritto, tipi o contra
 
 Quando proponi il rilascio, scrivi la sequenza: `/custom-changelog` → `/custom-commit` → `/custom-ampush` → `/custom-publish` → commit del bump → push. **`/custom-publish` e il push li lancia sempre l'utente**: tu li prepari e li ricordi, non li esegui.
 
+## Test: niente è finito senza (Constitution — Testing Standard)
+
+Non dichiarare finita una modifica al codice finché non l'hai provata tu, con questi passi (in `tools/`):
+
+- **A ogni modifica al codice**: `npx tsc --noEmit`, `npm run build` e `npm test` (≈40 s). Se falliscono, lo dici così com'è: mai "dovrebbe funzionare".
+- **Una funzione o un comportamento nuovo** ha la sua **matrice di test** (tutte le combinazioni delle sue dimensioni, oppure tutte le coppie + campioni con seme fisso), con un **oracolo scritto dalla spec**, e i **test negativi** di tutto ciò che verifica. Se tocca la schermata, anche il percorso in jsdom.
+- **Un difetto segnalato dall'utente** si riproduce con un test che fallisce **prima** della correzione; il test resta.
+- **Dopo aver cambiato logica**: `npm run test:mutation` (filtrabile per parola, es. `node scripts/mutation-check.mjs versione`). Un difetto che sopravvive vuol dire un test mancante: lo aggiungi e lo rilanci. Aggiungi le mutazioni della funzione nuova a `scripts/mutation-check.mjs`.
+- **Prima di proporre un rilascio**: `npm run test:full` e `npm run test:mutation` interi.
+- Dì sempre **che cosa i test non coprono** (i pixel, il comportamento vero di Dataverse) e metti quel controllo nel quickstart della specifica.
+- Mentre gira `test:mutation` non toccare `tools/src`: lo script altera i file e li ripristina.
+
+## Specifiche per ogni funzione
+
+Ogni funzione nuova ha la sua cartella `specs/NNN-nome/` (spec, plan, research, data-model, quickstart, tasks, checklist, contracts se serve) e una riga in `specs/README.md`. Se nasce da una segnalazione, la spec la cita; ogni requisito ha codice e test nella tabella di tracciabilità di `tasks.md`. Una funzione costruita prima della specifica si documenta subito dopo, senza chiedere.
+
 ## Regole di commit
 
 - Mai `git push`, amend o reset senza richiesta esplicita.

@@ -136,7 +136,7 @@ Calcola il Patch Plan per un suffisso, senza esportare nulla sul disco.
   "suffix": "UAT",
   "agents": ["ava_agenteTool1"],
   "options": {
-    "bumpVersion": false,
+    "newVersion": null,
     "publishOnImport": "keep"
   }
 }
@@ -183,7 +183,7 @@ Esegue i due export, il patch, il rezip e la verifica, e scrive l'**artifact set
   "outputDirectory": "C:\\packages",
   "agents": ["ava_agenteTool1"],
   "options": {
-    "bumpVersion": false,
+    "newVersion": "1.0.0.3",
     "publishOnImport": "keep",
     "keepSourceArtifacts": true,
     "overwrite": false

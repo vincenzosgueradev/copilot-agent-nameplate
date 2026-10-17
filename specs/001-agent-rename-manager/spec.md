@@ -1,3 +1,10 @@
+> **Evoluzioni dopo il 1.0.0** — le funzioni nate dopo questa specifica hanno la loro cartella; vedi
+> [specs/README.md](../README.md): [002](../002-solution-wide-rename/spec.md) (rename di solution),
+> [003](../003-per-agent-publish-on-import/spec.md) (publish per agent),
+> [004](../004-source-version-in-dev/spec.md) (versione in DEV, sostituisce FR-073),
+> [005](../005-flow-and-layout-refinements/spec.md) (layout e flusso),
+> [006](../006-quality-gates/spec.md) (qualità), [007](../007-release-process/spec.md) (rilascio).
+
 # Feature Specification: Agent Rename Manager
 
 **Feature Branch**: `001-agent-rename-manager`
@@ -149,8 +156,9 @@ conflitto con gli upgrade successivi della solution.
   distinti, due patch indipendenti. → FR-084.
 - Q: Due artefatti con la stessa `<Version>` ma contenuto diverso (uno per UAT, uno per PROD): come
   si distinguono in audit? → A: `manifest.json` con **hash SHA-256** di ogni file, suffisso,
-  sorgente, operatore e data. La versione da sola non basta e non va forzata con un bump, che
-  creerebbe una deriva di versioni per ambiente. → FR-086.
+  sorgente, operatore e data. La versione da sola non basta per distinguere artefatti costruiti per
+  ambienti diversi dalla stessa versione di DEV. → FR-086. *(Rivisto 2026-10-17: la versione però si
+  alza in DEV a ogni export, FR-073; il suffisso e l'hash distinguono gli ambienti.)*
 - **Q (decisa il 2026-10-15): il deploy passa dalle Power Platform Pipelines native? → A: No, le
   solution si importano manualmente.** Il vincolo di immutabilità dell'artefatto **non si applica**:
   non c'è nessun pipelines host da cui uscire. Il tool prende il posto dell'export manuale e
@@ -334,7 +342,7 @@ con i nomi già corretti, pronto da importare come managed.
 4. **Given** il patch confermato, **When** il tool scrive lo zip, **Then** lo riapre e verifica
    integrità, numero di entry e valore di `<name>` prima di dichiarare il file pronto (FR-077)
 5. **Given** lo zip prodotto, **When** l'utente lo confronta con l'export originale, **Then** le
-   uniche differenze sono gli elementi `<name>` patchati (e `<Version>`, se richiesto il bump) —
+   uniche differenze sono gli elementi `<name>` patchati (la versione, se alzata, è già nell'export: la scrive DEV, non il tool) —
    il tool lo dimostra con un diff entry-per-entry (FR-070)
 6. **Given** una solution con più agent, **When** l'utente applica il suffisso, **Then** tutti gli
    agent del package vengono patchati nella stessa operazione, con esito per ciascuno (FR-076)
@@ -367,7 +375,8 @@ ciascuna operazione contiene i quattro archivi attesi.
    sorgente, suffisso, operatore, data/ora e agent `prima → dopo` (FR-086)
 3. **Given** due artifact set generati dalla stessa versione con suffissi diversi, **When** si
    confrontano, **Then** la `<Version>` è la stessa ma hash e suffisso li distinguono senza
-   ambiguità — nessun bump di versione necessario (SC-011)
+   ambiguità (SC-011). Per costruire la stessa versione per un secondo ambiente si spegne l'opzione di
+   alzare la versione: DEV è già a quel numero (FR-073)
 4. **Given** l'artifact set, **When** l'utente deve importare in UAT, **Then** il tool indica in
    modo inequivocabile **un solo file**: quello con `role: deploy`. L'unmanaged patchato è
    etichettato come non destinato a UAT/PROD (FR-087)
@@ -426,8 +435,8 @@ Layers che l'agent abbia **solo** il layer managed.
    il layer vince sul nome del package: va rimosso con **Remove active customizations** prima o dopo
    l'import, altrimenti il nome non cambierà (FR-082)
 3. **Given** un import della **stessa versione** già installata, **When** l'utente procede,
-   **Then** il tool spiega che è un *update* e non un *upgrade*, e offre il bump di versione
-   (FR-073)
+   **Then** il tool spiega che è un *update* e non un *upgrade*, e propone di alzare la versione in
+   DEV prima dell'export (FR-073)
 4. **Given** un import fallito, **When** il tool riceve l'errore, **Then** mostra il messaggio di
    Dataverse e lascia lo zip sul disco, pronto per un nuovo tentativo o per l'import manuale
 
@@ -548,11 +557,17 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
 #### Processo di packaging *(revisione 2026-10-15)*
 
 - **FR-067**: Il tool NON DEVE eseguire operazioni di scrittura su `bot`, `botcomponent` o sulle
-  environment variable di **nessun** environment. Il rename DEVE avvenire esclusivamente modificando
+  environment variable di **nessun** environment (unica eccezione: FR-067a). Il rename DEVE avvenire esclusivamente modificando
   il package di una solution esportata. **Motivo**: un `UPDATE` su un componente che proviene da una
   managed solution crea un *unmanaged layer* nell'environment di destinazione; quel layer sta sopra
   il managed e da quel momento vince su ogni upgrade successivo della solution, scollegando
   l'ambiente dal package. Il problema non è che l'`UPDATE` possa fallire: è che possa **riuscire**
+- **FR-067a**: *Eccezione dichiarata* a FR-067: il tool PUÒ scrivere **un solo campo**, `version` della
+  solution **unmanaged** sorgente, nell'environment di sviluppo, prima dell'export (FR-073). Non tocca
+  componenti di una managed solution, quindi non crea unmanaged layer e non cambia il contenuto di
+  nessun componente; è l'operazione che il maker fa dal pannello di export e che `pac solution
+  online-version` e i Build Tools compiono. Il tool NON DEVE scrivere sulla versione di una solution
+  managed né di un altro environment, e DEVE fermarsi con un messaggio chiaro se non ha il permesso
 - **FR-068**: Il tool DEVE esportare la solution sorgente con `ExportSolution`, in **entrambe** le
   forme — `Managed: true` e `Managed: false` — producendo l'artifact set di FR-083. La solution
   sorgente DEVE essere
@@ -579,16 +594,31 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   allineare il *Channel display name suffix* nativo~~ — **eliminata il 2026-10-15**. Il nome sui
   canali deriva già da `bot.name` (research §11), quindi il suffisso nativo si **sommerebbe** a
   quello del nome: `agenteTool1 [UAT] (UAT)`. Un solo meccanismo. Sostituita da **FR-089**
-- **FR-073**: Il tool DEVE lasciare `<Version>` invariata per default e offrire un **bump** opzionale
-  (incremento dell'ultimo segmento) in `solution.xml`, spiegando la differenza: stessa versione =
-  *update*, versione superiore = *upgrade*
+- **FR-073**: *(riscritto 2026-10-17, research §16)* La versione DEVE alzarsi **nella solution
+  sorgente (DEV)**, come fa Microsoft, e **non** soltanto dentro lo zip. A ogni packaging il tool DEVE
+  proporre, per default attivo, l'incremento dell'ultimo segmento della versione corrente della
+  solution, **modificabile** dall'utente come nel pannello di export del portale. Se l'opzione è
+  attiva, il tool DEVE scrivere quella versione sulla solution unmanaged di DEV **prima** di
+  esportare, rileggerla per confermare, e solo allora esportare: così DEV, artefatto e target
+  coincidono e il giro successivo riparte dal numero nuovo. Il tool NON DEVE modificare `<Version>`
+  dentro il package. Un utente può disattivare l'opzione: la versione resta quella di DEV
+- **FR-073b**: La versione scelta DEVE essere nel formato `major.minor.build.revision` (quattro numeri)
+  e **strettamente maggiore** di quella corrente in DEV; altrimenti la schermata non procede e spiega
+  perché. Se in DEV c'è già proprio quella versione (un tentativo precedente è andato a buon fine), il
+  tool NON scrive di nuovo e prosegue; se in DEV c'è una versione **più alta** (qualcuno l'ha alzata nel
+  frattempo) il tool si ferma prima di esportare. Il valore proposto resta fisso per tutta l'operazione,
+  così tornare indietro e riavanzare non alza la versione una seconda volta
 - **FR-073a**: Il testo che spiega la versione DEVE dire anche la **conseguenza sui componenti
   cancellati** nell'origine, perché è quella che sorprende ([Upgrade or update a
-  solution](https://learn.microsoft.com/power-apps/maker/data-platform/update-solutions)): senza bump
-  il target può importare solo come *Update*, che **non rimuove mai** componenti, quindi gli agent
-  cancellati nell'origine restano nel target; con il bump va importato come *Upgrade* (l'azione
+  solution](https://learn.microsoft.com/power-apps/maker/data-platform/update-solutions)): senza alzare
+  la versione il target può importare solo come *Update*, che **non rimuove mai** componenti, quindi gli
+  agent cancellati nell'origine restano nel target; alzandola va importato come *Upgrade* (l'azione
   predefinita), che li rimuove, mentre *Update* e *Stage for upgrade* li mantengono. Lo stesso testo
-  compare sotto l'opzione e nella revisione
+  compare sotto l'opzione e nella revisione, insieme a `versione in DEV → nuova versione`
+- **FR-073c**: La revisione DEVE dire che la versione verrà **scritta in DEV prima dell'export**; il
+  pulsante che avvia il packaging è la conferma. Il manifest e lo storico DEVONO registrare
+  `versionChange: { from, to, changed }`, e la verifica dello zip DEVE controllare che `solution.xml`
+  porti la versione scelta in **entrambi** gli archivi
 - **FR-074**: I file dell'artifact set DEVONO avere nomi parlanti e non ambigui:
   `{UniqueName}_{Version}_managed_{SUFFISSO}.zip`, `{UniqueName}_{Version}_unmanaged_{SUFFISSO}.zip`
   e, se conservati, `source_managed.zip` / `source_unmanaged.zip`. La cartella dell'operazione DEVE
@@ -606,10 +636,10 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   È il caso che la conferma di sovrascrittura di questo stesso FR deve intercettare
 - **FR-075**: Prima di scrivere qualsiasi file il tool DEVE mostrare l'anteprima del patch: per ogni
   agent `nome nel package → nome nuovo`, il percorso esatto del file toccato, le opzioni attive
-  (bump di versione) e l'elenco di ciò che **non** viene toccato. Le modifiche DEVONO essere
+  (la versione che verrà scritta in DEV, FR-073c) e l'elenco di ciò che **non** viene toccato. Le modifiche DEVONO essere
   **raggruppate per agent** (un blocco per agent toccato, con le sue righe di nome e di publish on
-  import), seguite da un blocco per la solution (versione); gli agent esclusi sono nominati a parte,
-  senza blocco. I pannelli della revisione e dell'anteprima usano tutta la larghezza e stanno uno
+  import); la versione NON è un blocco di cambi del package ma una **nota** (`versione in DEV: da → a`),
+  perché non si patcha nel package; gli agent esclusi sono nominati a parte, senza blocco. I pannelli della revisione e dell'anteprima usano tutta la larghezza e stanno uno
   sotto l'altro, come nelle altre schermate
 - **FR-075a**: Durante la costruzione del package ogni fase (export managed, export unmanaged,
   lettura, patch e verifica) DEVE restare visibile abbastanza da essere letta: le fasi istantanee
@@ -687,8 +717,8 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   `prima → dopo`, opzioni attive, e per ogni file **nome, dimensione, numero di entry e hash
   SHA-256**. **Motivo**: due artefatti della stessa `<Version>` con suffissi diversi (uno per UAT,
   uno per PROD) non sono distinguibili dalla versione installata nel target; l'hash e il manifest
-  sono ciò che rende l'operazione tracciabile senza ricorrere a un bump di versione, che creerebbe
-  una deriva di versioni per ambiente
+  sono ciò che rende tracciabile l'operazione quando la stessa versione di DEV genera più artefatti
+  (uno per UAT, uno per PROD)
 - **FR-087**: Il tool DEVE etichettare in modo inequivocabile l'artefatto unmanaged — nel manifest,
   nell'esito e nella History — come **non destinato a UAT/PROD**: importarlo in un ambiente a valle
   creerebbe una solution unmanaged, cioè esattamente il problema che il processo elimina
@@ -736,8 +766,8 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   eccezioni sono registrate nelle opzioni del manifest e dello storico (`publishByAgent`, per
   `schemaName`)
 - **FR-023c**: Le impostazioni per agent sono **solo** l'inclusione (FR-076) e `publishOnImport`
-  (FR-090a). Il **suffisso** resta unico per l'environment di destinazione (FR-023) e il **bump di
-  versione** resta della solution, perché `<Version>` sta in `solution.xml`: un suffisso diverso
+  (FR-090a). Il **suffisso** resta unico per l'environment di destinazione (FR-023) e la **versione**
+  resta della solution (FR-073), non dell'agent: un suffisso diverso
   per agent produrrebbe di nuovo nomi misti nello stesso environment, il difetto che FR-023 corregge
 - **FR-091**: L'anteprima DEVE **sempre** mostrare l'inventario completo del package — per tipo, con
   conteggio e nomi dove disponibili — perché l'artefatto è la **solution intera** e all'import
@@ -864,7 +894,7 @@ Sostituiti dal processo di packaging; restano a verbale perché descrivono il pe
 - **Solution**: nome univoco, display name, publisher prefix e nome publisher, versione, data creazione, `ismanaged`, `isvisible`, conteggio agent, env variable suffisso
 - **Environment Variable** (`{prefix}_AgentDisplaySuffix`): valore suffisso per l'ambiente, String, parte della solution
 - **Solution Package**: l'archivio restituito da `ExportSolution`. Entità di lavoro centrale del tool. Parti rilevanti: `solution.xml` (`UniqueName`, `Version`, `Managed`, publisher e prefix), `bots/<schemaname>/bot.xml` (**`<name>` = display name, unico punto da patchare**), `bots/<schemaname>/configuration.json` (`publishOnImport`, canali), `environmentvariabledefinitions/<schema>/environmentvariabledefinition.xml` (`<defaultvalue>` per il suffisso canali). Vedi research §9 per l'anatomia verificata
-- **Patch Plan**: ciò che il tool si appresta a scrivere nel package, mostrato prima di scrivere: per ogni agent `file, nome prima, nome dopo`; opzioni attive (defaultvalue della env variable, bump di versione); elenco esplicito di ciò che resta intatto
+- **Patch Plan**: ciò che il tool si appresta a scrivere nel package, mostrato prima di scrivere: per ogni agent `file, nome prima, nome dopo`; opzioni attive (defaultvalue della env variable, versione da scrivere in DEV); elenco esplicito di ciò che resta intatto
 - **Packaging Record**: la voce di History di un packaging — data/ora, environment sorgente, solution, versione, tipo di export (managed/unmanaged), suffisso, agent patchati `prima → dopo`, percorso del package originale e di quello patchato, esito della verifica post-scrittura. Sostituisce l'entità *Backup*: non essendoci scritture su Dataverse non c'è nulla da annullare, l'artefatto di ripristino è il package originale
 - **Log Entry**: timestamp, utente, environment, solution, agent, campo, valore prima, valore dopo, esito
 

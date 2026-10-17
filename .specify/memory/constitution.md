@@ -1,11 +1,14 @@
 <!--
 SYNC IMPACT REPORT (remove before commit)
 ==========================================
-Version change: 1.1.1 → 1.2.0 (MINOR: new section Publishing & Community → Release Changelog;
+Version change: 1.2.0 → 1.3.0 (MINOR: new section Tool Standards → Testing Standard: test matrices,
+independent oracle, negative tests, mutation check, gates before commit and release)
+Earlier: 1.1.1 → 1.2.0 (MINOR: Publishing & Community → Release Changelog;
 every release needs a CHANGELOG.md entry before it is published)
 Earlier: 1.0.0 → 1.1.1 (1.1.0 added Principle VII; 1.1.1 clarified UI Layout Standards:
 no emoji for status icons)
-Added sections: Publishing & Community → Release Changelog,
+Added sections: Tool Standards → Testing Standard,
+                Publishing & Community → Release Changelog,
                 Core Principle VII (Enterprise UI & Navigation),
                 Tool Standards → UI Layout Standards,
                 Tool Standards → Navigation Standards,
@@ -183,6 +186,36 @@ Enterprise users also judge trustworthiness by interface quality before they jud
 - Microsoft Learn — Power Platform REST API copilotstudio namespace
 - Microsoft Learn — Copilot Studio admin API docs (quarantine, delete, reassign, evaluations)
 
+### Testing Standard
+
+Every decision a tool makes MUST be covered by a **test matrix**, not by examples. Passing tests
+prove nothing unless they would fail in front of a real defect.
+
+1. **Matrix, not examples.** A function or behavior with more than one input dimension MUST be
+   tested over every combination of its dimensions while the space stays up to about a million
+   cases; beyond that, over every *pair* of values of any two dimensions plus seeded random
+   samples. The exhaustive run MUST remain available (`npm run test:full`).
+2. **Independent oracle.** The expected result is written from the spec, with no code shared with
+   `src/`. A test that recomputes the answer with the code under test cannot fail.
+3. **Real code path.** Pipeline and UI tests run the production code and replace only the outside
+   world: Dataverse, the file system, the PPTB API. The UI is tested by loading the real page.
+4. **Negative tests.** Anything that verifies or validates MUST be tested against the inputs it
+   has to reject, not only against the ones it accepts.
+5. **Mutation check.** The suite MUST catch deliberately broken variants of the code
+   (`npm run test:mutation`). A surviving variant is a missing test and is fixed before the work
+   is declared done.
+6. **Test first for defects.** A defect found by hand is reproduced by a failing test before it is
+   fixed, and the same test stays.
+7. **No tenant data.** Fixtures are generated; real exports and artifact sets are never committed.
+8. **Gates.** `npm test` and `tsc` pass before every commit that touches code; `npm run test:full`
+   and `npm run test:mutation` pass before every release.
+9. **Say what is not covered.** What tests cannot see (pixels, the real behavior of Dataverse)
+   MUST be listed in the feature's quickstart as a manual check, with the result recorded.
+
+**Rationale:** the first line of defense against a silent error is a test that was designed to
+find it. Examples find the bugs we already thought of; matrices, oracles and mutations find the
+others.
+
 ## Publishing & Community
 
 ### Tool Validation Gate
@@ -247,4 +280,4 @@ before build begins. A tool that violates Principle I (gap-first) or Principle I
 The Roadmap Priority Order in the Publishing section is advisory, not binding — it may be
 reordered based on community feedback or discovery of higher-impact gaps.
 
-**Version**: 1.2.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-17
+**Version**: 1.3.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-18

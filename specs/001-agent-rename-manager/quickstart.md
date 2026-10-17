@@ -154,17 +154,22 @@ testAgentTool_1.0.0.2_UAT_<timestamp>/
 
 ---
 
-## Scenario V7 — Bump di versione, e nessuna scrittura sulla environment variable
+## Scenario V7 — La versione si alza in DEV, e nessuna scrittura sulla environment variable
 
-**Obiettivo**: l'unica opzione che tocca il package oltre al nome è il bump di versione; la
-environment variable non viene mai scritta.
+**Obiettivo**: la versione si alza **nella solution di DEV** prima dell'export (come fa il portale), e
+il package porta quella; la environment variable non viene mai scritta.
 
-1. Attivare **bump di versione** ed eseguire il packaging
+1. Lasciare attiva **Raise the version in DEV** (la proposta è `1.0.0.3`) ed eseguire il packaging
 
 **Atteso**:
-- ✅ `solution.xml` → `<Version>` incrementa l'ultimo segmento (`1.0.0.2` → `1.0.0.3`) (FR-073)
-- ✅ Il tool spiega la differenza tra *update* (stessa versione) e *upgrade* (versione superiore)
-- ✅ Con l'opzione disattivata, `<Version>` è invariata
+- ✅ In DEV la solution passa da `1.0.0.2` a `1.0.0.3` **prima** dell'export (FR-073, FR-067a)
+- ✅ `solution.xml` nel package → `<Version>1.0.0.3</Version>`: lo scrive DEV, il tool non lo patcha
+- ✅ La revisione dice che la versione verrà scritta in DEV; il manifest registra `versionChange`
+- ✅ Il tool spiega la differenza tra *update* (stessa versione) e *upgrade* (versione superiore), e che
+  solo l'Upgrade rimuove gli agent cancellati nell'origine
+- ✅ Con l'opzione disattivata non c'è alcuna scrittura e il package porta la versione che DEV ha già
+- ✅ Una versione non valida o non più alta di quella di DEV blocca il pulsante e dice perché
+- ✅ Tornare indietro e rifare il packaging NON alza la versione una seconda volta
 
 2. Qualunque sia l'opzione scelta, ispezionare
    `environmentvariabledefinitions/ava_AgentSuffix_testAgentTool/environmentvariabledefinition.xml`

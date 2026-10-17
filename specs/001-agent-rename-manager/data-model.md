@@ -32,7 +32,7 @@ Lo stato di un'operazione di packaging dall'inizio alla scrittura dei file.
 
 | Campo | Tipo | Default | Note |
 |---|---|---|---|
-| `bumpVersion` | boolean | `false` | Incrementa l'ultimo segmento di `<Version>` (FR-073) |
+| `newVersion` | string \| null | `null` | Versione a cui il tool porta la solution **in DEV** prima dell'export (FR-073, FR-067a); `null` = non si tocca. Non si scrive mai dentro lo zip. L'interfaccia la propone per default come ultimo segmento + 1 |
 | `publishOnImport` | `'keep' \| 'force-true' \| 'force-false'` | `'keep'` | Tre stati; `keep` non tocca il file (FR-090) |
 | `keepSourceArtifacts` | boolean | `true` | Conserva nell'artifact set i due export non patchati (FR-078, FR-088) |
 
@@ -239,7 +239,8 @@ Il contenuto serializzato della cartella. È l'unica fonte che permette di dire,
   "suffix": "UAT",
   "export": { "mode": "sync", "seconds": 13.4 },
   "notice": "Questo package e' stato modificato dal tool: un solo elemento, bots/<schema>/bot.xml <name>. Microsoft non supporta la modifica manuale dei file di una solution. source_managed.zip, non modificato, e' nella stessa cartella.",
-  "options": { "bumpVersion": false, "publishOnImport": "keep", "keepSourceArtifacts": true },
+  "options": { "newVersion": "1.0.0.3", "publishOnImport": "keep", "keepSourceArtifacts": true },
+  "versionChange": { "from": "1.0.0.2", "to": "1.0.0.3", "changed": true },
   "agents": [
     { "schemaName": "ava_agenteTool1", "before": "agenteTool1 [DEV]", "after": "agenteTool1 [UAT]" }
   ],
