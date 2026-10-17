@@ -938,7 +938,7 @@ function agentRowsHtml(): string {
                     <td><input type="checkbox" data-agent="${escapeHtml(a.id)}"
                         aria-label="Rename ${escapeHtml(a.name)}" ${on ? 'checked' : ''}></td>
                     <td class="cell-strong">${escapeHtml(a.name)}</td>
-                    <td class="${on ? 'cell-strong' : 'cell-muted'}">${on
+                    <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap">${on
                         ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '')
                         : 'left as it is'}</td>
                 </tr>`;
@@ -1172,7 +1172,7 @@ function renderReviewStep(): void {
                             <tr>
                                 <td class="cell-muted">${escapeHtml(r.agent.name)}
                                     <code>${escapeHtml(r.agent.schemaName)}</code></td>
-                                <td class="cell-strong">${escapeHtml(r.next)}</td>
+                                <td class="cell-strong cell-nowrap">${escapeHtml(r.next)}</td>
                                 <td class="col-num ${r.next.length > TEAMS_NAME_LIMIT ? 'kv-val--warn' : ''}">${r.next.length} / ${TEAMS_NAME_LIMIT}</td>
                             </tr>`).join('')}</tbody>
                     </table>

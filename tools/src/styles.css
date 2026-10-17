@@ -1800,6 +1800,10 @@ select option {
 /* Agent escluso dal rename (FR-076): resta com'e, quindi si attenua */
 .data-table tr.is-off td { opacity: 0.55; }
 
+/* Un nome finale non va a capo: se manca spazio si restringe la colonna dell'agent, non il nome.
+   Va dopo le regole sui `cell-strong`, di pari specificita', per vincere sul loro max-width. */
+.data-table td.cell-nowrap { white-space: nowrap; max-width: none; }
+
 /* Piede di un pannello: stessi margini laterali dell'intestazione, separato dal contenuto */
 .panel-foot {
     display: flex;
