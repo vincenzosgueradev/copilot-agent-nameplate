@@ -1,9 +1,12 @@
 <!--
 SYNC IMPACT REPORT (remove before commit)
 ==========================================
-Version change: 1.0.0 → 1.1.1 (1.1.0 added Principle VII; 1.1.1 clarified UI Layout Standards:
+Version change: 1.1.1 → 1.2.0 (MINOR: new section Publishing & Community → Release Changelog;
+every release needs a CHANGELOG.md entry before it is published)
+Earlier: 1.0.0 → 1.1.1 (1.1.0 added Principle VII; 1.1.1 clarified UI Layout Standards:
 no emoji for status icons)
-Added sections: Core Principle VII (Enterprise UI & Navigation),
+Added sections: Publishing & Community → Release Changelog,
+                Core Principle VII (Enterprise UI & Navigation),
                 Tool Standards → UI Layout Standards,
                 Tool Standards → Navigation Standards,
                 Tool Standards → Verified Metadata Values
@@ -193,6 +196,30 @@ Before publishing to the PPTB marketplace, each tool MUST pass:
 - Category tags: must include at least one of `Copilot Studio` related categories
 - MCP-enabled where the output is structured data (agent lists, topic maps, conflict reports)
 
+### Release Changelog
+
+Every release of a tool MUST be documented in a `CHANGELOG.md` at the repository root
+**before** it is published. The file follows *Keep a Changelog* and Semantic Versioning:
+
+1. One section per version, newest first, headed `## [x.y.z] - YYYY-MM-DD`. The entry for a
+   version MUST exist in the commit that precedes its `npm publish`, and its number MUST match
+   the version that publish produces.
+2. Changes are grouped under **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
+   A release that asks something of the user (migration, re-export, changed behavior of
+   saved data) MUST also carry an **Upgrade notes** section.
+3. Entries are written for the person who installs the tool, not for the developer: say what
+   changed *for them* and why it matters, not which function moved. A bug fix states the
+   symptom that was seen, not only the cause.
+4. A behavior change that contradicts what a previous version did MUST be listed under
+   **Changed** even when it is a fix, so the version bump can be understood from the file alone.
+5. The version of the newest changelog entry MUST equal the `version` in `tools/package.json`
+   at the time of publishing. (The `version` fields inside `pptb.config.json` are schema
+   versions of the invocation and agents contracts, not the tool's version.)
+
+**Rationale:** the author and the users of a tool must be able to tell, from one file, what
+each version brought and whether it is safe to upgrade. Commit messages record the work; the
+changelog records the release.
+
 ### Roadmap Priority Order
 1. **Agent Deep Inspector** — internal anatomy of a single agent (quick win, establishes
    data patterns for all other tools)
@@ -220,4 +247,4 @@ before build begins. A tool that violates Principle I (gap-first) or Principle I
 The Roadmap Priority Order in the Publishing section is advisory, not binding — it may be
 reordered based on community feedback or discovery of higher-impact gaps.
 
-**Version**: 1.1.1 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-15
+**Version**: 1.2.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-17
