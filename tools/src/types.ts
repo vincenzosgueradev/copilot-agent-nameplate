@@ -24,6 +24,15 @@ export interface Solution {
 }
 
 /** Un agent come compare nelle liste. Fonte autoritativa: la tabella `bot` (FR-024). */
+/** Che cosa è successo a un agent in un'operazione di rename. */
+export interface AgentOutcome {
+    schemaName: string;
+    before: string;
+    after: string;
+    /** Escluso dall'utente: resta com'era. Assente nei record storici precedenti. */
+    excluded?: boolean;
+}
+
 export interface AgentListItem {
     id: string;
     name: string;
@@ -285,7 +294,7 @@ export interface PackagingRecord {
     version: string;
     managed: boolean;
     suffix: string;
-    agents: { schemaName: string; before: string; after: string }[];
+    agents: AgentOutcome[];
     options: PackagingOptions;
     artifactSetPath: string;
     /** Copia ridotta del manifest, per cercare in History senza riaprire i file. */

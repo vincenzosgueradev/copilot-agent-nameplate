@@ -135,7 +135,6 @@ export function readPackage(bytes: Uint8Array): PackageContents {
     }));
 
     const fingerprint = computeFingerprint(files, text);
-    const first = agents[0]!;
     const nameOccurrences = agents.flatMap(a =>
         findNameOccurrences(files, text, a.name, a.baseName, a.file));
 
@@ -149,7 +148,7 @@ export function readPackage(bytes: Uint8Array): PackageContents {
         publisherPrefix: pubPick('CustomizationPrefix'),
         agents,
         suffixVariable,
-        inventory: buildInventory(files, first.schemaName),
+        inventory: buildInventory(files, agents.map(a => a.schemaName)),
         fingerprint,
         drift: detectDrift(fingerprint),
         nameOccurrences,
@@ -165,7 +164,7 @@ export function readPackage(bytes: Uint8Array): PackageContents {
  * cartella di primo livello; la classificazione fine e la conferma esplicita arrivano con
  * la Phase 8 (T060 → T063).
  */
-function buildInventory(files: Record<string, Uint8Array>, agentSchema: string) {
+function buildInventory(files: Record<string, Uint8Array>, agentSchemas: string[]) {
     const KIND: Record<string, string> = {
         'bots/': 'Agent',
         'botcomponents/': 'Agent component',
@@ -195,6 +194,7 @@ function buildInventory(files: Record<string, Uint8Array>, agentSchema: string) 
         count: names.length,
         names,
         relatedToSelectedAgent: path === 'bots/'
-            || (path === 'botcomponents/' && names.every(n => n.startsWith(`${agentSchema}.`))),
+            || (path === 'botcomponents/'
+                && names.every(n => agentSchemas.some(s => n.startsWith(`${s}.`)))),
     }));
 }

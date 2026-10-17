@@ -14,7 +14,8 @@ import { openFolder, saveJsonFile, saveTextFile, selectFolder } from './services
 import { addRecord, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
 import { runPackaging, type PackagingResult } from './services/packaging';
-import { buildName, bumpVersion } from './services/patch';
+import { agentOutcomes, buildName, bumpVersion } from './services/patch';
+import { splitSuffix } from './services/package';
 import { icon } from './icons';
 import {
     DEFAULT_OPTIONS,
@@ -62,7 +63,14 @@ const state = {
     confirmations: [] as { what: string; confirmedAt: string }[],
     // Agents
     agents: [] as AgentListItem[],           // ALL agents in the environment
-    activeAgent: null as AgentListItem | null,
+    /**
+     * Agent della solution aperta che l'utente ha escluso dal rename (FR-023, FR-076).
+     * Si tiene l'esclusione, non la selezione: il default e' "tutti", cosi' un agent nuovo
+     * comparso in DEV viene rinominato insieme agli altri invece di restare indietro.
+     */
+    excludedAgents: new Set<string>(),
+    /** Agent trovato dalla ricerca: evidenziato nella vista della sua solution (FR-023b). */
+    highlightAgentId: '',
 };
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -132,10 +140,6 @@ async function initConnection(): Promise<void> {
 function applyFetched(data: FetchedData): void {
     state.agents = data.agents;
     state.solutions = data.solutions;
-    if (state.activeAgent) {
-        const id = state.activeAgent.id;
-        state.activeAgent = state.agents.find(a => a.id === id) ?? state.activeAgent;
-    }
     if (state.activeSolution) {
         const id = state.activeSolution.solutionId;
         state.activeSolution = state.solutions.find(s => s.solutionId === id) ?? state.activeSolution;
@@ -516,13 +520,50 @@ function renderSolutionsTable(): void {
     container.querySelectorAll<HTMLElement>('.data-row').forEach(el => {
         el.addEventListener('click', () => selectSolution(el.dataset.solution!));
     });
-    // Jump straight to the agent when its chip is clicked, skipping the solution view
+    // A chip opens the solution that holds the agent: the rename is per solution (FR-023b)
     container.querySelectorAll<HTMLElement>('.match-chip').forEach(el => {
         el.addEventListener('click', ev => {
             ev.stopPropagation();
-            selectAgent(el.dataset.agent!);
+            const agent = state.agents.find(a => a.id === el.dataset.agent);
+            if (agent) selectSolution(agent.solution ? agent.solution.solutionId : '__none__', agent.id);
         });
     });
+}
+
+function sortedByName(agents: AgentListItem[]): AgentListItem[] {
+    return [...agents].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Tutti gli agent della solution aperta. */
+function solutionAgents(): AgentListItem[] {
+    return state.browsingSolutionId
+        ? sortedByName(agentsInSolution(state.browsingSolutionId)) : [];
+}
+
+/** Quelli che il rename tocca davvero: tutti meno gli esclusi. */
+function selectedAgents(): AgentListItem[] {
+    return solutionAgents().filter(a => !state.excludedAgents.has(a.id));
+}
+
+/**
+ * I suffissi distinti che gli agent della solution avranno dopo il rename, esclusi compresi.
+ * Piu' di uno significa nomi misti nello stesso environment (FR-023a). Un agent senza
+ * suffisso conta come "nessuno" (stringa vuota).
+ */
+function suffixesAfter(names: { name: string; selected: boolean }[], suffix: string): string[] {
+    const clean = suffix.trim();
+    const set = new Set(names.map(n =>
+        n.selected ? clean : (splitSuffix(n.name).currentSuffix ?? '')));
+    return [...set];
+}
+
+function mixedSuffixHtml(found: string[]): string {
+    const label = found.map(s => s ? `[${escapeHtml(s)}]` : 'no suffix').join(', ');
+    return `
+        <p class="hint hint--warn" style="margin-top:12px">
+            The agents of this solution would end up with <strong>different suffixes</strong>
+            (${label}) in the same environment. Check the agents you excluded.
+        </p>`;
 }
 
 function agentsInSolution(solutionId: string): AgentListItem[] {
@@ -533,10 +574,17 @@ function agentsInSolution(solutionId: string): AgentListItem[] {
     return state.agents.filter(a => a.solution?.solutionId === solutionId);
 }
 
-function selectSolution(solutionId: string): void {
+function selectSolution(solutionId: string, highlightAgentId = ''): void {
+    state.highlightAgentId = highlightAgentId;
     state.activeSolution = solutionId === '__none__'
         ? null
         : state.solutions.find(s => s.solutionId === solutionId) ?? null;
+    if (state.browsingSolutionId !== solutionId) {
+        // Un'altra solution: bozza, esclusioni e package gia' preparato non valgono piu'
+        state.excludedAgents.clear();
+        state.suffix = '';
+        state.packaging = null;
+    }
     state.browsingSolutionId = solutionId;
     navigateTo('solution');
 }
@@ -550,7 +598,7 @@ function renderSolutionDetail(keepScroll = false): void {
     const seq = ++solutionDetailSeq;
 
     const sol = state.activeSolution;
-    const agents = agentsInSolution(solId).sort((a, b) => a.name.localeCompare(b.name));
+    const agents = solutionAgents();
     const title = sol ? (sol.friendlyName || sol.uniqueName) : 'Agents without a solution';
     const dateCell = (iso: string, empty: string) => iso
         ? `<td class="cell-muted" title="${escapeHtml(formatAbsoluteDate(iso))}">${escapeHtml(formatRelativeDate(iso))}</td>`
@@ -593,21 +641,27 @@ function renderSolutionDetail(keepScroll = false): void {
                             <th>Last published</th>
                             <th>Modified</th>
                             <th>Created</th>
-                            <th class="col-action"></th>
                         </tr>
                     </thead>
                     <tbody>
                         ${agents.map(a => `
-                        <tr class="data-row" data-agent="${escapeHtml(a.id)}">
+                        <tr data-agent="${escapeHtml(a.id)}"${a.id === state.highlightAgentId ? ' class="is-highlight"' : ''}>
                             <td class="cell-strong" title="${escapeHtml(a.name)}"><span class="cell-icon">${icon('bot', 'icon--sm')}</span>${escapeHtml(a.name)}</td>
                             <td><span class="chip chip--${a.isActive ? 'success' : 'muted'}">${a.isActive ? 'Active' : 'Inactive'}</span></td>
                             ${dateCell(a.publishedOn, '<span class="cell-never">Never published</span>')}
                             ${dateCell(a.modifiedOn, '—')}
                             ${dateCell(a.createdOn, '—')}
-                            <td class="col-action"><span class="row-cta">Rename ${icon('arrow-right', 'icon--xs')}</span></td>
                         </tr>`).join('')}
                     </tbody>
-                </table>` : `
+                </table>
+                ${sol && sol.exportable ? `
+                <div class="step-footer">
+                    <span class="hint">The suffix applies to all ${agents.length}
+                        agent${agents.length === 1 ? '' : 's'} of the solution.
+                        You can exclude some in the next step.</span>
+                    <button class="btn btn--primary" id="rename-btn">
+                        Set the suffix ${icon('arrow-right', 'icon--sm')}</button>
+                </div>` : ''}` : `
                 <div class="empty-state">
                     <p>This solution contains no agents.</p>
                     <p class="empty-hint">Packaging starts from an agent: add one to this
@@ -616,9 +670,8 @@ function renderSolutionDetail(keepScroll = false): void {
             </div>
         </section>`;
 
-    container.querySelectorAll<HTMLElement>('.data-row').forEach(el => {
-        el.addEventListener('click', () => selectAgent(el.dataset.agent!));
-    });
+    container.querySelector('#rename-btn')?.addEventListener('click', startRename);
+    container.querySelector('.is-highlight')?.scrollIntoView({ block: 'nearest' });
     const table = container.querySelector<HTMLElement>('.panel-table');
     if (table) table.scrollTop = prevScroll;
     if (sol) void loadSuffixHint(sol, seq);
@@ -665,35 +718,27 @@ async function loadSuffixHint(sol: Solution, seq: number): Promise<void> {
 
 let solutionDetailSeq = 0;
 
-function selectAgent(agentId: string): void {
-    const agent = state.agents.find(a => a.id === agentId);
-    if (!agent) return;
-    if (agent.solution && !agent.solution.exportable) {
-        log(`"${agent.solution.friendlyName || agent.solution.uniqueName}" is managed: it cannot `
-            + `be exported, so it cannot be the source of a package. Work on the environment `
-            + `where it is unmanaged.`, 'warning');
+/** Il rename riguarda la solution aperta e tutti i suoi agent (FR-023). */
+function startRename(): void {
+    const sol = state.activeSolution;
+    const agents = solutionAgents();
+    if (!sol || !agents.length) return;
+    if (!sol.exportable) {
+        log(`"${sol.friendlyName || sol.uniqueName}" is managed: it cannot be exported, so it `
+            + `cannot be the source of a package. Work on the environment where it is `
+            + `unmanaged.`, 'warning');
         return;
     }
-    // Aprire un agent dalla lista azzera il lavoro precedente: il suffisso digitato
-    // sopravvive solo al passo indietro, che non passa di qui.
-    state.suffix = '';
-    state.packaging = null;
-    state.activeAgent = agent;
-    state.activeSolution = agent.solution;
-    // Keep the solution level populated even when the agent was picked straight from
-    // search, so the breadcrumb stays complete and stepping back lands on its solution.
-    state.browsingSolutionId = agent.solution ? agent.solution.solutionId : '__none__';
     navigateTo('suffix');
-    log(`Selected agent: ${agent.name}`);
+    log(`Rename in ${sol.friendlyName || sol.uniqueName}: ${agents.length} agent(s)`);
 }
 
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 interface Crumb { label: string; step: AppStep; }
 
 /**
- * The trail mirrors the real hierarchy. Note that the selected agent and the
- * "configure suffix" screen are the same node — picking an agent opens its suffix
- * form — so the agent's own crumb navigates back to that step.
+ * The trail mirrors the real hierarchy. The rename is per solution, so the step after
+ * the solution is the suffix form, not an agent.
  */
 function buildBreadcrumb(): Crumb[] {
     const trail: Crumb[] = [{ label: 'Solutions', step: 'welcome' }];
@@ -709,7 +754,7 @@ function buildBreadcrumb(): Crumb[] {
     }
     if (state.currentStep === 'solution') return trail;
 
-    if (state.activeAgent) trail.push({ label: state.activeAgent.name, step: 'suffix' });
+    trail.push({ label: 'Suffix', step: 'suffix' });
     if (state.currentStep === 'suffix') return trail;
 
     trail.push({ label: 'Review', step: 'review' });
@@ -877,10 +922,37 @@ function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): s
             : `${n} archives: <strong>${n} saves</strong>, one per file.`}</p>`;
 }
 
+/** Una riga per agent: spunta, nome attuale e nome che avra'. Si riscrive a ogni digitazione. */
+function agentRowsHtml(): string {
+    const agents = solutionAgents();
+    const names = agents.map(a => ({ name: a.name, selected: !state.excludedAgents.has(a.id) }));
+    const mixed = suffixesAfter(names, state.suffix);
+    return `
+        <table class="data-table">
+            <thead><tr><th></th><th>Agent</th><th>Name after the rename</th></tr></thead>
+            <tbody>${agents.map(a => {
+                const on = !state.excludedAgents.has(a.id);
+                const next = buildName(a.name, state.suffix);
+                return `
+                <tr${on ? '' : ' class="is-off"'}>
+                    <td><input type="checkbox" data-agent="${escapeHtml(a.id)}"
+                        aria-label="Rename ${escapeHtml(a.name)}" ${on ? 'checked' : ''}></td>
+                    <td class="cell-strong">${escapeHtml(a.name)}</td>
+                    <td class="${on ? 'cell-strong' : 'cell-muted'}">${on
+                        ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '')
+                        : 'left as it is'}</td>
+                </tr>`;
+            }).join('')}</tbody>
+        </table>
+        ${agents.every(a => state.excludedAgents.has(a.id))
+            ? '<p class="hint hint--warn" style="margin-top:12px">Select at least one agent.</p>' : ''}
+        ${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}`;
+}
+
 function renderSuffixStep(): void {
-    const agent = state.activeAgent;
     const sol = state.activeSolution;
-    if (!agent || !sol) { navigateTo('welcome'); return; }
+    const agents = solutionAgents();
+    if (!sol || !agents.length) { navigateTo('welcome'); return; }
     renderBreadcrumb();
 
     const draft = state.suffix;
@@ -919,6 +991,13 @@ function renderSuffixStep(): void {
                     </div>
                 </section>
 
+                <section class="panel">
+                    <div class="panel-head">
+                        <h3 class="panel-heading">${icon('bot', 'icon--head')}Agents</h3>
+                        <span class="panel-sub">all renamed with the same suffix; untick to leave one as it is</span>
+                    </div>
+                    <div class="panel-body" id="agent-list">${agentRowsHtml()}</div>
+                </section>
 
                 <section class="panel">
                     <div class="panel-head"><h3 class="panel-heading">${icon('sliders', 'icon--head')}Options</h3></div>
@@ -986,6 +1065,21 @@ function renderSuffixStep(): void {
         }
     };
 
+    const nextBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#next-btn')!;
+    const refreshAgents = () => {
+        const host = els.stepSuffix.querySelector('#agent-list');
+        if (host) host.innerHTML = agentRowsHtml();
+        nextBtn.disabled = selectedAgents().length === 0;
+    };
+    // Una sola delegation: le righe vengono riscritte a ogni cambio di suffisso
+    els.stepSuffix.querySelector('#agent-list')!.addEventListener('change', ev => {
+        const box = (ev.target as HTMLElement).closest<HTMLInputElement>('input[data-agent]');
+        if (!box) return;
+        if (box.checked) state.excludedAgents.delete(box.dataset.agent!);
+        else state.excludedAgents.add(box.dataset.agent!);
+        refreshAgents();
+    });
+
     const sync = () => {
         state.suffix = input.value;
         clearBtn.disabled = !input.value;
@@ -993,7 +1087,9 @@ function renderSuffixStep(): void {
             b.classList.toggle('is-active', b.dataset.preset === input.value);
         });
         refreshArtifacts();
+        refreshAgents();
     };
+    refreshAgents();
 
     input.addEventListener('input', sync);
     clearBtn.addEventListener('click', () => { input.value = ''; sync(); input.focus(); });
@@ -1032,14 +1128,17 @@ function renderSuffixStep(): void {
  * solo quello che si sa gia' dalla scelta dell'agent e dalle opzioni dello step precedente.
  */
 function renderReviewStep(): void {
-    const agent = state.activeAgent;
     const sol = state.activeSolution;
-    if (!agent || !sol) { navigateTo('welcome'); return; }
+    const chosen = selectedAgents();
+    if (!sol || !chosen.length) { navigateTo('welcome'); return; }
     renderBreadcrumb();
 
-    const nextName = buildName(agent.name, state.suffix);
-    const tooLong = nextName.length > TEAMS_NAME_LIMIT;
-    const unchanged = nextName === agent.name;
+    const rows = chosen.map(a => ({ agent: a, next: buildName(a.name, state.suffix) }));
+    const tooLong = rows.some(r => r.next.length > TEAMS_NAME_LIMIT);
+    const unchanged = rows.every(r => r.next === r.agent.name);
+    const mixed = suffixesAfter(
+        solutionAgents().map(a => ({ name: a.name, selected: !state.excludedAgents.has(a.id) })),
+        state.suffix);
     const publishLabel = {
         'keep': 'Leave as is',
         'force-true': 'Force yes',
@@ -1059,10 +1158,6 @@ function renderReviewStep(): void {
                     <span class="panel-sub">what you are about to change</span>
                 </div>
                 <div class="panel-body">
-                    <div class="kv"><span class="kv-key">Agent</span>
-                        <span class="kv-val kv-val--strong">${escapeHtml(agent.name)}</span></div>
-                    <div class="kv"><span class="kv-key">Schema name</span>
-                        <span class="kv-val"><code>${escapeHtml(agent.schemaName)}</code></span></div>
                     <div class="kv"><span class="kv-key">Solution</span>
                         <span class="kv-val">${escapeHtml(sol.friendlyName || sol.uniqueName)}
                         <span class="cell-muted">${escapeHtml(sol.version)}</span></span></div>
@@ -1070,13 +1165,27 @@ function renderReviewStep(): void {
                         <span class="kv-val">${state.suffix
                             ? `<strong>[${escapeHtml(state.suffix)}]</strong>`
                             : '<span class="cell-muted">none — removes the existing one</span>'}</span></div>
-                    <div class="kv"><span class="kv-key">Resulting name</span>
-                        <span class="kv-val kv-val--strong">${escapeHtml(nextName)}</span></div>
-                    <div class="kv"><span class="kv-key">Length</span>
-                        <span class="kv-val ${tooLong ? 'kv-val--warn' : ''}">${nextName.length} / ${TEAMS_NAME_LIMIT}</span></div>
+                    <table class="data-table" style="margin-top:12px">
+                        <thead><tr><th>Agent</th><th>Resulting name</th>
+                            <th class="col-num">Length</th></tr></thead>
+                        <tbody>${rows.map(r => `
+                            <tr>
+                                <td class="cell-muted">${escapeHtml(r.agent.name)}
+                                    <code>${escapeHtml(r.agent.schemaName)}</code></td>
+                                <td class="cell-strong">${escapeHtml(r.next)}</td>
+                                <td class="col-num ${r.next.length > TEAMS_NAME_LIMIT ? 'kv-val--warn' : ''}">${r.next.length} / ${TEAMS_NAME_LIMIT}</td>
+                            </tr>`).join('')}</tbody>
+                    </table>
+                    ${solutionAgents().length > chosen.length ? `
+                    <p class="hint" style="margin-top:12px">
+                        Left as they are: ${solutionAgents()
+                            .filter(a => state.excludedAgents.has(a.id))
+                            .map(a => `<strong>${escapeHtml(a.name)}</strong>`).join(', ')}.
+                    </p>` : ''}
+                    ${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}
                     ${unchanged ? `
                     <p class="hint hint--warn" style="margin-top:12px">
-                        The name does not change: the agent is already called that. The package
+                        No name changes: the agents are already called that. The package
                         is still produced, but no rename actually takes place.
                     </p>` : ''}
                     ${tooLong ? `
@@ -1135,9 +1244,9 @@ function renderReviewStep(): void {
 }
 
 function renderPreviewStep(): void {
-    const agent = state.activeAgent;
+    const chosen = selectedAgents().map(a => a.schemaName);
     const sol = state.activeSolution;
-    if (!agent || !sol) { navigateTo('welcome'); return; }
+    if (!sol || !chosen.length) { navigateTo('welcome'); return; }
     renderBreadcrumb();
 
     els.stepPreview.innerHTML = `
@@ -1158,18 +1267,18 @@ function renderPreviewStep(): void {
 
     // Tornare indietro e riavanzare non deve rifare l'export: sulla solution piu' pesante
     // dell'environment di riferimento la coppia costa 111 secondi (research.md §13).
-    const key = packagingKey(sol, agent);
+    const key = packagingKey(sol, chosen);
     if (state.packaging && state.packagingKey === key) {
         renderPreviewResult(state.packaging);
         return;
     }
     state.packaging = null;
-    void runPreview(sol, agent, ++previewSeq, key);
+    void runPreview(sol, chosen, ++previewSeq, key);
 }
 
 /** Tutto ciò che, cambiando, rende obsoleto il package già preparato. */
-function packagingKey(sol: Solution, agent: AgentListItem): string {
-    return JSON.stringify([sol.uniqueName, agent.schemaName, state.suffix, state.options]);
+function packagingKey(sol: Solution, schemaNames: string[]): string {
+    return JSON.stringify([sol.uniqueName, [...schemaNames].sort(), state.suffix, state.options]);
 }
 
 /** Le fasi del packaging, nell'ordine in cui il servizio le attraversa. */
@@ -1213,7 +1322,7 @@ function packProgressHtml(phase: number, msg: string, seconds: number): string {
 let previewSeq = 0;
 
 async function runPreview(
-    sol: Solution, agent: AgentListItem, seq: number, key: string,
+    sol: Solution, schemaNames: string[], seq: number, key: string,
 ): Promise<void> {
     const startedAt = Date.now();
     let lastText = 'starting the export…';
@@ -1235,7 +1344,7 @@ async function runPreview(
     };
     try {
         const result = await runPackaging(
-            sol.uniqueName, state.suffix, [agent.schemaName], state.options, setProgress)
+            sol.uniqueName, state.suffix, schemaNames, state.options, setProgress)
             .finally(() => window.clearInterval(ticker));
         if (seq !== previewSeq) return;     // l'utente è già andato altrove
 
@@ -1485,7 +1594,12 @@ function renderVerifyStep(): void {
 
     els.stepVerify.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('preview'));
     const saveBtn = els.stepVerify.querySelector('#save-btn');
-    if (saveBtn) saveBtn.addEventListener('click', () => void confirmThenSave(unexpected, extra));
+    // Suffissi che gli agent avranno DOPO la patch, esclusi compresi (FR-023a)
+    const mixed = suffixesAfter(pkg.agents.map(a => ({
+        name: a.name,
+        selected: r.plan.some(c => c.element === 'name' && c.file === a.file),
+    })), state.suffix);
+    if (saveBtn) saveBtn.addEventListener('click', () => void confirmThenSave(unexpected, extra, mixed));
 }
 /**
  * I due casi che richiedono un assenso esplicito prima di produrre un artefatto.
@@ -1497,7 +1611,28 @@ function renderVerifyStep(): void {
 async function confirmThenSave(
     unexpected: NameOccurrence[],
     extra: PackageComponent[],
+    mixed: string[],
 ): Promise<void> {
+    if (mixed.length > 1) {
+        const labels = mixed.map(s => s ? `[${s}]` : 'no suffix');
+        const ok = await askConfirm({
+            title: 'The agents would have different suffixes',
+            okLabel: 'Continue anyway',
+            danger: true,
+            bodyHtml: `
+                <p>After the rename the agents of this solution carry
+                <strong>${labels.map(escapeHtml).join(', ')}</strong>: different suffixes in the
+                same environment.</p>
+                <p class="hint">This usually means an agent was left out by mistake. Go back and
+                tick it, or continue if it is intended.</p>`,
+        });
+        if (!ok) { log('Save cancelled: mixed suffixes not confirmed.', 'warning'); return; }
+        state.confirmations.push({
+            what: `mixed suffixes after the rename: ${labels.join(', ')}`,
+            confirmedAt: new Date().toISOString(),
+        });
+    }
+
     if (unexpected.length) {
         const ok = await askConfirm({
             title: 'The name appears in unexpected places',
@@ -1596,11 +1731,7 @@ async function saveArtifactSet(): Promise<void> {
             version: pkg.version,
             managed: true,
             suffix: state.suffix,
-            agents: r.plan.filter(c => c.element === 'name').map(c => ({
-                schemaName: pkg.agents.find(a => a.file === c.file)?.schemaName ?? '',
-                before: c.before ?? '',
-                after: c.after,
-            })),
+            agents: agentOutcomes(pkg, r.plan),
             options: { ...state.options },
             artifactSetPath: written.set.folderPath,
             files: written.set.files.map(f => ({ fileName: f.fileName, role: f.role, sha256: f.sha256 })),
@@ -1805,8 +1936,10 @@ async function renderHistoryStep(): Promise<void> {
                     ${r.agents.map(a => `
                         <div class="rec-rename">
                             <span class="cell-muted">${escapeHtml(a.before)}</span>
-                            ${icon('arrow-right', 'icon--xs')}
-                            <strong>${escapeHtml(a.after)}</strong>
+                            ${a.excluded
+                                ? '<span class="cell-muted">left as it is</span>'
+                                : `${icon('arrow-right', 'icon--xs')}
+                            <strong>${escapeHtml(a.after)}</strong>`}
                         </div>`).join('')}
 
                     <div class="rec-path">
@@ -1942,7 +2075,8 @@ toolbox.events.on((_event: unknown, payload: { event: string }) => {
         log('Connection changed. Reloading...', 'info');
         state.agents = [];
         state.solutions = [];
-        state.activeAgent = null;
+        state.excludedAgents.clear();
+        state.highlightAgentId = '';
         state.activeSolution = null;
         state.browsingSolutionId = null;
         state.suffix = '';

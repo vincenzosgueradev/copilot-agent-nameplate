@@ -16,6 +16,7 @@
 
 import { ensureDirectory, pathExists, warnAboutDialogs, writeBinary, writeText } from './files';
 import { log } from './log';
+import { agentOutcomes } from './patch';
 import type { ArtifactFile, ArtifactSet, PackagingOptions } from '../types';
 import type { PackagingResult } from './packaging';
 
@@ -222,13 +223,7 @@ function buildManifest(
         suffix,
         export: { mode: result.exportMode, seconds: Number(result.exportSeconds.toFixed(1)) },
         options,
-        agents: result.plan
-            .filter(c => c.element === 'name')
-            .map(c => ({
-                schemaName: pkg.agents.find(a => a.file === c.file)?.schemaName ?? '',
-                before: c.before,
-                after: c.after,
-            })),
+        agents: agentOutcomes(pkg, result.plan),
         fingerprint: pkg.fingerprint,
         drift: pkg.drift,
         nameOccurrences: pkg.nameOccurrences,

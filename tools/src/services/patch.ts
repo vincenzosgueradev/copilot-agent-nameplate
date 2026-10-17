@@ -11,7 +11,7 @@
  * schemaname trasformerebbe l'upgrade in un agent nuovo lasciando il vecchio orfano.
  */
 
-import { TEAMS_NAME_LIMIT, type PackageContents, type PackagedAgent, type PackagingOptions, type PatchChange, type PatchState } from '../types';
+import { TEAMS_NAME_LIMIT, type PackageContents, type PackagedAgent, type AgentOutcome, type PackagingOptions, type PatchChange, type PatchState } from '../types';
 import { PackageFormatError, splitSuffix } from './package';
 
 const decoder = new TextDecoder('utf-8', { fatal: false });
@@ -106,6 +106,22 @@ export function buildPatchPlan(
     }
 
     return changes;
+}
+
+/**
+ * Esito del rename per **ogni** agent del package, esclusi compresi (FR-076).
+ * Unica fonte per manifest e storico: prima ciascuno ricostruiva la lista a modo suo.
+ */
+export function agentOutcomes(pkg: PackageContents, plan: PatchChange[]): AgentOutcome[] {
+    return pkg.agents.map(a => {
+        const change = plan.find(c => c.element === 'name' && c.file === a.file);
+        return {
+            schemaName: a.schemaName,
+            before: a.name,
+            after: change?.after ?? a.name,
+            excluded: !change,
+        };
+    });
 }
 
 /** Sostituisce il testo di un elemento, lasciando il resto del file intatto byte per byte. */

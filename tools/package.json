@@ -18,6 +18,7 @@
         "dev-watch": "vite build --mode development --watch",
         "preview": "vite preview",
         "smoke": "tsx scripts/smoke-package.mts",
+        "smoke:multi": "tsx scripts/smoke-multi-agent.mts",
         "finalize-package": "npm shrinkwrap",
         "validate": "pptb-validate",
         "version-stable": "npm version patch --no-git-tag-version",

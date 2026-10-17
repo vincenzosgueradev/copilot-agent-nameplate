@@ -1796,3 +1796,9 @@ select option {
 }
 
 .toggle-btn.is-active + .toggle-btn::before { display: none; }
+
+/* Agent escluso dal rename (FR-076): resta com'e, quindi si attenua */
+.data-table tr.is-off td { opacity: 0.55; }
+
+/* Agent aperto dalla ricerca (FR-023b) */
+.data-table tr.is-highlight td { background: var(--color-surface-hover, rgba(127,127,127,.14)); }

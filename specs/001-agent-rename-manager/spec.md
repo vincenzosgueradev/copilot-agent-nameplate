@@ -44,7 +44,7 @@ conflitto con gli upgrade successivi della solution.
 
 ### Session 2026-10-14 (navigazione e discovery)
 
-- Q: Lo scope del rename è la solution intera o il singolo agent? → A: **Il singolo agent.** L'utente seleziona una solution, vede gli agent contenuti, e clicca l'agent su cui vuole lavorare. Il rename agisce solo sull'agent selezionato. → FR-023.
+- Q: Lo scope del rename è la solution intera o il singolo agent? → A: **La solution intera** *(rivisto 2026-10-17; la risposta originale era "il singolo agent")*. Il suffisso è dell'environment di destinazione, quindi vale per tutti gli agent della solution, con spunta per escluderne qualcuno. Il singolo agent produceva nomi misti nello stesso environment. → FR-023, FR-023a, FR-076.
 - Q: Da quale tabella si scopre la lista degli agent? → A: **Dalla tabella `bot`**, che è la fonte autoritativa. Partire da `solutioncomponent` nasconde gli agent non presenti in una solution visibile. → FR-024.
 - Correzione tecnica: il valore `componenttype` per Bot **non esiste** nell'enum documentato; `380` è **Environment Variable Definition** (non Chatbot, come affermava erroneamente `research.md`). Filtrare su un valore indovinato restituisce zero righe silenziosamente. → FR-025.
 - UX: La tabella solution DEVE mostrare solo le solution **unmanaged** che **contengono almeno un agent** — è un tool per agent, le solution vuote e managed sono rumore. → FR-026.
@@ -498,7 +498,9 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
 - **FR-019**: Il tool DEVE validare che nome base + suffisso non superi 30 caratteri (limite manifest Teams) e avvisare preventivamente nella preview
 - **FR-020**: Il tool DEVE supportare multi-connection PPTB per operare su environment diversi in parallelo
 - **FR-022**: Il campo input del suffisso DEVE avere un pulsante "Clear" per azzerare il valore. Il pulsante DEVE essere disabilitato quando il campo è vuoto e riabilitarsi non appena l'utente digita
-- **FR-023**: Lo scope di un'operazione di rename DEVE essere il **singolo agent selezionato**, non l'intera solution. Il flusso è: tabella solution → dettaglio solution con lista agent → selezione agent → suffisso → preview → apply
+- **FR-023**: Lo scope di un'operazione di rename DEVE essere la **solution**, e quindi **tutti gli agent che contiene**. Il suffisso è una proprietà dell'**environment di destinazione**, non del singolo agent: un solo suffisso si applica a tutti. Il flusso è: tabella solution → dettaglio solution → suffisso → preview (una riga per agent) → apply. Ogni agent ha una spunta, **attiva di default**, per escluderlo esplicitamente (FR-076); gli esclusi restano byte-identici. *(Sostituisce la versione del 2026-10-14, "singolo agent selezionato": con due agent nella stessa solution il package usciva con `agente2 [UAT]` e `agente1 [DEV]`, cioè nomi misti nello stesso environment.)*
+- **FR-023a**: Dopo il patch, se gli agent della solution hanno **suffissi diversi tra loro** (compresi gli agent esclusi), l'anteprima DEVE mostrare un avviso bloccante e richiedere una conferma esplicita per procedere. Il caso tipico è un agent escluso rimasto con `[DEV]` accanto ad altri con `[UAT]`
+- **FR-023b**: Aprire un agent dai risultati di ricerca DEVE portare alla vista della sua solution con quell'agent evidenziato, non a un flusso per il solo agent
 - **FR-024**: Il tool DEVE ricavare la lista degli agent dalla tabella `bot` (fonte autoritativa), MAI partendo da `solutioncomponent`. L'appartenenza a una solution è un metadato arricchito a parte: un fallimento nella risoluzione della solution NON DEVE mai nascondere un agent dalla lista
 - **FR-025**: Il tool NON DEVE filtrare `solutioncomponent` per un `componenttype` **supposto**. La membership DEVE essere risolta filtrando per `objectid` sugli id dei bot già noti, oppure leggendo la colonna documentata `bot.solutionid`. *(Aggiornamento 2026-10-15: i valori reali sono ora misurati — 10212 = Agent, 10213 = Agent component — vedi FR-092. La cautela resta: misurato ≠ documentato.)*
 - **FR-026**: La tabella solution DEVE mostrare solo solution **visibili** (`isvisible`), **non di sistema** (Default/Active/Basic e qualsiasi "Default Solution") e che **contengono almeno un agent**, filtrate per tipo secondo FR-061. *(Versione originale: solo unmanaged. In UAT e PROD le solution sono managed, quindi quel filtro fisso mostrava "No solutions found" pur avendo trovato gli agent.)*
@@ -509,7 +511,7 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
 - **FR-030**: Qualsiasi testo proveniente da Dataverse (nomi solution, nomi agent, publisher) DEVE essere sottoposto a escape HTML prima del rendering, inclusa l'evidenziazione dei risultati di ricerca
 - **FR-031**: L'interfaccia DEVE occupare l'intera larghezza disponibile del contenitore PPTB. Sono vietati wrapper a larghezza fissa che lasciano spazio morto (rif. Constitution, Principio VII)
 - **FR-032**: Il layout DEVE essere responsive e degradare senza scroll orizzontale di pagina: sotto 1100px si riduce il pannello log, sotto 900px l'header si impila e le colonne secondarie (Version, Publisher) vengono nascoste, sotto 720px il pannello log viene nascosto e la colonna Name omessa
-- **FR-033**: Il tool DEVE esporre un breadcrumb che riflette il percorso completo `Solutions › {Solution} › {Agent} › Preview › Apply`. Ogni segmento tranne l'ultimo DEVE essere cliccabile e navigare esattamente a quel livello, permettendo di tornare indietro di un solo passo senza riportare alla root
+- **FR-033**: Il tool DEVE esporre un breadcrumb che riflette il percorso completo `Solutions › {Solution} › Suffix › Preview › Apply`. Ogni segmento tranne l'ultimo DEVE essere cliccabile e navigare esattamente a quel livello, permettendo di tornare indietro di un solo passo senza riportare alla root
 - **FR-034**: Il breadcrumb DEVE restare completo anche quando l'agent è selezionato direttamente dai risultati di ricerca: il livello solution viene popolato dalla solution dell'agent, così il passo indietro atterra su di essa
 - **FR-035**: Il breadcrumb è l'affordance primaria di ritorno; i pulsanti "torna alla root" dedicati sono stati rimossi in quanto ridondanti
 - **FR-036**: Tutte le intestazioni della tabella solution DEVONO essere cliccabili per ordinare, con indicatore di direzione (▲/▼) sulla colonna attiva. Il click sulla stessa colonna inverte la direzione; il click su una colonna diversa applica un default sensato (decrescente per Agents/Created/Version, crescente per i campi testuali). Ordinamento iniziale: Agents decrescente
@@ -520,7 +522,7 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
 - **FR-041**: L'anteprima DEVE aggiornarsi a ogni tasto premuto, senza interrogare Dataverse, mostrando: nome attuale, nome base (solo se diverso, cioè quando un suffisso corrente è stato rimosso), nome nuovo con il suffisso evidenziato, stato della modifica (`No change` / `Suffix added` / `Suffix changed` / `Suffix removed`) e un indicatore di lunghezza rispetto al limite di 30 caratteri. Oltre il limite compare un warning **non bloccante** (FR-019)
 - **FR-042**: Il pannello form DEVE indicare per quale environment si sta impostando il suffisso (es. "Suffix for DEV"), poiché ogni environment mantiene un valore proprio, e DEVE evidenziare il valore predefinito attivo quando coincide con il testo digitato
 - **FR-043**: Lo step suffisso NON DEVE eseguire scritture. Prima di proseguire DEVE però elencare in linguaggio semplice le due scritture che l'apply eseguirà: (1) variabile d'ambiente — da creare / da aggiornare con `vecchio → nuovo` / già corretta, con nome schema e solution di appartenenza; (2) nome dell'agent — `attuale → nuovo` oppure "nessuna modifica". L'elenco riflette solo ciò che l'apply scrive davvero (`bot.name` e la variabile)
-- **FR-044**: Il pulsante Back DEVE salire di un solo livello (Suffix → dettaglio Solution, Preview → Suffix). Il suffisso digitato DEVE essere conservato se l'utente torna indietro e riapre lo step per lo stesso agent; cambiando agent la bozza viene azzerata
+- **FR-044**: Il pulsante Back DEVE salire di un solo livello (Suffix → dettaglio Solution, Preview → Suffix). Il suffisso digitato DEVE essere conservato se l'utente torna indietro e riapre lo step per la stessa solution; cambiando solution la bozza viene azzerata
 - **FR-045**: La ricerca della variabile d'ambiente DEVE ignorare le risposte arrivate dopo che l'utente è passato a un altro agent (nessuna sovrascrittura dello stato con dati di un agent precedente) e, in caso di errore, mostrare il messaggio con un pulsante Retry
 - **FR-046**: I tre step del flusso (Suffix, Preview, Apply) DEVONO mostrare un indicatore di avanzamento a tre passi con il passo corrente evidenziato e quelli precedenti marcati come completati
 - **FR-047**: Entrando in una lista (tabella solution o dettaglio solution) il tool DEVE rileggere i dati da Dataverse. La vista viene disegnata subito dalla cache e aggiornata sul posto all'arrivo dei dati, con un indicatore "Updating…" visibile solo durante la lettura. Il re-render NON DEVE toccare i form (nessuna perdita di ciò che l'utente sta digitando) e DEVE preservare lo scroll della tabella
@@ -598,8 +600,9 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
 - **FR-075**: Prima di scrivere qualsiasi file il tool DEVE mostrare l'anteprima del patch: per ogni
   agent `nome nel package → nome nuovo`, il percorso esatto del file toccato, le opzioni attive
   (bump di versione) e l'elenco di ciò che **non** viene toccato
-- **FR-076**: Un package può contenere più agent: il tool DEVE elencarli tutti e permettere di
-  selezionare quali rinominare. Gli agent non selezionati DEVONO restare byte-identici
+- **FR-076**: Un package può contenere più agent: il tool DEVE elencarli tutti, **tutti selezionati
+  di default**, e permettere di escludere quali non rinominare. Gli agent esclusi DEVONO restare
+  byte-identici. Il manifest DEVE registrare per **ogni** agent nome prima e dopo, e se è stato escluso
 - **FR-077**: Dopo la scrittura il tool DEVE riaprire lo zip e verificare: integrità dell'archivio,
   numero di entry uguale all'originale e valore di `<name>` per ogni agent patchato. Lo zip DEVE
   essere dichiarato pronto solo se la verifica passa. **Nota implementativa**: ricostruendo
@@ -707,7 +710,7 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
 - **FR-091**: L'anteprima DEVE **sempre** mostrare l'inventario completo del package — per tipo, con
   conteggio e nomi dove disponibili — perché l'artefatto è la **solution intera** e all'import
   viaggia tutto, non solo l'agent. Quando il package contiene componenti diversi dall'agent
-  selezionato e dai suoi agent component (cloud flow, tabelle, connection reference, security role,
+  agent della solution e dai loro agent component (cloud flow, tabelle, connection reference, security role,
   canvas app…), il tool DEVE richiedere una **conferma esplicita** prima di produrre l'artefatto,
   elencando che cosa partirà. **Motivo**: Microsoft avverte che componenti non modificati inclusi in
   un update creano layer sopra quelli esistenti e possono disattivarne le customization; il tool non
