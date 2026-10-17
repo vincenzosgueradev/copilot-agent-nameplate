@@ -1850,6 +1850,14 @@ select option {
 .change-head .chip { margin-left: auto; }
 .cell-sub { margin-top: 2px; font-size: var(--fs-xs); font-weight: 400; color: var(--color-text-muted); }
 
+/* Campo della nuova versione, sotto la riga dell'opzione */
+.opt-main { flex: 1; min-width: 0; }
+.version-field { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-3); }
+.version-field[hidden] { display: none; }
+.version-field .hint { margin: 0; }
+.version-field .text-input { flex: 0 1 180px; }
+.note-version { margin: 0 0 var(--sp-4); font-size: var(--fs-sm); color: var(--color-text-muted); }
+
 /* Piede di un pannello: stessi margini laterali dell'intestazione, separato dal contenuto */
 .panel-foot {
     display: flex;
@@ -1863,3 +1871,22 @@ select option {
 
 /* Agent aperto dalla ricerca (FR-023b) */
 .data-table tr.is-highlight td { background: var(--color-surface-hover, rgba(127,127,127,.14)); }
+
+/* ── Icona e descrizione dell'agent (spec 008) ──
+   Dimensioni fisse: le righe non cambiano altezza quando i dati arrivano. */
+.agent-cell { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.agent-text { display: flex; flex-direction: column; min-width: 0; }
+.agent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-desc {
+    min-height: 1.3em; line-height: 1.3; font-size: var(--fs-sm); font-weight: 400;
+    color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.agent-desc--none { font-style: italic; opacity: 0.7; }
+.agent-icon {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    color: var(--color-text-muted); vertical-align: middle;
+}
+.agent-icon img { display: block; border-radius: 4px; object-fit: cover; }
+.agent-icon--24 { width: 24px; height: 24px; }
+.agent-icon--20 { width: 20px; height: 20px; margin-right: var(--sp-2); }
+.agent-icon--16 { width: 16px; height: 16px; margin-right: var(--sp-1); }

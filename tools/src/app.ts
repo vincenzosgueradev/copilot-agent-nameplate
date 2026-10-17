@@ -13,14 +13,17 @@ import { describeError } from './services/dataverse';
 import { openFolder, saveJsonFile, saveTextFile, selectFolder } from './services/files';
 import { addRecord, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
+import { loadAgentCards } from './services/agentCards';
 import { runPackaging, type PackagingResult } from './services/packaging';
-import { agentOutcomes, buildName, bumpVersion, publishModeFor } from './services/patch';
+import { agentOutcomes, buildName, publishModeFor } from './services/patch';
+import { nextVersion, versionProblem } from './services/solutionVersion';
 import { splitSuffix } from './services/package';
 import { icon, type IconName } from './icons';
 import {
     DEFAULT_OPTIONS,
     SUFFIX_MAX,
     TEAMS_NAME_LIMIT,
+    type AgentCard,
     type AgentListItem,
     type ArtifactSet,
     type NameOccurrence,
@@ -55,6 +58,17 @@ const state = {
     /** Suffisso scelto, senza parentesi quadre. Vuoto = rimuove il suffisso esistente. */
     suffix: '',
     options: { ...DEFAULT_OPTIONS } as PackagingOptions,
+    /**
+     * Versione della solution in DEV all'inizio dell'operazione. Resta fissa per tutta l'operazione:
+     * dopo un export DEV e' gia' piu' alta, e senza questo la proposta scivolerebbe al numero dopo
+     * a ogni giro indietro-avanti (FR-073b).
+     */
+    versionFrom: '',
+    /** Alzare la versione in DEV prima dell'export: per default si', come nel pannello di export del portale. */
+    raiseVersion: true,
+    /** Quello che l'utente ha scritto nel campo; conta solo se `versionTouched`. */
+    versionInput: '',
+    versionTouched: false,
     /** Esito dell'ultimo packaging preparato, tenuto in memoria finché non viene salvato. */
     packaging: null as PackagingResult | null,
     /** Da cosa è stato generato: se non cambia, non si riesporta (l'export costa 13-110 s). */
@@ -71,6 +85,8 @@ const state = {
      * comparso in DEV viene rinominato insieme agli altri invece di restare indietro.
      */
     excludedAgents: new Set<string>(),
+    /** Icona e descrizione gia' lette, per agent (spec 008): solo da mostrare, mai nel package. */
+    cards: new Map<string, AgentCard>(),
     /** Agent trovato dalla ricerca: evidenziato nella vista della sua solution (FR-023b). */
     highlightAgentId: '',
 };
@@ -458,7 +474,7 @@ function renderSolutionsTable(): void {
                 <div class="match-list">
                     ${agents.map(a => `
                     <span class="match-chip" data-agent="${escapeHtml(a.id)}">
-                        ${icon('bot', 'icon--sm')} ${highlight(a.name, q)}
+                        ${agentIconHtml(a.id, 16)} ${highlight(a.name, q)}
                     </span>`).join('')}
                 </div>
             </td>
@@ -585,6 +601,7 @@ function selectSolution(solutionId: string, highlightAgentId = ''): void {
         // Un'altra solution: bozza, esclusioni e package gia' preparato non valgono piu'
         state.excludedAgents.clear();
         state.options.publishByAgent = {};
+        resetVersionPlan();
         state.suffix = '';
         state.packaging = null;
     }
@@ -649,7 +666,7 @@ function renderSolutionDetail(keepScroll = false): void {
                     <tbody>
                         ${agents.map(a => `
                         <tr data-agent="${escapeHtml(a.id)}"${a.id === state.highlightAgentId ? ' class="is-highlight"' : ''}>
-                            <td class="cell-strong" title="${escapeHtml(a.name)}"><span class="cell-icon">${icon('bot', 'icon--sm')}</span>${escapeHtml(a.name)}</td>
+                            <td class="cell-strong" title="${escapeHtml(a.name)}">${agentCellHtml(a)}</td>
                             <td><span class="chip chip--${a.isActive ? 'success' : 'muted'}">${a.isActive ? 'Active' : 'Inactive'}</span></td>
                             ${dateCell(a.publishedOn, '<span class="cell-never">Never published</span>')}
                             ${dateCell(a.modifiedOn, '—')}
@@ -678,6 +695,7 @@ function renderSolutionDetail(keepScroll = false): void {
     const table = container.querySelector<HTMLElement>('.panel-table');
     if (table) table.scrollTop = prevScroll;
     if (sol) void loadSuffixHint(sol, seq);
+    void loadCards(agents, seq);
 }
 
 /**
@@ -722,6 +740,26 @@ async function loadSuffixHint(sol: Solution, seq: number): Promise<void> {
 let solutionDetailSeq = 0;
 
 /** Il rename riguarda la solution aperta e tutti i suoi agent (FR-023). */
+/** Il numero proposto: l'ultimo segmento della versione di partenza, +1. */
+const proposedVersion = (): string => nextVersion(state.versionFrom);
+/** La versione scelta: quella digitata, o la proposta se non si e' toccato nulla. */
+const chosenVersion = (): string => (state.versionTouched ? state.versionInput : proposedVersion());
+/** Perche' la versione scelta non va bene, o `null`. Senza l'opzione attiva non c'e' nulla da controllare. */
+const versionIssue = (): string | null =>
+    state.raiseVersion ? versionProblem(chosenVersion(), state.versionFrom) : null;
+/** Porta la scelta nelle opzioni di packaging: `null` se non si alza o se non e' valida. */
+function syncVersionOption(): void {
+    state.options.newVersion = state.raiseVersion && !versionIssue() ? chosenVersion().trim() : null;
+}
+/** Un'altra solution (o un'altra connessione): la versione si ricalcola da capo. */
+function resetVersionPlan(): void {
+    state.versionFrom = '';
+    state.raiseVersion = true;
+    state.versionInput = '';
+    state.versionTouched = false;
+    state.options.newVersion = null;
+}
+
 function startRename(): void {
     const sol = state.activeSolution;
     const agents = solutionAgents();
@@ -732,6 +770,10 @@ function startRename(): void {
             + `unmanaged.`, 'warning');
         return;
     }
+    // La versione parte da quella che DEV ha ora, a meno che ci sia gia' un lavoro in corso:
+    // un package preparato o un numero digitato a mano non si buttano tornando alla solution.
+    if (!state.versionFrom || (!state.packaging && !state.versionTouched)) state.versionFrom = sol.version;
+    syncVersionOption();
     navigateTo('suffix');
     log(`Rename in ${sol.friendlyName || sol.uniqueName}: ${agents.length} agent(s)`);
 }
@@ -897,19 +939,28 @@ function channelChip(id: string): string {
  * **Upgrade**, che li rimuove. E' la conseguenza che sorprende (Microsoft: "You can't delete
  * components with an update"), quindi la si dice insieme ai due numeri.
  */
-function versionHintHtml(current: string, bump: boolean): string {
-    if (!bump) {
-        return `<code>${escapeHtml(current)}</code> stays as it is — the target can only take it as an
-            <strong>Update</strong>, which never removes components: agents you deleted in the source
-            would stay there.`;
+/** Il testo giusto adesso: quello della versione scelta, o l'invito a correggerla se non e' valida. */
+function versionHintNow(): string {
+    if (state.raiseVersion && versionIssue()) return 'Choose a valid new version below to continue.';
+    return versionHintHtml(state.versionFrom, state.options.newVersion);
+}
+
+function versionHintHtml(from: string, to: string | null): string {
+    if (!to) {
+        return `<code>${escapeHtml(from)}</code> stays as it is in DEV and in the package — the target can
+            only take it as an <strong>Update</strong>, which never removes components: agents you
+            deleted in the source would stay there.`;
     }
-    return `<code>${escapeHtml(current)}</code> → <code>${escapeHtml(bumpVersion(current))}</code>
-        — import it as an <strong>Upgrade</strong> (the default) so agents you deleted in the source
-        are removed too. <em>Update</em> and <em>Stage for upgrade</em> keep them.`;
+    return `<code>${escapeHtml(from)}</code> → <code>${escapeHtml(to)}</code>
+        — written to the solution <strong>in DEV before the export</strong>, so DEV and the package
+        carry the same version and the next export continues from it. Import it as an
+        <strong>Upgrade</strong> (the default) so agents you deleted in the source are removed too.
+        <em>Update</em> and <em>Stage for upgrade</em> keep them.`;
 }
 
 function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): string {
-    const base = `${sol.uniqueName}_${sol.version.replace(/\./g, '_')}`;
+    // Il file porta la versione che avra' il package: quella nuova se si alza, altrimenti quella di DEV
+    const base = `${sol.uniqueName}_${(state.options.newVersion ?? state.versionFrom ?? sol.version).replace(/\./g, '_')}`;
     const tag = suffix.trim() || 'nosuffix';
     const rows: Array<[boolean, string, string]> = [
         [true, `${base}_managed_${tag}.zip`,
@@ -979,6 +1030,49 @@ function bulkToggleHtml(): string {
 }
 
 /** Una riga per agent: spunta, nome attuale e nome che avra'. Si riscrive a ogni digitazione. */
+/** L'icona dell'agent: quella letta se valida, altrimenti la generica. Il `src` e' costruito qui da un valore gia' validato (FR-003). */
+function agentIconHtml(id: string, size: 16 | 20 | 24 = 24): string {
+    const uri = state.cards.get(id)?.iconDataUri;
+    const inner = uri
+        ? `<img src="${uri}" alt="" width="${size}" height="${size}">`
+        : icon('bot', 'icon--sm');
+    return `<span class="agent-icon agent-icon--${size}" data-card-icon="${escapeHtml(id)}">${inner}</span>`;
+}
+
+/** Nome con icona e descrizione sotto: la cella dell'agent nelle liste (spec 008). */
+function agentCellHtml(a: AgentListItem): string {
+    const card = state.cards.get(a.id);
+    const text = card ? (card.description ?? 'No description') : '';
+    const cls = card && !card.description ? ' agent-desc--none' : '';
+    return `<div class="agent-cell">${agentIconHtml(a.id)}
+        <span class="agent-text"><span class="agent-name">${escapeHtml(a.name)}</span>
+        <span class="agent-desc${cls}" data-card-desc="${escapeHtml(a.id)}" title="${escapeHtml(card?.description ?? '')}">${escapeHtml(text)}</span></span></div>`;
+}
+
+/** Riempie sul posto icone e descrizioni: le righe hanno altezza fissa, quindi non si spostano. */
+function paintCards(): void {
+    document.querySelectorAll<HTMLElement>('[data-card-icon]').forEach(el => {
+        const size = el.classList.contains('agent-icon--16') ? 16 : el.classList.contains('agent-icon--20') ? 20 : 24;
+        el.outerHTML = agentIconHtml(el.dataset.cardIcon ?? '', size);
+    });
+    document.querySelectorAll<HTMLElement>('[data-card-desc]').forEach(el => {
+        const card = state.cards.get(el.dataset.cardDesc ?? '');
+        if (!card) return;
+        el.textContent = card.description ?? 'No description';
+        el.title = card.description ?? '';
+        el.classList.toggle('agent-desc--none', !card.description);
+    });
+}
+
+/** Legge icone e descrizioni degli agent della solution aperta, dopo che la lista e' gia' disegnata. */
+async function loadCards(agents: AgentListItem[], seq: number): Promise<void> {
+    if (!agents.length) return;
+    const cards = await loadAgentCards(agents);
+    if (seq !== solutionDetailSeq) return;   // l'utente e' gia' passato ad altro
+    cards.forEach((card, id) => state.cards.set(id, card));
+    paintCards();
+}
+
 function agentRowsHtml(): string {
     const agents = solutionAgents();
     const names = agents.map(a => ({ name: a.name, selected: !state.excludedAgents.has(a.id) }));
@@ -994,7 +1088,7 @@ function agentRowsHtml(): string {
                 <tr${on ? '' : ' class="is-off"'}>
                     <td><input type="checkbox" data-agent="${escapeHtml(a.id)}"
                         aria-label="Rename ${escapeHtml(a.name)}" ${on ? 'checked' : ''}></td>
-                    <td class="cell-strong" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</td>
+                    <td class="cell-strong" title="${escapeHtml(a.name)}">${agentCellHtml(a)}</td>
                     <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap" title="${escapeHtml(next)}">${on
                         ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '')
                         : 'left as it is'}</td>
@@ -1072,13 +1166,19 @@ function renderSuffixStep(): void {
                     <div class="panel-body" style="padding:0">
 
                         <div class="opt-row" style="padding:12px 16px">
-                            <div>
-                                <div class="opt-label">Bump the version</div>
-                                <div class="hint" id="version-hint">${versionHintHtml(sol.version, state.options.bumpVersion)}</div>
+                            <div class="opt-main">
+                                <div class="opt-label">Raise the version in DEV</div>
+                                <div class="hint" id="version-hint">${versionHintNow()}</div>
+                                <div class="version-field" id="version-field"${state.raiseVersion ? '' : ' hidden'}>
+                                    <label class="hint" for="version-input">New version</label>
+                                    <input id="version-input" class="text-input" type="text" autocomplete="off"
+                                        spellcheck="false" value="${escapeHtml(chosenVersion())}">
+                                    <span class="hint hint--warn" id="version-issue">${escapeHtml(versionIssue() ?? '')}</span>
+                                </div>
                             </div>
-                            <label class="switch" for="opt-bump">
-                                <input class="switch-input" type="checkbox" id="opt-bump"
-                                    ${state.options.bumpVersion ? 'checked' : ''}>
+                            <label class="switch" for="opt-version">
+                                <input class="switch-input" type="checkbox" id="opt-version"
+                                    ${state.raiseVersion ? 'checked' : ''}>
                                 <span class="switch-track"><span class="switch-thumb"></span></span>
                             </label>
                         </div>
@@ -1122,10 +1222,11 @@ function renderSuffixStep(): void {
     };
 
     const nextBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#next-btn')!;
+    const refreshNext = () => { nextBtn.disabled = selectedAgents().length === 0 || versionIssue() !== null; };
     const refreshAgents = () => {
         const host = els.stepSuffix.querySelector('#agent-list');
         if (host) host.innerHTML = agentRowsHtml();
-        nextBtn.disabled = selectedAgents().length === 0;
+        refreshNext();
     };
     els.stepSuffix.querySelector('#agent-list')!.addEventListener('click', ev => {
         const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.toggle-btn');
@@ -1164,10 +1265,24 @@ function renderSuffixStep(): void {
     document.querySelectorAll<HTMLElement>('.chip-btn').forEach(b => {
         b.addEventListener('click', () => { input.value = b.dataset.preset!; sync(); });
     });
-    (document.getElementById('opt-bump') as HTMLInputElement).addEventListener('change', ev => {
-        state.options.bumpVersion = (ev.target as HTMLInputElement).checked;
+    const refreshVersion = () => {
+        syncVersionOption();
         const hint = els.stepSuffix.querySelector('#version-hint');
-        if (hint) hint.innerHTML = versionHintHtml(sol.version, state.options.bumpVersion);
+        if (hint) hint.innerHTML = versionHintNow();
+        refreshArtifacts();
+        const issue = els.stepSuffix.querySelector('#version-issue');
+        if (issue) issue.textContent = versionIssue() ?? '';
+        els.stepSuffix.querySelector<HTMLElement>('#version-field')!.hidden = !state.raiseVersion;
+        refreshNext();
+    };
+    (document.getElementById('opt-version') as HTMLInputElement).addEventListener('change', ev => {
+        state.raiseVersion = (ev.target as HTMLInputElement).checked;
+        refreshVersion();
+    });
+    (document.getElementById('version-input') as HTMLInputElement).addEventListener('input', ev => {
+        state.versionInput = (ev.target as HTMLInputElement).value;
+        state.versionTouched = true;
+        refreshVersion();
     });
     (document.getElementById('opt-keep') as HTMLInputElement).addEventListener('change', ev => {
         state.options.keepSourceArtifacts = (ev.target as HTMLInputElement).checked;
@@ -1225,7 +1340,7 @@ function renderReviewStep(): void {
                             <th class="col-num">Length</th></tr></thead>
                         <tbody>${rows.map(r => `
                             <tr>
-                                <td class="cell-muted">${escapeHtml(r.agent.name)}
+                                <td class="cell-muted">${agentIconHtml(r.agent.id, 20)} ${escapeHtml(r.agent.name)}
                                     <code>${escapeHtml(r.agent.schemaName)}</code></td>
                                 <td class="cell-strong cell-nowrap">${escapeHtml(r.next)}</td>
                                 <td class="cell-nowrap">${PUBLISH_LABELS[publishModeFor(state.options, r.agent.schemaName)]}</td>
@@ -1258,8 +1373,8 @@ function renderReviewStep(): void {
                     <span class="panel-sub">chosen in the previous step</span>
                 </div>
                 <div class="panel-body">
-                    <div class="kv"><span class="kv-key">Package version</span>
-                        <span class="kv-val">${versionHintHtml(sol.version, state.options.bumpVersion)}</span></div>
+                    <div class="kv"><span class="kv-key">Version</span>
+                        <span class="kv-val" id="review-version">${versionHintNow()}</span></div>
                     <div class="kv"><span class="kv-key">Artifacts produced</span>
                         <span class="kv-val">${state.options.keepSourceArtifacts
                             ? `4 archives <span class="cell-muted">— managed, unmanaged and the two originals</span>`
@@ -1310,7 +1425,7 @@ function renderPreviewStep(): void {
         </div>
         <div class="strip" id="preview-body">
             <div class="pack-wait" id="preview-progress">
-                ${packProgressHtml(0, 'starting the export…', 0)}
+                ${packProgressHtml(0, 'starting…', 0, phasesFor(state.options.newVersion !== null))}
             </div>
         </div>
         <div id="preview-panels"></div>
@@ -1342,6 +1457,9 @@ const PACK_PHASES = [
     'Read the packages',
     'Patch and verify',
 ] as const;
+const VERSION_PHASE = 'Raise the version in DEV';
+/** Con la versione da alzare si aggiunge una fase in testa: e' la prima cosa che succede. */
+const phasesFor = (raise: boolean): string[] => (raise ? [VERSION_PHASE, ...PACK_PHASES] : [...PACK_PHASES]);
 
 /**
  * A che punto siamo, dedotto dal messaggio del servizio.
@@ -1350,19 +1468,24 @@ const PACK_PHASES = [
  * firma per un bisogno che e' solo di presentazione. Una frase che non si riconosce lascia
  * la fase dov'era, invece di farla saltare all'indietro.
  */
-function phaseFromMessage(msg: string, current: number): number {
+function phaseFromMessage(msg: string, current: number, phases: string[]): number {
     const m = msg.toLowerCase();
-    if (m.includes('patch')) return 3;
-    if (m.includes('read')) return 2;
-    if (m.includes('unmanaged')) return 1;
-    if (m.includes('export') || m.includes('queue')) return 0;
+    const at = (label: string) => {
+        const i = phases.indexOf(label);
+        return i < 0 ? current : i;
+    };
+    if (m.includes('patch')) return at('Patch and verify');
+    if (m.includes('read')) return at('Read the packages');
+    if (m.includes('unmanaged')) return at('Export unmanaged');
+    if (m.includes('export') || m.includes('queue')) return at('Export managed');
+    if (m.includes('version')) return at(VERSION_PHASE);
     return current;
 }
 
 /** Il riquadro di attesa: barra indeterminata, fasi con il loro stato, messaggio e secondi. */
-function packProgressHtml(phase: number, msg: string, seconds: number): string {
-    const done = phase >= PACK_PHASES.length;
-    const rows = PACK_PHASES.map((label, i) => {
+function packProgressHtml(phase: number, msg: string, seconds: number, phases: string[]): string {
+    const done = phase >= phases.length;
+    const rows = phases.map((label, i) => {
         const state = i < phase ? 'done' : i === phase ? 'running' : 'todo';
         const mark = state === 'done' ? icon('check', 'icon--xs') : '';
         return `<li class="ph ph--${state}"><span class="ph-dot">${mark}</span>${label}</li>`;
@@ -1382,21 +1505,22 @@ async function runPreview(
     sol: Solution, schemaNames: string[], seq: number, key: string,
 ): Promise<void> {
     const startedAt = Date.now();
-    let lastText = 'starting the export…';
+    const phases = phasesFor(state.options.newVersion !== null);
+    let lastText = 'starting…';
     let phase = 0;
     const paint = () => {
         if (seq !== previewSeq) return;
         const el = els.stepPreview.querySelector('#preview-progress');
         if (!el) return;
         const s = Math.round((Date.now() - startedAt) / 1000);
-        el.innerHTML = packProgressHtml(phase, lastText, s);
+        el.innerHTML = packProgressHtml(phase, lastText, s, phases);
     };
     // Il tempo trascorso va mostrato sempre: l'export sincrono costa 13-111 s sulle solution
     // misurate, il fallback asincrono ~154 s per archivio. Senza un contatore sembra bloccato.
     const ticker = window.setInterval(paint, 1000);
     const setProgress = (text: string) => {
         lastText = text;
-        phase = phaseFromMessage(text, phase);
+        phase = phaseFromMessage(text, phase, phases);
         paint();
     };
     try {
@@ -1407,7 +1531,7 @@ async function runPreview(
 
         // Un istante con tutte le fasi chiuse prima di cambiare schermata: il lavoro e' durato
         // decine di secondi, sparire di colpo lascia il dubbio che sia finito davvero.
-        phase = PACK_PHASES.length;
+        phase = phases.length;
         lastText = 'completed';
         paint();
         await new Promise(r => window.setTimeout(r, DONE_HOLD_MS));
@@ -1436,12 +1560,12 @@ async function runPreview(
 }
 
 const CHANGE_LABEL: Record<PatchChange['element'], string> = {
-    name: 'Name', publishOnImport: 'Publish on import', Version: 'Version',
+    name: 'Name', publishOnImport: 'Publish on import',
 };
 
 /**
  * "What gets changed", raggruppato per agent: un blocco per ogni agent toccato, con le sue
- * righe (nome, publish on import), poi un blocco per la solution (versione). Il percorso del
+ * righe (nome, publish on import). La versione non e' un cambio del package: si alza in DEV. Il percorso del
  * file resta sotto ogni riga: FR-075 chiede di mostrare quello esatto.
  */
 function changeGroupsHtml(r: PackagingResult): string {
@@ -1484,15 +1608,17 @@ function changeGroupsHtml(r: PackagingResult): string {
         .filter(x => x.changes.length)
         .sort((x, y) => nameOf(x.agent.schemaName, x.agent.name)
             .localeCompare(nameOf(y.agent.schemaName, y.agent.name)));
-    const solutionChanges = r.plan.filter(c => c.element === 'Version');
     const left = outcomes.filter(o => o.excluded);
 
     return `
         ${perAgent.map(x => group(
             nameOf(x.agent.schemaName, x.agent.name), x.agent.schemaName, 'bot', x.changes,
             `agent:${x.agent.schemaName}`)).join('')}
-        ${solutionChanges.length
-            ? group(`Solution ${pkg.uniqueName}`, 'solution.xml', 'package', solutionChanges, 'solution') : ''}
+        ${r.versionChange ? `
+        <p class="note-version" id="version-note">${r.versionChange.changed
+            ? `Version raised <strong>in DEV</strong> before the export: <code>${escapeHtml(r.versionChange.from)}</code>
+               → <code>${escapeHtml(r.versionChange.to)}</code>. The package carries it.`
+            : `DEV was already at <code>${escapeHtml(r.versionChange.to)}</code>: nothing was written.`}</p>` : ''}
         ${left.length ? `
         <p class="hint">Left as they are: ${left.map(o => `<strong>${escapeHtml(o.before)}</strong>`).join(', ')}.</p>` : ''}`;
 }
@@ -1870,6 +1996,7 @@ async function saveArtifactSet(): Promise<void> {
             suffix: state.suffix,
             agents: agentOutcomes(pkg, r.plan),
             options: { ...state.options },
+            versionChange: r.versionChange,
             artifactSetPath: written.set.folderPath,
             files: written.set.files.map(f => ({ fileName: f.fileName, role: f.role, sha256: f.sha256 })),
             verification: { managed: r.managed.verification, unmanaged: r.unmanaged.verification },
@@ -1883,6 +2010,16 @@ async function saveArtifactSet(): Promise<void> {
         };
         await addRecord(record);
         state.lastSet = written.set;
+        // DEV e' stato alzato: la prossima operazione riparte dal numero nuovo (FR-073b)
+        if (r.versionChange) {
+            const to = r.versionChange.to;
+            if (state.activeSolution) state.activeSolution.version = to;
+            const listed = state.solutions.find(x => x.solutionId === state.activeSolution?.solutionId);
+            if (listed) listed.version = to;
+        }
+        state.versionFrom = '';
+        state.versionInput = '';
+        state.versionTouched = false;
         navigateTo('result');
         toolbox.utils.showNotification({
             title: 'Copilot Agent Nameplate',
@@ -1952,9 +2089,11 @@ function renderResultStep(): void {
                     would create an unmanaged solution, the very problem this flow removes.
                 </div>
                 <div class="note">
-                    Two artifacts of the same version are told apart by their
-                    <strong>hash</strong>, not by <code>&lt;Version&gt;</code>: that is why no
-                    version bump is needed.
+                    The package carries the version <strong>DEV now has</strong>. To build the same
+                    version for another environment (UAT, then PROD), turn off
+                    <em>Raise the version in DEV</em> the second time: DEV is already there. Artifacts
+                    of the same version are told apart by the suffix in the name and by the
+                    <strong>hash</strong> in the manifest.
                 </div>
             </div>
         </section>
@@ -2214,6 +2353,7 @@ toolbox.events.on((_event: unknown, payload: { event: string }) => {
         state.solutions = [];
         state.excludedAgents.clear();
         state.options.publishByAgent = {};
+        resetVersionPlan();
         state.highlightAgentId = '';
         state.activeSolution = null;
         state.browsingSolutionId = null;
