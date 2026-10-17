@@ -122,11 +122,15 @@ export function findNameOccurrences(
             // compreso) per uno creato gia' con il suffisso: in entrambi i casi non e' un
             // secondo display name sconosciuto, quindi non va segnalato come anomalia (FR-096)
             const isKnownBase = isKnownBaseNameHolder(path) && tag === 'name';
+            // Il bot.xml di un ALTRO agent con lo stesso display name (Copilot Studio ammette nomi
+            // duplicati nella stessa solution): e' il nome di quell'agent, non un secondo posto
+            // del nostro. Lo patcha il suo controllo; se e' escluso resta com'e' per scelta.
+            const isOtherAgentName = /^bots\/[^/]+\/bot\.xml$/.test(path) && tag === 'name';
             found.push({
                 file: path,
                 locator: `<${tag}>`,
                 value: m[2],
-                expected: isOwnName || isKnownBase,
+                expected: isOwnName || isKnownBase || isOtherAgentName,
                 willBePatched: isOwnName,
             });
         }
