@@ -67,6 +67,15 @@ function build(pkg: PackageContents, plan: PatchChange[]): BuiltArchive {
  * in `solution.xml` (verificato, research.md §10), quindi i percorsi del piano valgono per
  * entrambi — e se un domani non fosse più vero, la verifica indipendente se ne accorge.
  */
+/**
+ * Lettura dei package e patch sono calcoli istantanei: senza una pausa le due fasi scattano
+ * insieme e l'utente non le vede passare. La pausa c'e' solo se qualcuno ascolta l'avanzamento
+ * (la schermata); i test e l'uso headless non aspettano.
+ */
+const PHASE_PAUSE_MS = 700;
+const pause = (listener: unknown): Promise<void> =>
+    listener ? new Promise(resolve => setTimeout(resolve, PHASE_PAUSE_MS)) : Promise.resolve();
+
 export async function runPackaging(
     solutionUniqueName: string,
     suffix: string,
@@ -77,6 +86,7 @@ export async function runPackaging(
     const pair = await exportPair(solutionUniqueName, onProgress);
 
     onProgress?.('reading the packages…');
+    await pause(onProgress);
     const managedPkg = readPackage(pair.managed.bytes);
     const unmanagedPkg = readPackage(pair.unmanaged.bytes);
     log(`Packages read: ${managedPkg.uniqueName} v${managedPkg.version}, `
@@ -101,6 +111,7 @@ export async function runPackaging(
         + `(${plan.filter(c => c.state !== 'no-change').length} effettive).`);
 
     onProgress?.('patch and verify…');
+    await pause(onProgress);
     const managed = build(managedPkg, plan);
     const unmanaged = build(unmanagedPkg, plan);
     for (const [label, a] of [['managed', managed], ['unmanaged', unmanaged]] as const) {

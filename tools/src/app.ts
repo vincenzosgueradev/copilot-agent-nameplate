@@ -16,7 +16,7 @@ import { askConfirm } from './services/ui';
 import { runPackaging, type PackagingResult } from './services/packaging';
 import { agentOutcomes, buildName, bumpVersion, publishModeFor } from './services/patch';
 import { splitSuffix } from './services/package';
-import { icon } from './icons';
+import { icon, type IconName } from './icons';
 import {
     DEFAULT_OPTIONS,
     SUFFIX_MAX,
@@ -27,6 +27,7 @@ import {
     type PackageComponent,
     type PackagingOptions,
     type PackagingRecord,
+    type PatchChange,
     type PublishMode,
     type Solution,
     type VerificationResult,
@@ -950,12 +951,9 @@ function agentRowsHtml(): string {
     const names = agents.map(a => ({ name: a.name, selected: !state.excludedAgents.has(a.id) }));
     const mixed = suffixesAfter(names, state.suffix);
     return `
-        <table class="data-table">
-            <thead><tr><th></th><th>Agent</th><th>Name after the rename</th><th><div class="th-flex">Publish on import
-                <span class="toggle-set-all" title="Set the same value for every ticked agent">all:
-                    <span class="toggle-group toggle-group--sm" role="group">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
-                        <button class="toggle-btn" data-publish-all="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}</span>
-                </span></div></th></tr></thead>
+        <table class="data-table data-table--fill">
+            <colgroup><col style="width:48px"><col style="width:28%"><col style="width:28%"><col></colgroup>
+            <thead><tr><th></th><th>Agent</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
             <tbody>${agents.map(a => {
                 const on = !state.excludedAgents.has(a.id);
                 const next = buildName(a.name, state.suffix);
@@ -963,15 +961,21 @@ function agentRowsHtml(): string {
                 <tr${on ? '' : ' class="is-off"'}>
                     <td><input type="checkbox" data-agent="${escapeHtml(a.id)}"
                         aria-label="Rename ${escapeHtml(a.name)}" ${on ? 'checked' : ''}></td>
-                    <td class="cell-strong">${escapeHtml(a.name)}</td>
-                    <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap">${on
+                    <td class="cell-strong" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</td>
+                    <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap" title="${escapeHtml(next)}">${on
                         ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '')
                         : 'left as it is'}</td>
                     <td>${on ? publishToggleHtml(a.schemaName) : '<span class="cell-muted">—</span>'}</td>
                 </tr>`;
             }).join('')}</tbody>
         </table>
-        <p class="hint" style="margin-top:12px">Publish on import carries the new name to Teams and Microsoft 365 Copilot.</p>
+        <div class="table-foot">
+            <span class="hint">Publish on import carries the new name to Teams and Microsoft 365 Copilot.</span>
+            <span class="toggle-set-all">Set publish on import for all ticked agents:
+                <span class="toggle-group toggle-group--sm" role="group">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
+                    <button class="toggle-btn" data-publish-all="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}</span>
+            </span>
+        </div>
         ${agents.every(a => state.excludedAgents.has(a.id))
             ? '<p class="hint hint--warn" style="margin-top:12px">Select at least one agent.</p>' : ''}
         ${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}`;
@@ -1165,7 +1169,7 @@ function renderReviewStep(): void {
             ${stepperHtml(2)}
         </div>
 
-        <div class="two-col">
+        <div class="stack">
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('pencil', 'icon--head')}Rename</h3>
@@ -1394,20 +1398,72 @@ async function runPreview(
     }
 }
 
+const CHANGE_LABEL: Record<PatchChange['element'], string> = {
+    name: 'Name', publishOnImport: 'Publish on import', Version: 'Version',
+};
+
+/**
+ * "What gets changed", raggruppato per agent: un blocco per ogni agent toccato, con le sue
+ * righe (nome, publish on import), poi un blocco per la solution (versione). Il percorso del
+ * file resta sotto ogni riga: FR-075 chiede di mostrare quello esatto.
+ */
+function changeGroupsHtml(r: PackagingResult): string {
+    if (!r.plan.length) return '<p class="cell-muted">Nothing to change.</p>';
+    const pkg = r.managed.source;
+    const outcomes = agentOutcomes(pkg, r.plan);
+    const nameOf = (schema: string, fallback: string) =>
+        outcomes.find(o => o.schemaName === schema)?.after ?? fallback;
+
+    const row = (c: PatchChange) => `
+        <tr>
+            <td class="cell-strong">${CHANGE_LABEL[c.element]}
+                <div class="cell-sub"><code>${escapeHtml(c.file)}</code></div></td>
+            <td class="cell-muted">${escapeHtml(c.before ?? '—')}</td>
+            <td class="cell-strong cell-nowrap">${escapeHtml(c.after)}</td>
+            <td><span class="chip chip--${c.state === 'no-change' ? 'muted' : 'success'}">${c.state}</span>
+                ${c.exceedsTeamsLimit ? '<span class="chip chip--warning">&gt; 30 char</span>' : ''}</td>
+        </tr>`;
+    const group = (title: string, sub: string, iconName: IconName, changes: PatchChange[], key: string) => `
+        <section class="change-group" data-group="${escapeHtml(key)}">
+            <header class="change-head">
+                ${icon(iconName, 'icon--head')}
+                <strong>${escapeHtml(title)}</strong>
+                <code>${escapeHtml(sub)}</code>
+                <span class="chip chip--muted">${changes.length} ${changes.length === 1 ? 'change' : 'changes'}</span>
+            </header>
+            <table class="data-table data-table--fill">
+                <colgroup><col style="width:30%"><col style="width:26%"><col style="width:26%"><col></colgroup>
+                <thead><tr><th>What</th><th>Before</th><th>After</th><th>State</th></tr></thead>
+                <tbody>${changes.map(row).join('')}</tbody>
+            </table>
+        </section>`;
+
+    const perAgent = pkg.agents
+        .map(a => ({
+            agent: a,
+            changes: r.plan.filter(c => c.file === a.file
+                || c.file === a.file.replace(/bot\.xml$/, 'configuration.json')),
+        }))
+        .filter(x => x.changes.length)
+        .sort((x, y) => nameOf(x.agent.schemaName, x.agent.name)
+            .localeCompare(nameOf(y.agent.schemaName, y.agent.name)));
+    const solutionChanges = r.plan.filter(c => c.element === 'Version');
+    const left = outcomes.filter(o => o.excluded);
+
+    return `
+        ${perAgent.map(x => group(
+            nameOf(x.agent.schemaName, x.agent.name), x.agent.schemaName, 'bot', x.changes,
+            `agent:${x.agent.schemaName}`)).join('')}
+        ${solutionChanges.length
+            ? group(`Solution ${pkg.uniqueName}`, 'solution.xml', 'package', solutionChanges, 'solution') : ''}
+        ${left.length ? `
+        <p class="hint">Left as they are: ${left.map(o => `<strong>${escapeHtml(o.before)}</strong>`).join(', ')}.</p>` : ''}`;
+}
+
 function renderPreviewResult(r: PackagingResult): void {
     const body = document.getElementById('preview-body');
     if (!body) return;
     const pkg = r.managed.source;
-
-    const planRows = r.plan.length ? r.plan.map(c => `
-        <tr>
-            <td><code>${escapeHtml(c.file)}</code></td>
-            <td><code>&lt;${escapeHtml(c.element)}&gt;</code></td>
-            <td class="cell-muted">${escapeHtml(c.before ?? '—')}</td>
-            <td class="cell-strong">${escapeHtml(c.after)}</td>
-            <td><span class="chip chip--${c.state === 'no-change' ? 'muted' : 'success'}">${c.state}</span>
-                ${c.exceedsTeamsLimit ? '<span class="chip chip--warning">&gt; 30 char</span>' : ''}</td>
-        </tr>`).join('') : `<tr><td colspan="5" class="cell-muted">Nothing to change.</td></tr>`;
 
     body.innerHTML = `
         <div class="stat"><dt>Solution</dt><dd>${escapeHtml(pkg.uniqueName)}</dd></div>
@@ -1425,7 +1481,7 @@ function renderPreviewResult(r: PackagingResult): void {
     const outcomes = agentOutcomes(pkg, r.plan);
     const publishRows = pkg.agents.map(a => {
         const change = r.plan.find(c => c.element === 'publishOnImport'
-            && c.file === a.file.replace(/bot.xml$/, 'configuration.json'));
+            && c.file === a.file.replace(/bot\.xml$/, 'configuration.json'));
         return {
             after: outcomes.find(o => o.schemaName === a.schemaName)?.after ?? a.name,
             excluded: outcomes.find(o => o.schemaName === a.schemaName)?.excluded ?? false,
@@ -1442,13 +1498,10 @@ function renderPreviewResult(r: PackagingResult): void {
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('pencil', 'icon--head')}What gets changed</h3>
-                    <span class="panel-sub">the only place touched in the package</span>
+                    <span class="panel-sub">grouped by agent</span>
                 </div>
                 <div class="panel-body">
-                    <table class="data-table">
-                        <thead><tr><th>File</th><th>Element</th><th>Before</th><th>After</th><th>State</th></tr></thead>
-                        <tbody>${planRows}</tbody>
-                    </table>
+                    ${changeGroupsHtml(r)}
                     <p class="hint" style="margin-top:12px">
                         <strong>Not</strong> touched: <code>schemaname</code>, folder and file
                         names, GUIDs, <code>[Content_Types].xml</code>, <code>customizations.xml</code>.

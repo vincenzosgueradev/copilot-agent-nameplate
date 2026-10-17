@@ -599,7 +599,14 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   È il caso che la conferma di sovrascrittura di questo stesso FR deve intercettare
 - **FR-075**: Prima di scrivere qualsiasi file il tool DEVE mostrare l'anteprima del patch: per ogni
   agent `nome nel package → nome nuovo`, il percorso esatto del file toccato, le opzioni attive
-  (bump di versione) e l'elenco di ciò che **non** viene toccato
+  (bump di versione) e l'elenco di ciò che **non** viene toccato. Le modifiche DEVONO essere
+  **raggruppate per agent** (un blocco per agent toccato, con le sue righe di nome e di publish on
+  import), seguite da un blocco per la solution (versione); gli agent esclusi sono nominati a parte,
+  senza blocco. I pannelli della revisione e dell'anteprima usano tutta la larghezza e stanno uno
+  sotto l'altro, come nelle altre schermate
+- **FR-075a**: Durante la costruzione del package ogni fase (export managed, export unmanaged,
+  lettura, patch e verifica) DEVE restare visibile abbastanza da essere letta: le fasi istantanee
+  hanno una pausa breve (700 ms) nella sola interfaccia, mai nell'uso headless né nei test
 - **FR-076**: Un package può contenere più agent: il tool DEVE elencarli tutti, **tutti selezionati
   di default**, e permettere di escludere quali non rinominare. Gli agent esclusi DEVONO restare
   byte-identici. Il manifest DEVE registrare per **ogni** agent nome prima e dopo, e se è stato escluso

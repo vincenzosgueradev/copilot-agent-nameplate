@@ -1352,7 +1352,7 @@ mark.hl {
 .art-item:first-child { padding-top: 0; }
 .art-item:last-child { border-bottom: none; padding-bottom: 0; }
 
-.art-body { min-width: 0; }
+.art-body { flex: 1; min-width: 0; }
 
 /* Icona davanti a un nome di file o cartella */
 .cell-strong > .icon,
@@ -1362,7 +1362,6 @@ mark.hl {
     margin: var(--sp-1) 0 0;
     color: var(--color-text-muted);
     line-height: 1.6;
-    max-width: 78ch;
 }
 
 .art-name {
@@ -1800,15 +1799,27 @@ select option {
 /* Toggle compatto per le righe di una tabella */
 .toggle-group--sm .toggle-btn { padding: 3px 12px; }
 
-/* Intestazione della colonna Publish on import: titolo a sinistra, "all:" a destra */
-.th-flex { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
+/* Tabella a tutta larghezza: le colonne si dividono lo spazio invece di ammucchiarsi a sinistra */
+.data-table--fill { table-layout: fixed; }
+
+/* Barra sotto la tabella: la nota a sinistra, le azioni per tutti a destra */
+.table-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sp-3) var(--sp-5);
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--color-border);
+}
+.table-foot .hint { margin: 0; }
 .toggle-set-all {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-2);
-    text-transform: none;
-    letter-spacing: 0;
-    font-weight: 400;
+    gap: var(--sp-3);
+    font-size: var(--fs-sm);
+    color: var(--color-text-muted);
 }
 
 /* Agent escluso dal rename (FR-076): resta com'e, quindi si attenua */
@@ -1817,6 +1828,25 @@ select option {
 /* Un nome finale non va a capo: se manca spazio si restringe la colonna dell'agent, non il nome.
    Va dopo le regole sui `cell-strong`, di pari specificita', per vincere sul loro max-width. */
 .data-table td.cell-nowrap { white-space: nowrap; max-width: none; }
+
+/* "What gets changed": un blocco per agent, uno per la solution */
+.change-group {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: var(--sp-4);
+}
+.change-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--color-surface-2);
+    border-bottom: 1px solid var(--color-border);
+}
+.change-head code { color: var(--color-text-muted); }
+.change-head .chip { margin-left: auto; }
+.cell-sub { margin-top: 2px; font-size: var(--fs-xs); font-weight: 400; color: var(--color-text-muted); }
 
 /* Piede di un pannello: stessi margini laterali dell'intestazione, separato dal contenuto */
 .panel-foot {
