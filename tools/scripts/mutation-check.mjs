@@ -86,6 +86,9 @@ const MUTATIONS = [
     ['styles.css', 'src/styles.css', '.data-table--fill .toggle-group--sm { display: flex; width: 100%; }', '.data-table--fill .toggle-group--sm { display: inline-flex; }', 'il toggle torna a raggrupparsi a sinistra'],
     ['styles.css', 'src/styles.css', '.data-table--fill .toggle-group--sm .toggle-btn { flex: 1;', '.data-table--fill .toggle-group--sm .toggle-btn { flex: 0;', 'i pulsanti del toggle non si dividono la larghezza'],
     ['app.ts', 'src/app.ts', '<col style="width:48px"><col style="width:30%"><col style="width:30%"><col>', '<col style="width:48px"><col style="width:10%"><col style="width:10%"><col>', 'colonne troppo strette'],
+    ['app.ts', 'src/app.ts', 'which never removes components: agents you deleted in the source', 'which keeps things tidy: agents you deleted in the source', 'v1.1.0: il testo non dice che Update non rimuove nulla'],
+    ['app.ts', 'src/app.ts', '<em>Update</em> and <em>Stage for upgrade</em> keep them.', '', 'v1.1.0: il testo non avverte su Update e Stage for upgrade'],
+    ['app.ts', 'src/app.ts', 'import it as an <strong>Upgrade</strong> (the default)', 'import it as an <strong>Update</strong> (the default)', 'v1.1.0: il testo consiglia Update invece di Upgrade'],
     // ── packaging.ts: il collegamento
     ['packaging.ts', 'src/services/packaging.ts', "expected.publish![c.file] = c.after === 'true';", 'expected.publish![c.file] = true;', 'la verifica riceve publishOnImport sbagliato'],
 ];

@@ -385,6 +385,59 @@ describe('avanzamento: le fasi si vedono passare', () => {
     });
 });
 
+describe('versione e agent cancellati: il testo dice la conseguenza (FR-073a)', () => {
+    const hint = (ui: { doc: Document }) => (ui.doc.getElementById('version-hint')?.textContent ?? '').replace(/\s+/g, ' ');
+
+    it('senza bump: solo Update, che non rimuove, quindi gli agent cancellati restano', async () => {
+        const ui = await boot(WORLD);
+        await ui.openSolution('S1');
+        await ui.startRename();
+        const t = hint(ui);
+        expect(t).toContain('1.0.0.2 stays as it is');
+        expect(t).toContain('Update');
+        expect(t).toContain('never removes components');
+        expect(t).toContain('deleted in the source');
+        expect(t).not.toContain('Upgrade');
+    });
+
+    it('con bump: la nuova versione, di importare come Upgrade, e che Update e Stage li tengono', async () => {
+        const ui = await boot(WORLD);
+        await ui.openSolution('S1');
+        await ui.startRename();
+        await ui.setBump(true);
+        const t = hint(ui);
+        expect(t).toContain('1.0.0.2 → 1.0.0.3');
+        expect(t).toContain('Upgrade');
+        expect(t).toContain('removed too');
+        expect(t).toContain('Update and Stage for upgrade keep them');
+    });
+
+    it('lo stesso testo compare nella revisione, per entrambi i casi', async () => {
+        for (const bump of [false, true]) {
+            const ui = await boot(WORLD);
+            await ui.openSolution('S1');
+            await ui.startRename();
+            await ui.setBump(bump);
+            const under = hint(ui);
+            await ui.next();
+            const review = ui.text('review');
+            expect(review, `bump=${bump}`).toContain(under.replace(/\s+/g, ' ').trim());
+        }
+    });
+
+    it('il testo segue la versione della solution', async () => {
+        const w: UiWorld = {
+            solutions: [{ unique: 'S1', version: '2.7.0.9' }],
+            agents: [{ name: 'x [DEV]', schema: 'ava_a1', solution: 'S1', publish: null }],
+        };
+        const ui = await boot(w);
+        await ui.openSolution('S1');
+        await ui.startRename();
+        await ui.setBump(true);
+        expect(hint(ui)).toContain('2.7.0.9 → 2.7.0.10');
+    });
+});
+
 describe('posizione di scorrimento', () => {
     /**
      * jsdom non fa il layout, quindi nessun elemento scorre davvero: si sostituisce `scrollTop`

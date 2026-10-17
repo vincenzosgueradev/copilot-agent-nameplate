@@ -875,12 +875,6 @@ function stepperHtml(active: 1 | 2 | 3 | 4 | 5): string {
  * acceso e porta la sua nota, perche' essendo testo non costa un salvataggio.
  */
 /**
- * Che versione avra' il package, e che cosa comporta all'import.
- *
- * Stessa versione e' un **update**, superiore un **upgrade**: dirlo mostrando i due numeri
- * evita di doverlo dedurre dalla regola.
- */
-/**
  * Un canale col suo marchio. I `channelId` noti hanno l'icona di prodotto; gli altri
  * restano un chip col loro identificativo, perche' l'elenco dei canali lo decide Copilot
  * Studio e non vale la pena fingere di conoscerli tutti.
@@ -895,13 +889,23 @@ function channelChip(id: string): string {
     return `<span class="channel-chip">${mark}${escapeHtml(known ? known[1] : id)}</span>`;
 }
 
+/**
+ * Che versione avra' il package, e che cosa comporta all'import.
+ *
+ * Stessa versione = solo un **Update**, che non rimuove mai componenti: gli agent cancellati
+ * nell'origine restano nella destinazione. Versione piu' alta = si puo' importare come
+ * **Upgrade**, che li rimuove. E' la conseguenza che sorprende (Microsoft: "You can't delete
+ * components with an update"), quindi la si dice insieme ai due numeri.
+ */
 function versionHintHtml(current: string, bump: boolean): string {
     if (!bump) {
-        return `<code>${escapeHtml(current)}</code> stays as it is — the import will be an
-            <strong>update</strong>`;
+        return `<code>${escapeHtml(current)}</code> stays as it is — the target can only take it as an
+            <strong>Update</strong>, which never removes components: agents you deleted in the source
+            would stay there.`;
     }
     return `<code>${escapeHtml(current)}</code> → <code>${escapeHtml(bumpVersion(current))}</code>
-        — the import will be an <strong>upgrade</strong>`;
+        — import it as an <strong>Upgrade</strong> (the default) so agents you deleted in the source
+        are removed too. <em>Update</em> and <em>Stage for upgrade</em> keep them.`;
 }
 
 function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): string {

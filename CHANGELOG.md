@@ -54,6 +54,11 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
 - The suffix step lists the agents of the solution, all ticked by default, with the name each
   one will get, updated as you type. Untick an agent to leave it exactly as it is.
 - The breadcrumb reads `Solutions › {Solution} › Suffix › Review › Preview`.
+- **The version option now says what it means for deleted agents.** Without a bump the package
+  keeps the same version and the target can only take it as an *Update*, which never removes
+  components, so agents deleted in the source stay in the target. With a bump it says to import
+  as an *Upgrade*, and that *Update* and *Stage for upgrade* keep them. The wording is the same
+  under *Bump the version* and in the review.
 - **The agent table uses the full width** of the panel: the columns share it, and each
   *Leave as is / Force yes / Force no* toggle fills its column with three equal buttons instead of
   huddling on the left. The global actions sit in its last row instead of in the column header.

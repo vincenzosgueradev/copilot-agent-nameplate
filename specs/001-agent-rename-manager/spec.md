@@ -582,6 +582,13 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
 - **FR-073**: Il tool DEVE lasciare `<Version>` invariata per default e offrire un **bump** opzionale
   (incremento dell'ultimo segmento) in `solution.xml`, spiegando la differenza: stessa versione =
   *update*, versione superiore = *upgrade*
+- **FR-073a**: Il testo che spiega la versione DEVE dire anche la **conseguenza sui componenti
+  cancellati** nell'origine, perché è quella che sorprende ([Upgrade or update a
+  solution](https://learn.microsoft.com/power-apps/maker/data-platform/update-solutions)): senza bump
+  il target può importare solo come *Update*, che **non rimuove mai** componenti, quindi gli agent
+  cancellati nell'origine restano nel target; con il bump va importato come *Upgrade* (l'azione
+  predefinita), che li rimuove, mentre *Update* e *Stage for upgrade* li mantengono. Lo stesso testo
+  compare sotto l'opzione e nella revisione
 - **FR-074**: I file dell'artifact set DEVONO avere nomi parlanti e non ambigui:
   `{UniqueName}_{Version}_managed_{SUFFISSO}.zip`, `{UniqueName}_{Version}_unmanaged_{SUFFISSO}.zip`
   e, se conservati, `source_managed.zip` / `source_unmanaged.zip`. La cartella dell'operazione DEVE
