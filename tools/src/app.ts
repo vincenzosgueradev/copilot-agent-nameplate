@@ -655,7 +655,7 @@ function renderSolutionDetail(keepScroll = false): void {
                     </tbody>
                 </table>
                 ${sol && sol.exportable ? `
-                <div class="step-footer">
+                <div class="panel-foot">
                     <span class="hint">The suffix applies to all ${agents.length}
                         agent${agents.length === 1 ? '' : 's'} of the solution.
                         You can exclude some in the next step.</span>

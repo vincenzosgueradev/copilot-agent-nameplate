@@ -1800,5 +1800,16 @@ select option {
 /* Agent escluso dal rename (FR-076): resta com'e, quindi si attenua */
 .data-table tr.is-off td { opacity: 0.55; }
 
+/* Piede di un pannello: stessi margini laterali dell'intestazione, separato dal contenuto */
+.panel-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-5);
+    border-top: 1px solid var(--color-border);
+}
+.panel-foot .hint { margin: 0; }
+
 /* Agent aperto dalla ricerca (FR-023b) */
 .data-table tr.is-highlight td { background: var(--color-surface-hover, rgba(127,127,127,.14)); }
