@@ -170,6 +170,30 @@ describe('inventario del package', () => {
     });
 });
 
+describe('inventario: a chi appartiene un componente (difetto 2026-10-18: Default_FeedbackCollectionBotSettings_*)', () => {
+    const comp = (name: string, parent: string | null) =>
+        '<botcomponent schemaname="' + name + '"><componenttype>18</componenttype>'
+        + (parent ? '<parentbotid><schemaname>' + parent + '</schemaname></parentbotid>' : '')
+        + '</botcomponent>';
+    const related = (name: string, parent: string | null) => readPackage(zipOf({ agents: [agent(1), agent(2)] }, f => {
+        f[`botcomponents/${name}/botcomponent.xml`] = strToU8(comp(name, parent));
+    })).inventory.find(c => c.path === 'botcomponents/')!.relatedToSelectedAgent;
+
+    it('un componente senza il prefisso di un agent ma con parentbotid di un agent del package e suo', () => {
+        expect(related('Default_FeedbackCollectionBotSettings_abc123', 'ava_a2')).toBe(true);
+    });
+    it('lo stesso componente con parentbotid di un bot che NON sta nel package e extra', () => {
+        expect(related('Default_FeedbackCollectionBotSettings_abc123', 'ava_estraneo')).toBe(false);
+    });
+    it('il parentbotid decide: nome col prefisso di un agent ma padre estraneo e extra', () => {
+        expect(related('ava_a1.topic.Foo', 'ava_estraneo')).toBe(false);
+    });
+    it('senza parentbotid vale il prefisso del nome (come prima)', () => {
+        expect(related('ava_a1.topic.Foo', null)).toBe(true);
+        expect(related('Default_FeedbackCollectionBotSettings_abc123', null)).toBe(false);
+    });
+});
+
 describe('suffisso e versione: casi limite', () => {
     const TRICKY = [
         'alpha', 'alpha [DEV]', 'alpha[DEV]', '[DEV]', ' [DEV]', 'alpha [DEV] ', 'alpha [DEV][UAT]',

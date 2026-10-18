@@ -34,7 +34,7 @@ const MUTATIONS = [
     // ── package.ts / types.ts: lettura
     ['types.ts', 'src/types.ts', 'export const SUFFIX_MAX = 20;', 'export const SUFFIX_MAX = 10;', 'lunghezza massima del suffisso riconosciuto'],
     ['package.ts', 'src/services/package.ts', "publishOnImport = typeof cfg.publishOnImport === 'boolean' ? cfg.publishOnImport : null;", 'publishOnImport = true;', 'publishOnImport letto sempre true'],
-    ['package.ts', 'src/services/package.ts', 'names.every(n => agentSchemas.some(s => n.startsWith(`${s}.`)))', 'names.every(n => n.startsWith(`${agentSchemas[0]}.`))', "inventario guarda solo il primo agent"],
+    ['package.ts', 'src/services/package.ts', 'names.every(n => belongsToAgent(files, n, agentSchemas))', 'names.every(n => belongsToAgent(files, n, agentSchemas.slice(0, 1)))', "inventario guarda solo il primo agent"],
     // ── compat.ts: formato e occorrenze
     ['compat.ts', 'src/services/compat.ts', 'const isKnownBase = isKnownBaseNameHolder(path) && tag === \'name\';', 'const isKnownBase = false;', 'componente GPT non piu\' un posto noto'],
     ['compat.ts', 'src/services/compat.ts', 'expected: isOwnName || isKnownBase || isOtherAgentName,', 'expected: isOwnName || isKnownBase,', 'nome di un altro agent segnalato come sconosciuto'],
@@ -158,6 +158,9 @@ const MUTATIONS = [
     ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "", 'nosuffix: nessun avviso'],
     ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "if (state.suffix.trim() === '') await confirmNoSuffix();", 'nosuffix: annullare va avanti lo stesso'],
     ['app.ts', 'src/app.ts', "return state.pins.filter(n => known.has(n)).length >= MAX_PINS;", "return false;", 'pin: nessun limite'],
+    ['package.ts', 'src/services/package.ts', '? agentSchemas.includes(parent)', '? true', 'inventario: il padre estraneo conta come dell agent'],
+    ['package.ts', 'src/services/package.ts', '? agentSchemas.includes(parent)', '? agentSchemas.some(s => component.startsWith(`${s}.`))', 'inventario: il parentbotid e ignorato, vale il nome'],
+    ['package.ts', 'src/services/package.ts', ': agentSchemas.some(s => component.startsWith(`${s}.`));', ': true;', 'inventario: senza padre ogni componente e dell agent'],
 ];
 
 const only = process.argv[2];

@@ -16,7 +16,7 @@
  * Il patch è quindi una sostituzione mirata su stringa, in patch.ts.
  */
 
-import { unzipSync } from 'fflate';
+import { strFromU8, unzipSync } from 'fflate';
 import { computeFingerprint, detectDrift, findNameOccurrences } from './compat';
 import { SUFFIX_MAX, type PackageContents, type PackageEntry, type PackagedAgent, type PackagedVariable } from '../types';
 
@@ -195,6 +195,21 @@ function buildInventory(files: Record<string, Uint8Array>, agentSchemas: string[
         names,
         relatedToSelectedAgent: path === 'bots/'
             || (path === 'botcomponents/'
-                && names.every(n => agentSchemas.some(s => n.startsWith(`${s}.`)))),
+                && names.every(n => belongsToAgent(files, n, agentSchemas))),
     }));
+}
+
+/**
+ * Un componente e' dell'agent che il suo `parentbotid` indica. Il prefisso del nome vale solo
+ * se il padre manca: alcuni componenti creati da Copilot Studio (es.
+ * `Default_FeedbackCollectionBotSettings_*`) non portano il nome dell'agent ma ne dipendono.
+ */
+function belongsToAgent(files: Record<string, Uint8Array>, component: string, agentSchemas: string[]): boolean {
+    const xml = files[`botcomponents/${component}/botcomponent.xml`];
+    const parent = xml
+        ? /<parentbotid>\s*<schemaname>([^<]*)<\/schemaname>/.exec(strFromU8(xml))?.[1]?.trim()
+        : undefined;
+    return parent
+        ? agentSchemas.includes(parent)
+        : agentSchemas.some(s => component.startsWith(`${s}.`));
 }
