@@ -300,14 +300,6 @@ export interface ArtifactSet {
 
 // ── Storico ──────────────────────────────────────────────────────────────────
 
-export interface DeploymentRecord {
-    timestamp: string;
-    targetEnvironmentUrl: string;
-    importJobId: string;
-    status: 'running' | 'succeeded' | 'failed';
-    message: string;
-}
-
 /** Pin delle solution (spec 012): nomi univoci fissati, per ambiente. */
 export type PinMap = Record<string, string[]>;
 
@@ -340,7 +332,6 @@ export interface PackagingRecord {
     /** Conferme esplicite dell'utente (nome in punto non noto, componenti extra). */
     confirmations: { what: string; confirmedAt: string }[];
     status: 'ok' | 'verification-failed' | 'failed';
-    deployments: DeploymentRecord[];
 }
 
 /** Retention dello storico e degli artifact set: 30 giorni, massimo 200 voci (FR-088). */

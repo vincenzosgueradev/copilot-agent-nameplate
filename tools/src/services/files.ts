@@ -29,7 +29,7 @@ import { log } from './log';
 const fs = globalThis.toolboxAPI.fileSystem;
 
 /** `true` quando l'implementazione espone una scrittura binaria diretta. */
-export function hasDirectBinaryWrite(): boolean {
+function hasDirectBinaryWrite(): boolean {
     return typeof (fs as unknown as { writeBinary?: unknown }).writeBinary === 'function';
 }
 

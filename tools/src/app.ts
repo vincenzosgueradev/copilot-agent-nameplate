@@ -14,7 +14,7 @@ import { openFolder, saveJsonFile, saveTextFile, selectFolder } from './services
 import { addRecord, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
 import { loadAgentCards } from './services/agentCards';
-import { pinFirst, readPins, setPinned } from './services/pins';
+import { MAX_PINS, pinFirst, readPins, setPinned } from './services/pins';
 import { runPackaging, type PackagingResult } from './services/packaging';
 import { agentOutcomes, buildName, publishModeFor } from './services/patch';
 import { nextVersion, versionProblem } from './services/solutionVersion';
@@ -434,17 +434,40 @@ function sortBy(col: SortColumn): void {
 /** Fissa o toglie una solution: la riga si sposta sul posto, senza rileggere nulla. */
 function togglePin(uniqueName: string): void {
     const on = !state.pins.includes(uniqueName);
+    if (on && pinsFull()) return;   // il pulsante e' gia' disabilitato: difesa per chi arriva da tastiera/script
     state.pins = on ? [...state.pins, uniqueName] : state.pins.filter(n => n !== uniqueName);
     renderSolutionsTable();
     setPinned(state.connectionName, uniqueName, on).catch(err =>
         log(`Pin not saved, it lasts only until you close the tool: ${err}`, 'warning'));
 }
 
+/** Conta solo le fissate che esistono ancora: un pin di una solution cancellata non deve occupare un posto. */
+function pinsFull(): boolean {
+    const known = new Set(solutionPool().map(s => s.uniqueName));
+    return state.pins.filter(n => known.has(n)).length >= MAX_PINS;
+}
+
 function pinButtonHtml(s: Solution): string {
     const on = state.pins.includes(s.uniqueName);
+    const blocked = !on && pinsFull();
+    const title = on ? 'Unpin solution'
+        : blocked ? `You can pin up to ${MAX_PINS} solutions: unpin one first`
+        : 'Pin solution to the top';
     return `<button type="button" class="pin-btn" data-pin="${escapeHtml(s.uniqueName)}"
-                aria-pressed="${on}" aria-label="${on ? 'Unpin solution' : 'Pin solution'}"
-                title="${on ? 'Unpin solution' : 'Pin solution to the top'}">${icon('pin')}</button>`;
+                aria-pressed="${on}" aria-label="${title}" title="${title}"${blocked ? ' disabled' : ''}>${icon('pin')}</button>`;
+}
+
+/**
+ * Le fissate (al massimo MAX_PINS) restano sotto l'intestazione mentre si scorre. Ogni riga si
+ * ancora sotto l'intestazione e sotto le fissate che la precedono, quindi l'offset si misura.
+ */
+function anchorPinnedRows(container: HTMLElement): void {
+    let top = container.querySelector<HTMLElement>('thead')?.offsetHeight ?? 0;
+    container.querySelectorAll<HTMLElement>('tr.is-pinned').forEach((row, i) => {
+        if (i >= MAX_PINS) { row.classList.remove('is-pinned'); return; }   // pin vecchi oltre il limite: restano in cima, non ancorati
+        row.style.setProperty('--pin-top', `${top}px`);
+        top += row.offsetHeight;
+    });
 }
 
 function renderSolutionsTable(): void {
@@ -531,7 +554,7 @@ function renderSolutionsTable(): void {
             </thead>
             <tbody>
                 ${rows.map(({ solution: s, matchedAgents }) => `
-                <tr class="data-row" data-solution="${escapeHtml(s.solutionId)}">
+                <tr class="data-row${state.pins.includes(s.uniqueName) ? ' is-pinned' : ''}" data-solution="${escapeHtml(s.solutionId)}">
                     <td class="cell-strong">${pinButtonHtml(s)}${highlight(s.friendlyName || s.uniqueName, q)}</td>
                     <td class="cell-muted">${highlight(s.uniqueName, q)}</td>
                     <td class="col-num"><span class="count-pill">${s.agentCount}</span></td>
@@ -556,6 +579,7 @@ function renderSolutionsTable(): void {
             </tbody>
         </table>`;
 
+    anchorPinnedRows(container);
     container.querySelectorAll<HTMLElement>('th.sortable').forEach(el => {
         el.addEventListener('click', () => sortBy(el.dataset.sort as SortColumn));
     });
@@ -824,7 +848,7 @@ interface Crumb { label: string; step: AppStep; }
 function buildBreadcrumb(): Crumb[] {
     const trail: Crumb[] = [{ label: 'Solutions', step: 'welcome' }];
     if (state.currentStep === 'welcome') return trail;
-    if (state.currentStep === 'history') return [...trail, { label: 'Storico', step: 'history' }];
+    if (state.currentStep === 'history') return [...trail, { label: 'History', step: 'history' }];
     if (state.browsingSolutionId) {
         trail.push({
             label: state.activeSolution
@@ -1136,6 +1160,15 @@ async function loadCards(agents: AgentListItem[], seq: number): Promise<void> {
     paintCards();
 }
 
+/** Interruttore compatto per le righe di una tabella: la Constitution non ammette checkbox nude. */
+function switchHtml(attr: string, label: string, on: boolean): string {
+    return `<label class="switch switch--sm">
+        <input class="switch-input" type="checkbox" role="switch" ${attr}
+            aria-label="${escapeHtml(label)}" ${on ? 'checked' : ''}>
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+    </label>`;
+}
+
 function agentRowsHtml(): string {
     const agents = solutionAgents();
     const names = agents.map(a => ({ name: a.name, selected: !state.excludedAgents.has(a.id) }));
@@ -1143,8 +1176,8 @@ function agentRowsHtml(): string {
     return `
         <table class="data-table data-table--fill">
             <colgroup><col style="width:48px"><col style="width:28%"><col style="width:96px"><col style="width:28%"><col></colgroup>
-            <thead><tr><th><input type="checkbox" data-agent-all aria-label="Select or deselect all agents"
-                ${agents.every(a => !state.excludedAgents.has(a.id)) ? 'checked' : ''}></th><th>Agent</th><th>Agent type</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
+            <thead><tr><th>${switchHtml('data-agent-all', 'Select or deselect all agents',
+                agents.every(a => !state.excludedAgents.has(a.id)))}</th><th>Agent</th><th>Agent type</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
             <tbody>${agents.map(a => {
                 const on = !state.excludedAgents.has(a.id);
                 const next = buildName(a.name, state.suffix);
@@ -1155,8 +1188,7 @@ function agentRowsHtml(): string {
                     : 'left as it is';
                 return `
                 <tr${on ? '' : ' class="is-off"'}>
-                    <td><input type="checkbox" data-agent="${escapeHtml(a.id)}"
-                        aria-label="Rename ${escapeHtml(a.name)}" ${on ? 'checked' : ''}></td>
+                    <td>${switchHtml(`data-agent="${escapeHtml(a.id)}"`, `Rename ${a.name}`, on)}</td>
                     <td class="cell-strong" title="${escapeHtml(a.name)}">${agentCellHtml(a)}</td>
                     <td class="cell-type">${agentKindHtml(a.id)}</td>
                     <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap" title="${escapeHtml(next)}">${on
@@ -2102,7 +2134,6 @@ async function saveArtifactSet(): Promise<void> {
             drift: pkg.drift,
             confirmations: state.confirmations,
             status: written.complete ? 'ok' : 'failed',
-            deployments: [],
         };
         await addRecord(record);
         state.lastSet = written.set;

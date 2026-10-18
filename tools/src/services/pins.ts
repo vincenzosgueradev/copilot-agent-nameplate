@@ -13,6 +13,9 @@ import type { PinMap } from '../types';
 
 const KEY = 'solutionPins';
 
+/** Le fissate restano ancorate sotto l'intestazione mentre si scorre: più di tre mangerebbero la lista. */
+export const MAX_PINS = 3;
+
 /** Serializza le scritture: più copie del tool possono essere aperte insieme. */
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -43,7 +46,7 @@ export async function readPins(environment: string): Promise<string[]> {
         const raw = await globalThis.toolboxAPI.settings.get(KEY);
         return parse(raw)[environment] ?? [];
     } catch (err) {
-        log(`Impossibile leggere i pin: ${err}`, 'warning');
+        log(`Could not read the pins: ${err}`, 'warning');
         return [];
     }
 }

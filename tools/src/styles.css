@@ -1108,33 +1108,6 @@ mark.hl {
     .ph--running .ph-dot { animation: none; }
 }
 
-/* Round progress markers, same family as the stepper dots */
-.status-dot {
-    width: 26px; height: 26px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--fs-base);
-    font-weight: 700;
-    line-height: 1;
-    border: 2px solid transparent;
-    transition: background 0.15s, border-color 0.15s;
-}
-
-.status-dot--pending { border-color: var(--color-border); background: transparent; }
-
-.status-dot--running {
-    border-color: var(--color-border);
-    border-top-color: var(--color-primary);
-    animation: spin 0.7s linear infinite;
-}
-
-.status-dot--success { background: var(--color-success); border-color: var(--color-success); color: #fff; }
-.status-dot--error   { background: var(--color-error);   border-color: var(--color-error);   color: #fff; }
-.status-dot--skipped { background: var(--color-surface-2); border-color: var(--color-border); color: var(--color-text-muted); }
-
 /* Shown only while a silent background refresh is running */
 .refresh-indicator {
     display: none;
@@ -1636,7 +1609,6 @@ mark.hl {
 .icon--lg { width: 20px; height: 20px; }
 
 /* Dentro un marcatore circolare pieno serve piu' corpo per restare leggibile */
-.status-dot .icon,
 .stepper-dot .icon {
     width: 12px;
     height: 12px;
@@ -1754,6 +1726,14 @@ select option {
 }
 
 .switch-input:checked + .switch-track .switch-thumb { left: 19px; }
+
+/* Versione compatta per le righe di tabella; "tutti" a meta' mostra la manopola al centro */
+.switch--sm .switch-track { width: 32px; height: 18px; border-radius: 9px; }
+.switch--sm .switch-thumb { width: 12px; height: 12px; top: 3px; }
+.switch--sm .switch-input:checked + .switch-track .switch-thumb { left: 17px; }
+.switch--sm .switch-input:indeterminate + .switch-track { background: var(--color-primary); opacity: 0.6; }
+.switch--sm .switch-input:indeterminate + .switch-track .switch-thumb { left: 10px; }
+.switch-input:focus-visible + .switch-track { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 /* ── Toggle group (3-state segmented button) ── */
 .toggle-group {
@@ -1914,6 +1894,11 @@ select option {
 .pin-btn { padding: 3px; border: 0; border-radius: 4px; background: none; color: var(--color-text-muted); cursor: pointer; opacity: 0; }
 .pin-btn .icon { width: 16px; height: 16px; display: block; }
 .data-row:hover .pin-btn, .pin-btn:focus-visible { opacity: 1; }
-.pin-btn:hover { color: var(--color-text-strong); background: var(--color-surface-2); }
+/* Fissata: resta sotto l'intestazione durante lo scroll; lo sfondo pieno copre le righe che le passano sotto */
+.data-row.is-pinned td { position: sticky; top: var(--pin-top, 0); z-index: 1; background: var(--color-surface); }
+.data-row.is-pinned:hover td { background: var(--color-surface-2); }
+.pin-btn:disabled { cursor: not-allowed; }
+.data-row:hover .pin-btn:disabled { opacity: 0.35; }
+.pin-btn:hover:not(:disabled) { color: var(--color-text-strong); background: var(--color-surface-2); }
 .pin-btn[aria-pressed="true"] { opacity: 1; color: var(--color-primary); }
 @media (hover: none) { .pin-btn { opacity: 1; } }

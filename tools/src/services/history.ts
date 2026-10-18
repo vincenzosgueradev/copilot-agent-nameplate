@@ -33,7 +33,7 @@ export async function readHistory(): Promise<PackagingRecord[]> {
         // Le voci scadute si nascondono in lettura ed escono alla scrittura successiva
         return list.filter(r => !isExpired(r, now));
     } catch (err) {
-        log(`Impossibile leggere lo storico: ${err}`, 'warning');
+        log(`Could not read the history: ${err}`, 'warning');
         return [];
     }
 }
@@ -57,17 +57,6 @@ export async function addRecord(record: PackagingRecord): Promise<void> {
     await mutate(list => [record, ...list.filter(r => r.id !== record.id)]);
 }
 
-export async function updateRecord(
-    id: string,
-    fn: (r: PackagingRecord) => PackagingRecord,
-): Promise<void> {
-    await mutate(list => list.map(r => (r.id === id ? fn(r) : r)));
-}
-
 export async function deleteRecord(id: string): Promise<void> {
     await mutate(list => list.filter(r => r.id !== id));
-}
-
-export async function clearHistory(): Promise<void> {
-    await mutate(() => []);
 }

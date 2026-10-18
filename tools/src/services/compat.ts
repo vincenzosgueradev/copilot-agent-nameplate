@@ -24,7 +24,7 @@ function childElementNames(xml: string): string[] {
 }
 
 /** Valore di `recognizer.$kind`: identifica l'architettura dell'agent (spec 009). */
-export const NO_RECOGNIZER = '(none)';
+const NO_RECOGNIZER = '(none)';
 function architectureOf(config: Record<string, unknown>): string {
     const r = config.recognizer;
     if (r && typeof r === 'object' && !Array.isArray(r)) {
@@ -297,6 +297,3 @@ export function detectDrift(
     }
     return out;
 }
-
-/** Numero di occorrenze del display name che la baseline si aspetta: una sola. */
-export const EXPECTED_NAME_OCCURRENCES = baseline.expectedDisplayNameOccurrences;

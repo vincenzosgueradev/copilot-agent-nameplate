@@ -204,7 +204,8 @@ describe('pipeline: contenuto degli zip contro l\'oracolo', () => {
         console.log(`pipeline 1 agent: ${count} combinazioni`);
         expect(count).toBe(NAMES.length * PUBLISH.length * GPT.length * CONNECTED.length * 2
             * SUFFIXES.length * GLOBALS.length * VERSIONS.length * MODES.length);
-    });
+    // 28.800 combinazioni in un ciclo solo: ~13 minuti, oltre il testTimeout globale.
+    }, 3_600_000);
 
     for (const n of [1, 2, 3, 4]) {
         it(`${n} agent: tutte le coppie + campioni`, async () => {

@@ -97,7 +97,7 @@ async function buildSolutionMap(botIds: string[]): Promise<{
         }
     } catch (err) {
         ok = false;
-        log(`Impossibile risolvere le solution (gli agent restano elencati): ${err}`, 'warning');
+        log(`Could not resolve the solutions (the agents stay listed): ${err}`, 'warning');
     }
     return { byBotId, bySolutionId, ok };
 }

@@ -678,7 +678,7 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   assume la **connessione attiva** come destinazione è sbagliato: durante il packaging quella è
   l'ambiente di **origine**, e reimportarvi il managed vi stenderebbe sopra un layer managed —
   esattamente ciò che questo flusso esiste per evitare. Una prima implementazione faceva così ed
-  è stata **rimossa** il 2026-10-16; `services/deploy.ts` resta disponibile. Finché PPTB non
+  è stata **rimossa** il 2026-10-16; `services/deploy.ts`, rimasto per un po' inutilizzato, è stato eliminato il 2026-10-18 (resta nella storia di git). Finché PPTB non
   espone la scelta dell'environment dentro il tool, il deploy NON DEVE essere riproposto in UI:
   la fase 1 si chiude con l'artefatto su disco e l'import avviene nell'ambiente successivo
 - **FR-082** *(fase 2)*: Prima di un deploy il tool DEVE rilevare se l'agent nell'ambiente di

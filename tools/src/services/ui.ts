@@ -1,38 +1,6 @@
 /// <reference types="@pptb/types" />
 
-/**
- * Indicatori di avanzamento condivisi.
- *
- * Marcatori circolari coerenti con lo stepper, mai emoji: a seconda del font le emoji
- * si rendono come quadratini (FR-053). Servono all'avanzamento reale dell'export, che
- * può durare da 13 secondi a 5 minuti e non può essere uno spinner muto (FR-094).
- */
-
-import { icon } from '../icons';
-
-export type DotState = 'pending' | 'running' | 'success' | 'error' | 'skipped';
-
-const DOT_GLYPH: Record<DotState, string> = {
-    pending: '',
-    running: '',
-    success: icon('check'),
-    error: icon('close'),
-    skipped: icon('minus'),
-};
-
-export function statusDotHtml(id: string, s: DotState = 'pending'): string {
-    return `<span class="status-dot status-dot--${s}" id="${id}" aria-label="${s}">${DOT_GLYPH[s]}</span>`;
-}
-
-export function setStatusDot(id: string, s: DotState): void {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.className = `status-dot status-dot--${s}`;
-    el.innerHTML = DOT_GLYPH[s];
-    el.setAttribute('aria-label', s);
-}
-
-// ── Dialog di conferma ───────────────────────────────────────────────────────
+/** Dialog di conferma condiviso dai passi che chiedono un assenso esplicito. */
 
 /**
  * Conferma modale. Serve dove la spec richiede un assenso esplicito e non un semplice

@@ -236,7 +236,7 @@ export async function invokeHeadless(input: Json): Promise<Json> {
                     + 'previewPatch, package');
         }
     } catch (err) {
-        log(`Headless "${op}" non riuscita: ${describeError(err)}`, 'error');
+        log(`Headless "${op}" failed: ${describeError(err)}`, 'error');
         return toError(err);
     }
 }

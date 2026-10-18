@@ -72,11 +72,55 @@ describe('ordine dentro ciascun gruppo (FR-003)', () => {
         expect(rows(ui)).toEqual(['Alpha', 'Echo', 'Bravo', 'Charlie', 'Delta']); // agents desc, poi nome
         expect(ui.doc.querySelectorAll('.pin-btn[aria-pressed="true"]').length).toBe(0);
     });
-    it('tutte le visibili fissate: stesso ordine di prima', async () => {
+    it('le prime tre visibili fissate: stesso ordine di prima', async () => {
         const ui = await boot(world());
         const before = rows(ui);
-        for (const u of before) await pin(ui, u);
+        for (const u of before.slice(0, 3)) await pin(ui, u);
         expect(rows(ui)).toEqual(before);
+    });
+});
+
+describe('massimo tre fissate, ancorate allo scroll', () => {
+    it('raggiunte le tre, gli altri pin sono disabilitati e dicono perché', async () => {
+        const ui = await boot(world());
+        for (const u of ['Alpha', 'Bravo', 'Charlie']) await pin(ui, u);
+        for (const u of ['Delta', 'Echo']) {
+            expect(pinBtn(ui, u).disabled).toBe(true);
+            expect(pinBtn(ui, u).title).toContain('up to 3');
+        }
+        for (const u of ['Alpha', 'Bravo', 'Charlie']) expect(pinBtn(ui, u).disabled).toBe(false);
+    });
+    it('un pin oltre il limite non fissa nulla e non scrive', async () => {
+        const ui = await boot(world());
+        for (const u of ['Alpha', 'Bravo', 'Charlie']) await pin(ui, u);
+        await pin(ui, 'Delta');
+        expect(pressed(ui, 'Delta')).toBe('false');
+        expect(ui.fs.settings.get('solutionPins')).toEqual({ DEV: ['Alpha', 'Bravo', 'Charlie'] });
+    });
+    it('togliendone una, il posto torna libero', async () => {
+        const ui = await boot(world());
+        for (const u of ['Alpha', 'Bravo', 'Charlie']) await pin(ui, u);
+        await pin(ui, 'Bravo');
+        expect(pinBtn(ui, 'Delta').disabled).toBe(false);
+        await pin(ui, 'Delta');
+        expect(pressed(ui, 'Delta')).toBe('true');
+    });
+    it('le fissate portano la classe che le ancora, con un offset che le impila', async () => {
+        const ui = await boot(world());
+        for (const u of ['Alpha', 'Bravo']) await pin(ui, u);
+        const pinned = Array.from(ui.doc.querySelectorAll<HTMLElement>('tr.data-row.is-pinned'));
+        expect(pinned.map(r => r.dataset.solution)).toEqual(['sol-Alpha', 'sol-Bravo']);
+        for (const r of pinned) expect(r.style.getPropertyValue('--pin-top')).toMatch(/^\d+px$/);
+        expect(ui.doc.querySelectorAll('tr.data-row:not(.is-pinned)').length).toBeGreaterThan(0);
+    });
+});
+
+describe('niente checkbox nude (Constitution)', () => {
+    it('la lista delle solution non ha checkbox senza interruttore', async () => {
+        const ui = await boot(world());
+        const bare = Array.from(ui.doc.querySelectorAll('input[type="checkbox"]'))
+            .filter(i => !i.classList.contains('switch-input'));
+        expect(bare).toEqual([]);
     });
 });
 
@@ -86,7 +130,7 @@ describe('controllo e indicatore (FR-001, FR-004, FR-005)', () => {
         for (const u of rows(ui)) {
             expect(pinBtn(ui, u)).toBeTruthy();
             expect(pressed(ui, u)).toBe('false');
-            expect(pinBtn(ui, u).getAttribute('aria-label')).toBe('Pin solution');
+            expect(pinBtn(ui, u).getAttribute('aria-label')).toBe('Pin solution to the top');
             expect(pinBtn(ui, u).tagName).toBe('BUTTON');
         }
         await pin(ui, 'Bravo');
