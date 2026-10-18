@@ -92,8 +92,20 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   ignored, and with two agents it repeated the same labels without saying which agent each
   belonged to.
 - **Consistent headers.** The three tile headers (solution list, open solution, package preview) are built the same way, with English labels (Version, Publisher, Agents, Created, Entries, Export time) and no repeated information: the managed count is no longer in two places, the solution subtitle says the type instead of repeating the agent count and the name, and the preview no longer repeats the solution. The breadcrumb now says Checks and Result like the steps.
+- Every excluded agent now says which suffix it keeps, and the mixed-suffix warning names them.
+- Row selection in the agent table uses a round check (ring, filled when ticked, a dash when
+  only some rows are on) instead of a small switch.
+- The open solution header no longer repeats data already visible in the list row.
 
 ### Added
+- **Pin solutions to the top of the list.** A pin on each row keeps up to three solutions per
+  environment above the rest, whatever the sort, filter or search. Pins are remembered per
+  environment on this machine and never written to the package, the manifest or Dataverse.
+- **Warning before continuing without a suffix.** An empty suffix removes the existing one from
+  every ticked agent. The review now opens a dialog listing each affected agent (before → after)
+  with a way back.
+- **Select all / Deselect all** above the agent table, with an "N of M selected" counter. With
+  nothing ticked, the screen explains why and points to the native export or the ALM pipeline.
 - **Mixed-suffix warning.** If, after the rename, the agents of a solution would carry
   different suffixes (for example one left out and still `[DEV]`), the review shows a warning
   and saving asks for an explicit confirmation, which is recorded in the manifest.
