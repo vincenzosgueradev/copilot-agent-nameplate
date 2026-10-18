@@ -12,7 +12,7 @@
 - [x] T010 Changelog (*Added*), `specs/README.md` (stato), tabella di tracciabilità sotto
 - [ ] T011 Quickstart a mano su un DEV vero
 
-## Tracciabilità *(da completare a fine lavoro)*
+## Tracciabilità
 
 | Requisito | Codice | Test |
 |---|---|---|
