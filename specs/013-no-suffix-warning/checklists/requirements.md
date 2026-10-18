@@ -2,7 +2,7 @@
 
 - [x] Requisiti testabili e senza dettagli di implementazione
 - [x] Suffisso di soli spazi definito come vuoto (FR-001)
-- [x] Contenuto dell'avviso definito, con esempi e tetto a 3 (FR-002)
+- [x] Contenuto dell'avviso definito, con tutti gli agent interessati (FR-002)
 - [x] Annulla ed Escape restano sul passo (FR-003)
 - [x] Nessun avviso con un suffisso scritto (FR-005)
 - [x] Nessuna emoji: cerchio CSS con "!" (FR-006)
