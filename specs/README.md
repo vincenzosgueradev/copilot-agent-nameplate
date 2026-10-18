@@ -19,6 +19,7 @@ dice che cosa i test **non** coprono e come controllarlo a mano.
 | [010](010-agent-type-column/spec.md) | Colonna Agent type con l'icona dell'architettura (standard / GitHub Copilot harness) | **Implementata** (resta da provare la lettura reale di `bot.template`) | — | estende 008 |
 | [011](011-consistent-headers/spec.md) | Intestazioni uniformi e senza ripetizioni (tile, sottotitoli, percorso) | **Implementata** | — | estende 005 |
 | [012](012-pin-solution/spec.md) | Pin delle solution in cima alla lista, per ambiente | **Implementata** (resta da provare su un DEV vero) | — | estende 005 |
+| [013](013-no-suffix-warning/spec.md) | Avviso se si va avanti senza suffisso, con esempi prima → dopo | **Implementata** (resta da provare su un DEV vero) | — | estende 002 |
 
 ## Come leggere le specifiche successive
 
