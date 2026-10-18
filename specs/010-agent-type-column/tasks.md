@@ -2,7 +2,7 @@
 
 **Decisioni prese** (spec.md): colonna anche nel passo del suffisso; logo dell'app per lo standard; tipi non misurati = sconosciuti.
 
-- [ ] T001 Provare la lettura di `bot.template` via Web API su un DEV vero (come T002 della 008); annotare il valore per i due tipi
+- [x] T001 Lettura di `bot.template` via Web API provata su un DEV vero (2026-10-18, `GET /bots?$select=name,template`, 47 agent): standard = `default-2.1.0` (agenteTool1/2/3), GitHub Copilot harness = `cliagent-1.0.0` (agenteTool4/5). Nessun altro valore nell'ambiente. La schermata di `testAgentTool` mostra le tre icone standard e le due harness, coerenti con la query.
 - [x] T002 Test prima del codice: matrice di `agentKindOf` (`cliagent-1.0.0`, `default-2.1.0`, versioni nuove, maiuscole, spazi, vuoto, assente, `weird`, numero) → `tools/test/agentCards.test.ts`
 - [x] T003 `types.ts`: `AgentCard.kind`; `agentCards.ts`: `agentKindOf`, `template` nella query
 - [x] T004 Icona `github-copilot` (maschera, `currentColor`) in `icons.ts` e `styles.css`

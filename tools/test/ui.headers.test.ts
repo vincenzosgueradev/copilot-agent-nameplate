@@ -2,7 +2,7 @@
 /**
  * Spec 011 — intestazioni uniformi e senza ripetizioni.
  *
- * Le tre intestazioni a tile (elenco delle solution, solution aperta, anteprima) usano lo stesso
+ * Le intestazioni a tile (elenco delle solution, anteprima) usano lo stesso
  * componente, con etichette in inglese e senza dire due volte la stessa cosa.
  */
 
@@ -38,32 +38,20 @@ describe('elenco delle solution', () => {
 });
 
 describe('solution aperta', () => {
-    it('le tile: Version, Publisher, Agents, Created', async () => {
+    const head = (ui: { doc: Document }) => norm(ui.doc.querySelector('#step-solution .panel-head')!.textContent).replace(/Updating…/, '').trim();
+
+    it('niente tile e titolo: i dati stanno nel percorso e nella riga dell elenco', async () => {
         const ui = await boot(world());
         await ui.openSolution('S1');
-        expect(labels(ui, '#step-solution .strip')).toEqual(['Version', 'Publisher', 'Agents', 'Created']);
+        expect(ui.doc.querySelector('#step-solution .strip')).toBeNull();
+        expect(ui.doc.querySelector('#step-solution .panel-heading')).toBeNull();
+        expect(ui.doc.querySelector('#step-solution .panel-sub')).toBeNull();
     });
 
-    it('il numero di agent sta nelle tile e non nel sottotitolo', async () => {
+    it('resta solo il tipo della solution', async () => {
         const ui = await boot(world());
         await ui.openSolution('S1');
-        const sub = norm(ui.doc.querySelector('#step-solution .panel-sub')!.textContent);
-        expect(sub).not.toMatch(/\bagents?\b/i);
-        const agents = Array.from(ui.doc.querySelectorAll('#step-solution .strip .stat')).find(s => s.querySelector('dt')!.textContent === 'Agents')!;
-        expect(norm(agents.querySelector('dd')!.textContent)).toBe('2');
-    });
-
-    it('nome visualizzato diverso dal nome univoco: il sottotitolo dice il tipo e il nome univoco', async () => {
-        const ui = await boot(world());
-        await ui.openSolution('S1');
-        expect(norm(ui.doc.querySelector('#step-solution .panel-sub')!.textContent)).toBe('Unmanaged solution · S1');
-    });
-
-    it('nome visualizzato uguale al nome univoco: il nome non si ripete', async () => {
-        const ui = await boot(world({ friendly: 'S1' }));
-        await ui.openSolution('S1');
-        expect(norm(ui.doc.querySelector('#step-solution .panel-heading')!.textContent)).toBe('S1');
-        expect(norm(ui.doc.querySelector('#step-solution .panel-sub')!.textContent)).toBe('Unmanaged solution');
+        expect(head(ui)).toBe('Unmanaged');
     });
 
     it('una solution managed lo dice', async () => {
@@ -71,15 +59,16 @@ describe('solution aperta', () => {
         await ui.crumb('Solutions').catch(() => undefined);
         await ui.doc.querySelector<HTMLElement>('[data-filter="managed"]')!.click();
         await ui.openSolution('M1');
-        expect(norm(ui.doc.querySelector('#step-solution .panel-sub')!.textContent)).toBe('Managed solution · M1');
+        expect(head(ui)).toBe('Managed');
     });
 
-    it('agent senza solution: nessuna tile, e il conteggio sta nel sottotitolo (unico posto)', async () => {
+    it('agent senza solution: la nota spiega il caso, il conteggio non si ripete', async () => {
         const ui = await boot(world());
         await ui.search('lonely');
         await ui.clickChip('lonely');
-        expect(ui.doc.querySelector('#step-solution .strip')).toBeNull();
-        expect(norm(ui.doc.querySelector('#step-solution .panel-sub')!.textContent)).toBe('1 agent');
+        expect(head(ui)).toBe('No solution');
+        expect(ui.doc.querySelector('#step-solution .panel-note')).not.toBeNull();
+        expect(norm(ui.doc.getElementById('step-solution')!.textContent)).not.toMatch(/1 agents?/);
     });
 });
 
@@ -127,12 +116,12 @@ describe('percorso e lingua', () => {
     });
 });
 
-describe('contenuto non fidato nelle tile', () => {
-    it('un valore con HTML resta testo', async () => {
-        const ui = await boot(world({ version: '<b>1</b>.0' }));
+describe('contenuto non fidato', () => {
+    it('un nome con HTML resta testo, nel percorso e nella lista', async () => {
+        const ui = await boot(world({ friendly: '<b>x</b>' }));
         await ui.openSolution('S1');
-        const strip = ui.doc.querySelector('#step-solution .strip')!;
-        expect(strip.querySelectorAll('b')).toHaveLength(0);
-        expect(norm(strip.textContent)).toContain('<b>1</b>.0');
+        const main = ui.doc.getElementById('main-content')!;
+        expect(main.querySelectorAll('b')).toHaveLength(0);
+        expect(norm(ui.doc.getElementById('breadcrumb')!.textContent)).toContain('<b>x</b>');
     });
 });

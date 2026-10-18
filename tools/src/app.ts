@@ -14,6 +14,7 @@ import { openFolder, saveJsonFile, saveTextFile, selectFolder } from './services
 import { addRecord, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
 import { loadAgentCards } from './services/agentCards';
+import { pinFirst, readPins, setPinned } from './services/pins';
 import { runPackaging, type PackagingResult } from './services/packaging';
 import { agentOutcomes, buildName, publishModeFor } from './services/patch';
 import { nextVersion, versionProblem } from './services/solutionVersion';
@@ -46,6 +47,8 @@ type AppStep = 'welcome' | 'solution' | 'suffix' | 'review' | 'preview' | 'verif
 const state = {
     connectionName: '',
     solutions: [] as Solution[],
+    /** Nomi univoci delle solution fissate in questo ambiente (spec 012). */
+    pins: [] as string[],
     activeSolution: null as Solution | null,
     browsingSolutionId: null as string | null,
     searchQuery: '',
@@ -140,6 +143,7 @@ async function initConnection(): Promise<void> {
             return;
         }
         state.connectionName = conn.name;
+        state.pins = await readPins(conn.name);
         setConnectionBadge(conn.name, 'connected');
         log(`Connected to ${conn.name}`, 'success');
         els.refreshBtn.disabled = false;
@@ -354,9 +358,11 @@ function effectiveFilter(): SolutionFilter {
 
 function visibleSolutions(): Solution[] {
     const f = effectiveFilter();
-    return solutionPool()
+    const sorted = solutionPool()
         .filter(s => f === 'all' || (f === 'managed' ? s.isManaged : !s.isManaged))
         .sort(compareSolutions);
+    // Le fissate stanno sopra qualunque ordinamento; questo vale dentro ciascun gruppo (spec 012)
+    return pinFirst(sorted, s => state.pins.includes(s.uniqueName));
 }
 
 /** Keeps the type switch, its counts and the subtitle in step with the data. */
@@ -423,6 +429,22 @@ function sortBy(col: SortColumn): void {
             ? 'desc' : 'asc';
     }
     renderSolutionsTable();
+}
+
+/** Fissa o toglie una solution: la riga si sposta sul posto, senza rileggere nulla. */
+function togglePin(uniqueName: string): void {
+    const on = !state.pins.includes(uniqueName);
+    state.pins = on ? [...state.pins, uniqueName] : state.pins.filter(n => n !== uniqueName);
+    renderSolutionsTable();
+    setPinned(state.connectionName, uniqueName, on).catch(err =>
+        log(`Pin not saved, it lasts only until you close the tool: ${err}`, 'warning'));
+}
+
+function pinButtonHtml(s: Solution): string {
+    const on = state.pins.includes(s.uniqueName);
+    return `<button type="button" class="pin-btn" data-pin="${escapeHtml(s.uniqueName)}"
+                aria-pressed="${on}" aria-label="${on ? 'Unpin solution' : 'Pin solution'}"
+                title="${on ? 'Unpin solution' : 'Pin solution to the top'}">${icon('pin')}</button>`;
 }
 
 function renderSolutionsTable(): void {
@@ -510,7 +532,7 @@ function renderSolutionsTable(): void {
             <tbody>
                 ${rows.map(({ solution: s, matchedAgents }) => `
                 <tr class="data-row" data-solution="${escapeHtml(s.solutionId)}">
-                    <td class="cell-strong">${highlight(s.friendlyName || s.uniqueName, q)}</td>
+                    <td class="cell-strong">${pinButtonHtml(s)}${highlight(s.friendlyName || s.uniqueName, q)}</td>
                     <td class="cell-muted">${highlight(s.uniqueName, q)}</td>
                     <td class="col-num"><span class="count-pill">${s.agentCount}</span></td>
                     <td class="cell-muted" title="${escapeHtml(formatAbsoluteDate(s.createdOn))}">
@@ -522,7 +544,7 @@ function renderSolutionsTable(): void {
                 ${agentHits(matchedAgents)}`).join('')}
                 ${showOrphans ? `
                 <tr class="data-row" data-solution="__none__">
-                    <td class="cell-strong">Agents without a solution</td>
+                    <td class="cell-strong"><span class="pin-slot"></span>Agents without a solution</td>
                     <td class="cell-muted">—</td>
                     <td class="col-num"><span class="count-pill">${orphans.length}</span></td>
                     <td class="cell-muted">—</td>
@@ -536,6 +558,12 @@ function renderSolutionsTable(): void {
 
     container.querySelectorAll<HTMLElement>('th.sortable').forEach(el => {
         el.addEventListener('click', () => sortBy(el.dataset.sort as SortColumn));
+    });
+    container.querySelectorAll<HTMLElement>('.pin-btn').forEach(el => {
+        el.addEventListener('click', ev => {
+            ev.stopPropagation();                 // il pin non apre la solution
+            togglePin(el.dataset.pin!);
+        });
     });
     container.querySelectorAll<HTMLElement>('.data-row').forEach(el => {
         el.addEventListener('click', () => selectSolution(el.dataset.solution!));
@@ -577,8 +605,16 @@ function suffixesAfter(names: { name: string; selected: boolean }[], suffix: str
     return [...set];
 }
 
+/** Gli agent esclusi che restano con un suffisso diverso da quello nuovo: la causa dei nomi misti. */
+function clashingAgents(): AgentListItem[] {
+    const target = state.suffix.trim();
+    return solutionAgents().filter(a =>
+        state.excludedAgents.has(a.id) && (splitSuffix(a.name).currentSuffix ?? '') !== target);
+}
+
 function mixedSuffixHtml(found: string[]): string {
     const label = found.map(s => s ? `[${escapeHtml(s)}]` : 'no suffix').join(', ');
+    const who = clashingAgents().map(a => `<strong>${escapeHtml(a.name)}</strong>`).join(', ');
     return `
         <p class="hint hint--warn" style="margin-top:12px">
             The agents of this solution would end up with <strong>different suffixes</strong>
@@ -605,29 +641,22 @@ function selectSolution(solutionId: string, highlightAgentId = ''): void {
         state.options.publishByAgent = {};
         resetVersionPlan();
         state.suffix = '';
-/** Gli agent esclusi che restano con un suffisso diverso da quello nuovo: la causa dei nomi misti. */
-function clashingAgents(): AgentListItem[] {
-    const target = state.suffix.trim();
-    return solutionAgents().filter(a =>
-        state.excludedAgents.has(a.id) && (splitSuffix(a.name).currentSuffix ?? '') !== target);
-}
-
         state.packaging = null;
     }
-    const who = clashingAgents().map(a => `<strong>${escapeHtml(a.name)}</strong>`).join(', ');
     state.browsingSolutionId = solutionId;
     navigateTo('solution');
 }
 
 /**
- * Il sottotitolo della solution aperta: dice il tipo e, solo se diverso dal titolo, il nome
- * univoco. Il numero di agent sta gia' nelle tile, quindi qui si ripete solo per un gruppo di
- * agent senza solution (che non ha le tile).
+ * Intestazione della solution aperta: il nome sta nel percorso, versione, publisher, numero di agent
+ * e data di creazione stanno nella riga dell'elenco. Resta solo il tipo, che l'elenco mostra
+ * come scheda del filtro e qui non si vede.
  */
-function solutionSubtitle(sol: Solution | null, title: string, agentCount: number): string {
-    if (!sol) return `${agentCount} agent${agentCount === 1 ? '' : 's'}`;
-    const kind = sol.isManaged ? 'Managed solution' : 'Unmanaged solution';
-    return escapeHtml(sol.uniqueName === title ? kind : `${kind} · ${sol.uniqueName}`);
+function solutionKindChipHtml(sol: Solution | null): string {
+    if (!sol) return '<span class="chip chip--muted">No solution</span>';
+    return sol.isManaged
+        ? '<span class="chip chip--muted">Managed</span>'
+        : '<span class="chip chip--muted">Unmanaged</span>';
 }
 
 function renderSolutionDetail(keepScroll = false): void {
@@ -640,30 +669,18 @@ function renderSolutionDetail(keepScroll = false): void {
 
     const sol = state.activeSolution;
     const agents = solutionAgents();
-    const title = sol ? (sol.friendlyName || sol.uniqueName) : 'Agents without a solution';
     const dateCell = (iso: string, empty: string) => iso
         ? `<td class="cell-muted" title="${escapeHtml(formatAbsoluteDate(iso))}">${escapeHtml(formatRelativeDate(iso))}</td>`
         : `<td class="cell-muted">${empty}</td>`;
 
     container.innerHTML = `
         <section class="panel panel--fill">
-            <div class="panel-head panel-head--lg">
-                <div>
-                    <h2 class="panel-heading">${escapeHtml(title)}</h2>
-                    <div class="panel-sub">${solutionSubtitle(sol, title, agents.length)}</div>
-                </div>
+            <div class="panel-head panel-head--slim">
+                ${solutionKindChipHtml(sol)}
                 <span class="refresh-indicator" role="status"><span class="spinner"></span> Updating…</span>
             </div>
             <div id="solution-notices">${sol ? notExportableBannerHtml(sol) : ''}</div>
-            ${sol ? `
-            <div class="strip strip--flush">
-                ${statsHtml([
-                    { label: 'Version', value: sol.version || '—' },
-                    { label: 'Publisher', value: sol.publisherName || sol.publisherPrefix, sub: sol.publisherPrefix },
-                    { label: 'Agents', value: String(agents.length) },
-                    { label: 'Created', value: formatRelativeDate(sol.createdOn), title: formatAbsoluteDate(sol.createdOn) },
-                ])}
-            </div>` : `
+            ${sol ? '' : `
             <div class="panel-note">
                 These agents don't belong to any visible solution. Packaging works on a solution,
                 so add the agent to one before producing a package.

@@ -519,7 +519,6 @@ describe('versione: si alza in DEV a ogni export, come fa il portale (FR-073, FR
         await buildAndSave(ui);
         await ui.crumb('Solutions');
         await ui.openSolution('S1');
-        expect(ui.text('solution')).toContain('1.0.0.3');
         await ui.startRename();
         expect(ui.versionInput()).toBe('1.0.0.4');
         expect(ui.versionHint()).toContain('1.0.0.3 → 1.0.0.4');
