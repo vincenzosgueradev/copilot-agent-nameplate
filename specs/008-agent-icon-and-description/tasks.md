@@ -14,7 +14,7 @@ description: "Task list — icona e descrizione dell'agent"
 ## Phase 0 — Prima di tutto
 
 - [x] T001 [US2] **Dove sta la descrizione** — verificato il 2026-10-18 su un export reale: `botcomponent.description` del componente `<schema>.gpt.default` (research §2)
-- [ ] T002 [US1] Provare la lettura via Web API: `bot.iconbase64` e `botcomponent.description` (FetchXML con `in` sugli id) su un agent reale; annotare forma e dimensione della risposta in research §3
+- [x] T002 [US1] Lettura via Web API provata su un DEV vero (2026-10-18): le icone dei cinque agent di `testAgentTool` compaiono, anche per gli agent harness
 
 ## Phase 1 — Servizio e validazione (US1, US2, US3)
 

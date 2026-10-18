@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-18
 
-**Status**: **Implementata** (2026-10-18) · **solo l'icona**: la descrizione è stata tolta dal requisito su richiesta dell'utente (2026-10-18) · **la lettura reale via Web API (T002) resta da provare su un DEV vero**
+**Status**: **Implementata** (2026-10-18) · **solo l'icona**: la descrizione è stata tolta dal requisito su richiesta dell'utente (2026-10-18) · la lettura reale via Web API è provata su un DEV vero (2026-10-18, cinque agent, due architetture)
 
 **Input**: Richiesta dell'utente (2026-10-18): *"fai nuova specifica: voglio icona agente e descrizione"*, con due screenshot: la vista della solution del tool (agent senza icona né descrizione) e la scheda *Details* di Copilot Studio (icona dell'agent, nome, descrizione "None provided").
 
@@ -101,4 +101,4 @@ Nella **revisione** (una riga per agent) l'icona piccola accanto al nome aiuta a
 
 - `bot.iconbase64` è leggibile via Web API come stringa (Memo, fino a 136.533 caratteri); **non ancora provato** nel tool.
 - Un'icona tipica pesa ~14 KB (19.436 caratteri base64 nell'agent di prova): per una solution di 3–20 agent il costo è trascurabile; per l'intero ambiente non lo sarebbe (FR-005).
-- La lettura dell'icona via Web API non è ancora provata nel tool (tasks T002). La descrizione è fuori ambito (non si legge).
+- La lettura dell'icona via Web API è provata su un DEV vero (tasks T002). La descrizione è fuori ambito (non si legge).

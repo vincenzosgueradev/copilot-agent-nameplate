@@ -19,7 +19,7 @@
 - [x] Ambito delimitato: sola lettura; nessuna traccia nel package, nel manifest, nello storico
 - [x] Dipendenze e assunzioni elencate
 - [x] Ambito ridotto alla sola icona su richiesta dell'utente (2026-10-18): la descrizione non fa parte del requisito
-- [ ] **Da fare su un DEV vero**: la lettura via Web API di icona e descrizione è provata (task T002)
+- [x] La lettura via Web API di icona è provata su un DEV vero (2026-10-18)
 
 ## Feature Readiness
 
