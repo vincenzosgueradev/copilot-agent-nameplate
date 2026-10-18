@@ -130,6 +130,14 @@ const MUTATIONS = [
     ['app.ts', "src/app.ts", "harness: 'GitHub Copilot harness agent',", "harness: '',", "v1.1.0 (010): l'icona harness non ha etichetta"],
     ['app.ts', "src/app.ts", "el.outerHTML = agentKindHtml(el.dataset.cardKind ?? '');", "void 0;", "v1.1.0 (010): il tipo non si riempie dopo la lettura"],
     ['app.ts', "src/app.ts", "<th>Agent</th>\n                            <th>Agent type</th>", "<th>Agent</th>\n                            <th>Type</th>", "v1.1.0 (010): la colonna ha un altro titolo"],
+    ['app.ts', "src/app.ts", "{ label: 'Version', value: sol.version || '—' },", "{ label: 'Versione', value: sol.version || '—' },", "v1.1.0 (011): un'etichetta in italiano"],
+    ['app.ts', "src/app.ts", "sol.uniqueName === title ? kind", "false ? kind", "v1.1.0 (011): il nome univoco si ripete uguale al titolo"],
+    ['app.ts', "src/app.ts", "const kind = sol.isManaged ? 'Managed solution' : 'Unmanaged solution';", "const kind = 'Unmanaged solution';", "v1.1.0 (011): una solution managed non lo dice"],
+    ['app.ts', "src/app.ts", "{ label: 'Entries', value: String(pkg.entries.length) },", "{ label: 'Entry', value: String(pkg.entries.length) },", "v1.1.0 (011): etichetta dell'anteprima diversa dalle altre"],
+    ['app.ts', "src/app.ts", "label: 'Checks', step: 'verify'", "label: 'Verifica', step: 'verify'", "v1.1.0 (011): il percorso non usa il nome del passo"],
+    ['app.ts', "src/app.ts", "if (!sol) return `${agentCount} agent${agentCount === 1 ? '' : 's'}`;", "if (!sol) return '';", "v1.1.0 (011): un gruppo senza solution non dice quanti agent"],
+    ['app.ts', "src/app.ts", "<dd${s.title ? ` title=\"${escapeHtml(s.title)}\"` : ''}>${escapeHtml(s.value)}", "<dd${s.title ? ` title=\"${escapeHtml(s.title)}\"` : ''}>${s.value}", "v1.1.0 (011): il valore di una tile diventa HTML"],
+    ['app.ts', "src/app.ts", "{ label: 'Agents', value: String(agents) },\n        ]);", "{ label: 'Agents', value: String(agents) },\n            { label: 'Managed', value: String(counts.managed) },\n        ]);", "v1.1.0 (011): il conteggio managed si ripete nelle tile"],
     // ── packaging.ts: il collegamento
     ['packaging.ts', 'src/services/packaging.ts', "expected.publish![c.file] = c.after === 'true';", 'expected.publish![c.file] = true;', 'la verifica riceve publishOnImport sbagliato'],
 ];

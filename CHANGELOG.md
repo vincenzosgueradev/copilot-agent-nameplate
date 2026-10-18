@@ -91,6 +91,7 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   it showed the value of the exported package, so it looked as if the option had been
   ignored, and with two agents it repeated the same labels without saying which agent each
   belonged to.
+- **Consistent headers.** The three tile headers (solution list, open solution, package preview) are built the same way, with English labels (Version, Publisher, Agents, Created, Entries, Export time) and no repeated information: the managed count is no longer in two places, the solution subtitle says the type instead of repeating the agent count and the name, and the preview no longer repeats the solution. The breadcrumb now says Checks and Result like the steps.
 
 ### Added
 - **Mixed-suffix warning.** If, after the rename, the agents of a solution would carry

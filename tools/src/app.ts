@@ -378,10 +378,11 @@ function renderTypeFilter(): void {
     const stats = document.getElementById('hero-stats');
     if (stats) {
         const agents = state.agents.length;
-        stats.innerHTML = `
-            <div class="stat"><dt>Solution</dt><dd>${counts.all}</dd></div>
-            <div class="stat"><dt>Agent</dt><dd>${agents}</dd></div>
-            <div class="stat"><dt>Managed</dt><dd>${counts.managed}</dd></div>`;
+        // I conteggi per tipo (unmanaged, managed, tutte) stanno gia' nelle schede sotto: qui i totali
+        stats.innerHTML = statsHtml([
+            { label: 'Solutions', value: String(counts.all) },
+            { label: 'Agents', value: String(agents) },
+        ]);
     }
     if (subtitle) {
         subtitle.textContent = active === 'all'
@@ -610,6 +611,17 @@ function selectSolution(solutionId: string, highlightAgentId = ''): void {
     navigateTo('solution');
 }
 
+/**
+ * Il sottotitolo della solution aperta: dice il tipo e, solo se diverso dal titolo, il nome
+ * univoco. Il numero di agent sta gia' nelle tile, quindi qui si ripete solo per un gruppo di
+ * agent senza solution (che non ha le tile).
+ */
+function solutionSubtitle(sol: Solution | null, title: string, agentCount: number): string {
+    if (!sol) return `${agentCount} agent${agentCount === 1 ? '' : 's'}`;
+    const kind = sol.isManaged ? 'Managed solution' : 'Unmanaged solution';
+    return escapeHtml(sol.uniqueName === title ? kind : `${kind} · ${sol.uniqueName}`);
+}
+
 function renderSolutionDetail(keepScroll = false): void {
     const container = els.stepSolution;
     const solId = state.browsingSolutionId;
@@ -630,23 +642,19 @@ function renderSolutionDetail(keepScroll = false): void {
             <div class="panel-head panel-head--lg">
                 <div>
                     <h2 class="panel-heading">${escapeHtml(title)}</h2>
-                    <div class="panel-sub">
-                        ${agents.length} agent${agents.length === 1 ? '' : 's'}
-                        ${sol ? `· ${escapeHtml(sol.uniqueName)}` : ''}
-                    </div>
+                    <div class="panel-sub">${solutionSubtitle(sol, title, agents.length)}</div>
                 </div>
                 <span class="refresh-indicator" role="status"><span class="spinner"></span> Updating…</span>
             </div>
             <div id="solution-notices">${sol ? notExportableBannerHtml(sol) : ''}</div>
             ${sol ? `
             <div class="strip strip--flush">
-                <div class="stat"><dt>Versione</dt><dd>${escapeHtml(sol.version || '—')}</dd></div>
-                <div class="stat"><dt>Publisher</dt>
-                    <dd>${escapeHtml(sol.publisherName || sol.publisherPrefix)}
-                    <span class="stat-sub">${escapeHtml(sol.publisherPrefix)}</span></dd></div>
-                <div class="stat"><dt>Agent</dt><dd>${agents.length}</dd></div>
-                <div class="stat"><dt>Creata</dt>
-                    <dd title="${escapeHtml(formatAbsoluteDate(sol.createdOn))}">${escapeHtml(formatRelativeDate(sol.createdOn))}</dd></div>
+                ${statsHtml([
+                    { label: 'Version', value: sol.version || '—' },
+                    { label: 'Publisher', value: sol.publisherName || sol.publisherPrefix, sub: sol.publisherPrefix },
+                    { label: 'Agents', value: String(agents.length) },
+                    { label: 'Created', value: formatRelativeDate(sol.createdOn), title: formatAbsoluteDate(sol.createdOn) },
+                ])}
             </div>` : `
             <div class="panel-note">
                 These agents don't belong to any visible solution. Packaging works on a solution,
@@ -811,11 +819,23 @@ function buildBreadcrumb(): Crumb[] {
     trail.push({ label: 'Preview', step: 'preview' });
     if (state.currentStep === 'preview') return trail;
 
-    trail.push({ label: 'Verifica', step: 'verify' });
+    trail.push({ label: 'Checks', step: 'verify' });
     if (state.currentStep === 'verify') return trail;
 
-    trail.push({ label: 'Risultato', step: 'result' });
+    trail.push({ label: 'Result', step: 'result' });
     return trail;
+}
+
+/**
+ * Una tile statistica: etichetta, valore e, se serve, un dettaglio accanto al valore. Tutte le
+ * intestazioni a tile (elenco delle solution, solution aperta, anteprima) la usano, cosi' etichette
+ * e struttura restano uguali (spec 011).
+ */
+interface Stat { label: string; value: string; sub?: string; title?: string }
+function statsHtml(stats: Stat[]): string {
+    return stats.map(s => `
+        <div class="stat"><dt>${escapeHtml(s.label)}</dt>
+            <dd${s.title ? ` title="${escapeHtml(s.title)}"` : ''}>${escapeHtml(s.value)}${s.sub ? `<span class="stat-sub">${escapeHtml(s.sub)}</span>` : ''}</dd></div>`).join('');
 }
 
 function renderBreadcrumb(): void {
@@ -1646,14 +1666,12 @@ function renderPreviewResult(r: PackagingResult): void {
     const pkg = r.managed.source;
 
     body.innerHTML = `
-        <div class="stat"><dt>Solution</dt><dd>${escapeHtml(pkg.uniqueName)}</dd></div>
-        <div class="stat"><dt>Versione</dt><dd>${escapeHtml(pkg.version)}</dd></div>
-        <div class="stat"><dt>Publisher</dt>
-            <dd>${escapeHtml(pkg.publisherUniqueName)}
-            <span class="stat-sub">${escapeHtml(pkg.publisherPrefix)}</span></dd></div>
-        <div class="stat"><dt>Entry</dt><dd>${pkg.entries.length}</dd></div>
-        <div class="stat"><dt>Export</dt>
-            <dd>${r.exportSeconds.toFixed(1)}<span class="stat-sub">s ${escapeHtml(r.exportMode)}</span></dd></div>`;
+        ${statsHtml([
+            { label: 'Version', value: pkg.version },
+            { label: 'Publisher', value: pkg.publisherUniqueName, sub: pkg.publisherPrefix },
+            { label: 'Entries', value: String(pkg.entries.length) },
+            { label: 'Export time', value: `${r.exportSeconds.toFixed(1)} s`, sub: r.exportMode },
+        ])}`;
 
     // Publish on import per agent: il valore che avra' il package dopo la patch, non quello
     // esportato (che sta gia' nella tabella dei cambi). "Force yes/no" lo cambia solo se il

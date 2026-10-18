@@ -33,6 +33,8 @@ export interface UiAgent {
 
 export interface UiSolution {
     unique: string;
+    /** Nome visualizzato. Default: `Solution <unique>`. */
+    friendly?: string;
     managed?: boolean;
     version?: string;
 }
@@ -56,7 +58,7 @@ export async function flush(rounds = 80): Promise<void> {
 
 function solutionFixture(s: UiSolution, world: UiWorld, dev?: FakeDev): Solution {
     return {
-        solutionId: `sol-${s.unique}`, uniqueName: s.unique, friendlyName: `Solution ${s.unique}`,
+        solutionId: `sol-${s.unique}`, uniqueName: s.unique, friendlyName: s.friendly ?? `Solution ${s.unique}`,
         isManaged: s.managed === true, isVisible: true, publisherPrefix: 'ava', publisherName: 'Contoso',
         version: dev ? dev.versionOf(s.unique) : (s.version ?? '1.0.0.2'), createdOn: '2026-10-10T10:00:00Z',
         agentCount: world.agents.filter(a => a.solution === s.unique).length,

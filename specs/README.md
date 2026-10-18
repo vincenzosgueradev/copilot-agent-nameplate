@@ -17,6 +17,7 @@ dice che cosa i test **non** coprono e come controllarlo a mano.
 | [008](008-agent-icon-and-description/spec.md) | Icona dell'agent nelle liste | **Implementata** (provata su un DEV vero) | — | estende 002 |
 | [009](009-agent-architectures/spec.md) | Due architetture di agent: baseline per architettura (standard e GitHub Copilot harness) | **Implementata** | — | estende 001 (FR-097) |
 | [010](010-agent-type-column/spec.md) | Colonna Agent type con l'icona dell'architettura (standard / GitHub Copilot harness) | **Implementata** (resta da provare la lettura reale di `bot.template`) | — | estende 008 |
+| [011](011-consistent-headers/spec.md) | Intestazioni uniformi e senza ripetizioni (tile, sottotitoli, percorso) | **Implementata** | — | estende 005 |
 
 ## Come leggere le specifiche successive
 
