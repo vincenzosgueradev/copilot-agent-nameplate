@@ -970,15 +970,17 @@ function versionHintNow(): string {
 
 function versionHintHtml(from: string, to: string | null): string {
     if (!to) {
-        return `<code>${escapeHtml(from)}</code> stays as it is in DEV and in the package — the target can
-            only take it as an <strong>Update</strong>, which never removes components: agents you
-            deleted in the source would stay there.`;
+        return `
+        <span class="vline"><code>${escapeHtml(from)}</code> stays as it is in DEV and in the package.</span>
+        <span class="vline">The target can only take it as an <strong>Update</strong>, which never removes components.</span>
+        <span class="vline">Agents you deleted in the source would stay there.</span>`;
     }
-    return `<code>${escapeHtml(from)}</code> → <code>${escapeHtml(to)}</code>
-        — written to the solution <strong>in DEV before the export</strong>, so DEV and the package
-        carry the same version and the next export continues from it. Import it as an
-        <strong>Upgrade</strong> (the default) so agents you deleted in the source are removed too.
-        <em>Update</em> and <em>Stage for upgrade</em> keep them.`;
+    return `
+        <span class="vline"><code>${escapeHtml(from)}</code> → <code>${escapeHtml(to)}</code></span>
+        <span class="vline">Written to the solution <strong>in DEV before the export</strong>.</span>
+        <span class="vline">DEV and the package carry the same version; the next export continues from it.</span>
+        <span class="vline">Import it as an <strong>Upgrade</strong> (the default): agents you deleted in the source are removed too.</span>
+        <span class="vline"><em>Update</em> and <em>Stage for upgrade</em> keep them.</span>`;
 }
 
 function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): string {

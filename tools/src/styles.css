@@ -1271,6 +1271,9 @@ mark.hl {
 .kv:last-child { border-bottom: none; }
 
 .kv-key {
+/* Un concetto per riga nel testo della versione */
+.vline { display: block; }
+.vline + .vline { margin-top: var(--sp-1); }
     flex: 0 0 200px;
     color: var(--color-text-muted);
 }
