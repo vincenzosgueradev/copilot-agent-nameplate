@@ -2,7 +2,7 @@
 - [x] T001 Variante avviso del dialogo (`services/ui.ts`, `styles.css`)
 - [x] T002 `confirmNoSuffix` e aggancio a Review (`app.ts`)
 - [x] T003 Test della schermata e mutazioni (`ui.nosuffix.test.ts`, `mutation-check.mjs`)
-- [ ] T004 Prova a mano del quickstart su un DEV vero
+- [x] T004 Prova a mano del quickstart su un DEV vero
 
 ## Tracciabilità
 | Requisito | Codice | Test |
