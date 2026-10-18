@@ -39,6 +39,13 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   the real count.
 - The package inventory flagged the components of every agent after the first one as
   "beyond the agent", which forced an unnecessary confirmation on multi-agent solutions.
+- **"The package holds more than the agent" no longer appears for components that only look
+  foreign.** Copilot Studio creates some components (for example the feedback settings,
+  `Default_FeedbackCollectionBotSettings_*`) that depend on an agent but do not carry its name.
+  The tool judged ownership by name only, so a single such component made the whole list of
+  agent components count as "beyond the agent" and asked for a confirmation on every save.
+  Ownership now follows the agent the component is attached to; a component of a bot that is not
+  in the package is still reported.
 
 ### Changed
 - **The suffix applies to every agent of the solution.** It is a property of the target
