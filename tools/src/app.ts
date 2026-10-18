@@ -582,7 +582,7 @@ function mixedSuffixHtml(found: string[]): string {
     return `
         <p class="hint hint--warn" style="margin-top:12px">
             The agents of this solution would end up with <strong>different suffixes</strong>
-            (${label}) in the same environment. Check the agents you excluded.
+            (${label}) in the same environment. Excluded and keeping the old suffix: ${who}.
         </p>`;
 }
 
@@ -605,8 +605,16 @@ function selectSolution(solutionId: string, highlightAgentId = ''): void {
         state.options.publishByAgent = {};
         resetVersionPlan();
         state.suffix = '';
+/** Gli agent esclusi che restano con un suffisso diverso da quello nuovo: la causa dei nomi misti. */
+function clashingAgents(): AgentListItem[] {
+    const target = state.suffix.trim();
+    return solutionAgents().filter(a =>
+        state.excludedAgents.has(a.id) && (splitSuffix(a.name).currentSuffix ?? '') !== target);
+}
+
         state.packaging = null;
     }
+    const who = clashingAgents().map(a => `<strong>${escapeHtml(a.name)}</strong>`).join(', ');
     state.browsingSolutionId = solutionId;
     navigateTo('solution');
 }

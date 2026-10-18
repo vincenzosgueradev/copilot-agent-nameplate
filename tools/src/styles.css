@@ -1216,7 +1216,8 @@ mark.hl {
     color: var(--color-text-muted);
 }
 
-.hint--warn {
+.hint--warn,
+.cell-warn {
     color: #ff9800;
 }
 

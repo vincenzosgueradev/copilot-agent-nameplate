@@ -191,7 +191,7 @@ describe('colonna Agent type nel passo del suffisso (FR-009)', () => {
         await ui.setPublish('classic [DEV]', 'force-true');
         const rows = ui.suffixRows();
         expect(rows.map(r => r.name)).toEqual(['classic [DEV]', 'empty [DEV]', 'hub [DEV]', 'odd [DEV]']);
-        expect(rows.map(r => r.nameAfter)).toEqual(['classic [UAT]', 'empty [UAT]', 'left as it is', 'odd [UAT]']);
+        expect(rows.map(r => r.nameAfter)).toEqual(['classic [UAT]', 'empty [UAT]', 'left as it is — keeps [DEV]', 'odd [UAT]']);
         expect(rows.map(r => r.checked)).toEqual([true, true, false, true]);
         expect(rows[0]!.publish).toBe('force-true');
     });
