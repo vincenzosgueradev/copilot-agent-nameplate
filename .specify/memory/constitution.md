@@ -131,9 +131,10 @@ Enterprise users also judge trustworthiness by interface quality before they jud
 - Status and action icons are drawn with CSS shapes or basic text glyphs (`✓`, `✕`, `›`), never
   emoji: emoji render as empty boxes in some fonts. Where a destructive action needs a visible
   marker, use colour and a label, not a pictograph
-- No bare checkboxes anywhere in the UI: a yes/no choice is a styled toggle switch (`.switch`,
-  compact `.switch--sm` inside table rows), the same look on every screen. A "select all" switch
-  shows the middle position when only some rows are on
+- No browser-default checkboxes anywhere in the UI. A yes/no choice is a styled control that
+  follows the theme: a toggle switch (`.switch`) for options, a round two-colour check
+  (`.check`: ring in the theme colour, filled centre when ticked) for row selection in tables.
+  A "select all" check shows a dash when only some rows are on
 - Long text truncates with ellipsis; the full value is available via `title`
 - Theme colors are read from CSS custom properties — no hard-coded hex values in markup
 
