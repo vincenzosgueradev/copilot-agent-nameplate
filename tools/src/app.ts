@@ -1116,10 +1116,16 @@ function agentRowsHtml(): string {
     return `
         <table class="data-table data-table--fill">
             <colgroup><col style="width:48px"><col style="width:28%"><col style="width:96px"><col style="width:28%"><col></colgroup>
-            <thead><tr><th></th><th>Agent</th><th>Agent type</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
+            <thead><tr><th><input type="checkbox" data-agent-all aria-label="Select or deselect all agents"
+                ${agents.every(a => !state.excludedAgents.has(a.id)) ? 'checked' : ''}></th><th>Agent</th><th>Agent type</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
             <tbody>${agents.map(a => {
                 const on = !state.excludedAgents.has(a.id);
                 const next = buildName(a.name, state.suffix);
+                const kept = splitSuffix(a.name).currentSuffix ?? '';
+                const clash = !on && kept !== state.suffix.trim();   // un agent lasciato com'e' dice sempre che suffisso tiene
+                const offText = clash
+                    ? `left as it is <span class="cell-warn">— keeps ${kept ? `[${escapeHtml(kept)}]` : 'no suffix'}</span>`
+                    : 'left as it is';
                 return `
                 <tr${on ? '' : ' class="is-off"'}>
                     <td><input type="checkbox" data-agent="${escapeHtml(a.id)}"
@@ -1128,13 +1134,18 @@ function agentRowsHtml(): string {
                     <td class="cell-type">${agentKindHtml(a.id)}</td>
                     <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap" title="${escapeHtml(next)}">${on
                         ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '')
-                        : 'left as it is'}</td>
+                        : offText}</td>
                     <td>${on ? publishToggleHtml(a.schemaName) : '<span class="cell-muted">—</span>'}</td>
                 </tr>`;
             }).join('')}</tbody>
             <tfoot>
                 <tr>
                     <td colspan="4" class="foot-cell">
+                        <div class="select-bar">
+                            <span class="select-count"><strong>${agents.length - state.excludedAgents.size}</strong> of ${agents.length} selected</span>
+                            <button type="button" class="chip-btn" data-select="all">Select all</button>
+                            <button type="button" class="chip-btn" data-select="none">Deselect all</button>
+                        </div>
                         <div class="foot-row">
                             <span class="hint">Publish on import carries the new name to Teams and Microsoft 365 Copilot.</span>
                             <span class="foot-label">Set for all ticked agents</span>
@@ -1145,7 +1156,7 @@ function agentRowsHtml(): string {
             </tfoot>
         </table>
         ${agents.every(a => state.excludedAgents.has(a.id))
-            ? '<p class="hint hint--warn" style="margin-top:12px">Select at least one agent.</p>' : ''}
+            ? '<p class="hint hint--warn" style="margin-top:12px"><strong>Nothing to rename.</strong> This tool exists to rename agents: with none ticked the package would be identical to the solution in DEV, so there is nothing to build. To move a solution unchanged between environments, use the native solution export or your ALM pipeline. Tick at least one agent to continue.</p>' : ''}
         ${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}`;
 }
 
@@ -1263,9 +1274,28 @@ function renderSuffixStep(): void {
     const refreshAgents = () => {
         const host = els.stepSuffix.querySelector('#agent-list');
         if (host) host.innerHTML = agentRowsHtml();
+        syncSelectAll();
         refreshNext();
     };
+    // "Seleziona tutti" nell'intestazione: spuntato se tutti, a meta' se solo alcuni
+    const syncSelectAll = () => {
+        const all = els.stepSuffix.querySelector<HTMLInputElement>('input[data-agent-all]');
+        if (!all) return;
+        const total = solutionAgents().length;
+        const on = total - state.excludedAgents.size;
+        all.checked = on === total;
+        all.indeterminate = on > 0 && on < total;
+    };
+    const setAllAgents = (selected: boolean) => {
+        for (const a of solutionAgents()) {
+            if (selected) state.excludedAgents.delete(a.id);
+            else state.excludedAgents.add(a.id);
+        }
+        refreshAgents();
+    };
     els.stepSuffix.querySelector('#agent-list')!.addEventListener('click', ev => {
+        const sel = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[data-select]');
+        if (sel) { setAllAgents(sel.dataset.select === 'all'); return; }
         const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.toggle-btn');
         if (!btn) return;
         if (btn.dataset.publish) {
@@ -1279,12 +1309,16 @@ function renderSuffixStep(): void {
     });
     // Una sola delegation: le righe vengono riscritte a ogni cambio di suffisso
     els.stepSuffix.querySelector('#agent-list')!.addEventListener('change', ev => {
+        const head = (ev.target as HTMLElement).closest<HTMLInputElement>('input[data-agent-all]');
+        if (head) { setAllAgents(head.checked); return; }
         const box = (ev.target as HTMLElement).closest<HTMLInputElement>('input[data-agent]');
         if (!box) return;
         if (box.checked) state.excludedAgents.delete(box.dataset.agent!);
         else state.excludedAgents.add(box.dataset.agent!);
         refreshAgents();
     });
+
+    syncSelectAll();
 
     const sync = () => {
         state.suffix = input.value;

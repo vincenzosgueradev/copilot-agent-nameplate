@@ -15,7 +15,7 @@ import type { PublishMode } from '../src/types';
 import { TEAMS_NAME_LIMIT } from '../src/types';
 import { boot, PUBLISH_LABEL, readProduced, type Driver, type SuffixRow, type UiAgent } from './helpers/ui-harness';
 import { rng } from './helpers/combinatorics';
-import { distinctSuffixes, effectiveMode, expectedName, expectedPublish } from './helpers/oracle';
+import { distinctSuffixes, effectiveMode, expectedName, expectedPublish, suffixOf } from './helpers/oracle';
 import { FULL } from './helpers/mode';
 
 afterEach(() => { vi.useRealTimers(); });
@@ -98,13 +98,20 @@ class Model {
         return first && chosen.every(a => this.modeOf(a) === first) ? first : null;
     };
 
+    /** Escluso: se il suo suffisso differisce da quello nuovo, la riga lo dice. */
+    offText(a: UiAgent): string {
+        const kept = suffixOf(a.name) ?? '';
+        if (kept === this.suffix.trim()) return 'left as it is';
+        return `left as it is — keeps ${kept ? `[${kept}]` : 'no suffix'}`;
+    }
+
     expectedRows(): SuffixRow[] {
         return this.agents.map(a => {
             const on = this.selected(a);
             const next = this.after(a);
             return {
                 name: a.name, checked: on,
-                nameAfter: on ? (next === a.name ? `${next} (unchanged)` : next) : 'left as it is',
+                nameAfter: on ? (next === a.name ? `${next} (unchanged)` : next) : this.offText(a),
                 publish: on ? this.modeOf(a) : null,
             };
         });
@@ -131,7 +138,7 @@ function assertSuffixStep(ui: Driver, m: Model, where: string): void {
     expect(ui.allActive(), `${where}: toggle "per tutti"`).toBe(m.commonMode());
     const panel = ui.doc.getElementById('agent-list')!.textContent ?? '';
     expect(panel.includes('different suffixes'), `${where}: avviso suffissi misti`).toBe(m.mixed());
-    expect(panel.includes('Select at least one agent'), `${where}: avviso nessun agent`).toBe(m.chosen().length === 0);
+    expect(panel.includes('Nothing to rename'), `${where}: avviso nessun agent`).toBe(m.chosen().length === 0);
     expect(ui.suffixInput(), `${where}: campo suffisso`).toBe(m.suffix);
 }
 

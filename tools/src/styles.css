@@ -1820,6 +1820,20 @@ select option {
     gap: var(--sp-4);
 }
 .foot-row .hint { margin: 0; }
+
+/* Selezione rapida degli agent: conteggio + "Select all" / "Deselect all" */
+.select-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
+}
+.select-count {
+    font-size: var(--fs-sm);
+    color: var(--color-text-muted);
+    margin-right: var(--sp-2);
+}
+.select-count strong { color: var(--color-text); }
 .foot-label {
     font-size: var(--fs-sm);
     color: var(--color-text-muted);

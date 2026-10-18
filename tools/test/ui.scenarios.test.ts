@@ -123,7 +123,9 @@ describe('campo del suffisso', () => {
         expect(ui.nextDisabled()).toBe(true);
         await ui.next();
         expect(ui.step()).toBe('suffix');
-        expect(ui.text('suffix')).toContain('Select at least one agent');
+        expect(ui.text('suffix')).toContain('Nothing to rename');
+        expect(ui.text('suffix')).toContain('native solution export or your ALM pipeline');
+        expect(ui.suffixRows().every(r => r.nameAfter.startsWith('left as it is'))).toBe(true);
     });
 });
 
