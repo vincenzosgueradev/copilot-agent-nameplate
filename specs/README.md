@@ -18,6 +18,7 @@ dice che cosa i test **non** coprono e come controllarlo a mano.
 | [009](009-agent-architectures/spec.md) | Due architetture di agent: baseline per architettura (standard e GitHub Copilot harness) | **Implementata** | — | estende 001 (FR-097) |
 | [010](010-agent-type-column/spec.md) | Colonna Agent type con l'icona dell'architettura (standard / GitHub Copilot harness) | **Implementata** (resta da provare la lettura reale di `bot.template`) | — | estende 008 |
 | [011](011-consistent-headers/spec.md) | Intestazioni uniformi e senza ripetizioni (tile, sottotitoli, percorso) | **Implementata** | — | estende 005 |
+| [012](012-pin-solution/spec.md) | Pin delle solution in cima alla lista, per ambiente | Specificata, da implementare | — | estende 005 |
 
 ## Come leggere le specifiche successive
 
