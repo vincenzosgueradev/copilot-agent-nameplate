@@ -32,10 +32,14 @@ export interface AgentOutcome {
     excluded?: boolean;
 }
 
-/** Icona di un agent, solo per mostrarla (spec 008). Mai nel package. */
+/** Architettura di un agent, dalla colonna `template` di `bot` (spec 010). `unknown` = non riconosciuta, mai assunta. */
+export type AgentKind = 'standard' | 'harness' | 'unknown';
+
+/** Icona e tipo di un agent, solo per mostrarli (spec 008, 010). Mai nel package. */
 export interface AgentCard {
     /** `data:image/png;base64,…` oppure `null` se assente o non valida. */
     iconDataUri: string | null;
+    kind: AgentKind;
 }
 
 /** Un agent come compare nelle liste. Fonte autoritativa: la tabella `bot` (FR-024). */

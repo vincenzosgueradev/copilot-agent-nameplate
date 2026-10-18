@@ -27,6 +27,8 @@ export interface UiAgent {
     /** Valore grezzo di `bot.iconbase64` (spec 008). */
     icon?: string | null;
     modifiedOn?: string;
+    /** Valore di `bot.template` (spec 010). Default: `default-2.1.0`. `null` = colonna vuota. */
+    template?: string | null;
 }
 
 export interface UiSolution {
@@ -90,6 +92,8 @@ export interface Driver {
     cards: { bot: string[][]; failWith?: string };
     /** Icona mostrata per un agent nella schermata attuale. */
     cardOf(name: string): { img: string | null; generic: boolean } | null;
+    /** La cella del tipo di agent nella schermata attuale (spec 010). */
+    kindOf(name: string): { kind: string; label: string; title: string; hasLogo: boolean; hasMask: boolean; text: string } | null;
     // ── navigazione
     openSolution(unique: string): Promise<void>;
     startRename(): Promise<void>;
@@ -196,7 +200,7 @@ export async function boot(world: UiWorld): Promise<Driver> {
         if (/entity name="bot"/.test(xml)) {
             cards.bot.push(ids);
             if (cards.failWith) throw new Error(cards.failWith);
-            return { value: mine.map(a => ({ botid: `bot-${a.schema}`, iconbase64: a.icon ?? null, modifiedon: a.modifiedOn ?? 'm' })) };
+            return { value: mine.map(a => ({ botid: `bot-${a.schema}`, iconbase64: a.icon ?? null, modifiedon: a.modifiedOn ?? 'm', template: a.template === undefined ? 'default-2.1.0' : a.template })) };
         }
         throw new Error('query non prevista dal DEV finto');
     };
@@ -274,6 +278,15 @@ export async function boot(world: UiWorld): Promise<Driver> {
                 generic: !icon.querySelector('img') && !!icon.querySelector('.icon'),
             };
         },
+        kindOf(name) {
+            const id = `bot-${schemaOf(name)}`;
+            const cell = stepEl().querySelector<HTMLElement>(`[data-card-kind="${id}"]`);
+            if (!cell) return null;
+            return {
+                kind: cell.dataset.kind ?? '', label: cell.getAttribute('aria-label') ?? '', title: cell.getAttribute('title') ?? '',
+                hasLogo: !!cell.querySelector('img'), hasMask: !!cell.querySelector('.icon'), text: norm(cell.textContent),
+            };
+        },
         step: visibleStep,
         text: step => norm(doc.getElementById(STEP_IDS[step]!)?.textContent),
 
@@ -339,7 +352,7 @@ export async function boot(world: UiWorld): Promise<Driver> {
                 return {
                     name: norm(cells[1]?.querySelector('.agent-name')?.textContent ?? cells[1]?.textContent),
                     checked: (tr.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
-                    nameAfter: norm(cells[2]?.textContent),
+                    nameAfter: norm(cells[3]?.textContent),
                     publish: active ? PUBLISH_BY_LABEL[norm(active.textContent)] ?? null : null,
                 };
             });

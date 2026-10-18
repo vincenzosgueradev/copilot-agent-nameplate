@@ -18,6 +18,7 @@ export type IconName =
     | 'search'
     | 'close'
     | 'bot'
+    | 'github-copilot'
     | 'chevron-up'
     | 'chevron-down'
     | 'chevron-left'

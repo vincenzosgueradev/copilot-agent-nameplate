@@ -1,7 +1,7 @@
 /// <reference types="@pptb/types" />
 
 /**
- * Icona dell'agent (spec 008) — **sola lettura**.
+ * Icona e tipo dell'agent (spec 008, 010) — **sola lettura**.
  *
  * L'icona sta in `bot.iconbase64`. La descrizione e' fuori ambito: negli agent standard sta nel
  * componente GPT, ma gli agent harness non lo hanno e non si e' trovato dove la tengano.
@@ -10,7 +10,7 @@
  * `data:image/png;base64,…` solo se e' davvero un PNG in base64 di lunghezza ammessa.
  */
 
-import type { AgentCard } from '../types';
+import type { AgentCard, AgentKind } from '../types';
 import { fetchXml, type Row } from './dataverse';
 import { log } from './log';
 import { xmlValue } from './solutions';
@@ -33,13 +33,27 @@ export function isValidIcon(raw: unknown): string | null {
     return DATA_PREFIX + value;
 }
 
+/**
+ * L'architettura dell'agent dal valore di `bot.template` (spec 010): `cliagent-…` e' un agent
+ * GitHub Copilot harness, `default-…` uno standard. Il confronto e' sul prefisso, quindi regge a
+ * nuove versioni; tutto il resto, o un valore assente, e' `unknown`: un tipo non misurato non si
+ * spaccia per standard. Mai dal nome o dallo schema dell'agent (valori non documentati).
+ */
+export function agentKindOf(raw: unknown): AgentKind {
+    if (typeof raw !== 'string') return 'unknown';
+    const value = raw.trim().toLowerCase();
+    if (value.startsWith('cliagent-')) return 'harness';
+    if (value.startsWith('default-')) return 'standard';
+    return 'unknown';
+}
+
 export interface CardTarget {
     id: string;
     schemaName: string;
     modifiedOn: string;
 }
 
-const EMPTY: AgentCard = { iconDataUri: null };
+const EMPTY: AgentCard = { iconDataUri: null, kind: 'unknown' };
 /** Per sessione: la voce vale finche' `modifiedOn` dell'agent coincide. */
 const cache = new Map<string, { modifiedOn: string; card: AgentCard }>();
 
@@ -75,17 +89,23 @@ export async function loadAgentCards(agents: CardTarget[]): Promise<Map<string, 
               <entity name="bot">
                 <attribute name="botid"/>
                 <attribute name="iconbase64"/>
+                <attribute name="template"/>
                 <attribute name="modifiedon"/>
                 <filter><condition attribute="botid" operator="in">${inValues(ids)}</condition></filter>
               </entity>
             </fetch>`);
 
         const iconOf = new Map<string, unknown>();
-        for (const row of bots as Row[]) iconOf.set(String(row.botid), row.iconbase64);
+        const templateOf = new Map<string, unknown>();
+        for (const row of bots as Row[]) {
+            iconOf.set(String(row.botid), row.iconbase64);
+            templateOf.set(String(row.botid), row.template);
+        }
 
         for (const a of missing) {
             const card: AgentCard = {
                 iconDataUri: isValidIcon(iconOf.get(a.id)),
+                kind: agentKindOf(templateOf.get(a.id)),
             };
             cache.set(a.id, { modifiedOn: a.modifiedOn, card });
             out.set(a.id, card);

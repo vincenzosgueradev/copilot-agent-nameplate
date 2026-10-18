@@ -5,7 +5,7 @@
  * sicurezza (FR-002, FR-003), quindi si prova con una matrice di ingressi buoni e cattivi.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearCardCache, isValidIcon, loadAgentCards, MAX_ICON_CHARS } from '../src/services/agentCards';
+import { agentKindOf, clearCardCache, isValidIcon, loadAgentCards, MAX_ICON_CHARS } from '../src/services/agentCards';
 
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 const PREFIX = 'data:image/png;base64,';
@@ -57,7 +57,7 @@ interface Reads { bot: string[][] }
 
 /** Un DEV finto per le due letture FetchXML: registra gli id chiesti. */
 function fakeApi(opts: {
-    bots: Record<string, { icon?: string; modifiedon?: string }>;
+    bots: Record<string, { icon?: string; modifiedon?: string; template?: string | null }>;
     fail?: 'bot';
 }): Reads {
     const reads: Reads = { bot: [] };
@@ -69,6 +69,7 @@ function fakeApi(opts: {
             if (opts.fail === 'bot') throw new Error('403 forbidden');
             return { value: ids.filter(id => opts.bots[id]).map(id => ({
                 botid: id, iconbase64: opts.bots[id]!.icon ?? null, modifiedon: opts.bots[id]!.modifiedon ?? 'm1',
+                template: opts.bots[id]!.template === undefined ? 'default-2.1.0' : opts.bots[id]!.template,
             })) };
         }
         throw new Error('query non prevista: ' + xml.slice(0, 80));
@@ -85,8 +86,8 @@ describe('loadAgentCards', () => {
         const reads = fakeApi({ bots: { 'id-1': { icon: PNG }, 'id-2': {}, 'id-9': { icon: PNG } } });
         const cards = await loadAgentCards([agent(1), agent(2)]);
         expect(reads.bot).toEqual([['id-1', 'id-2']]);
-        expect(cards.get('id-1')).toEqual({ iconDataUri: PREFIX + PNG });
-        expect(cards.get('id-2')).toEqual({ iconDataUri: null });
+        expect(cards.get('id-1')).toEqual({ iconDataUri: PREFIX + PNG, kind: 'standard' });
+        expect(cards.get('id-2')).toEqual({ iconDataUri: null, kind: 'standard' });
     });
 
     it('riaprire non rilegge; un agent modificato si rilegge da solo', async () => {
@@ -107,13 +108,71 @@ describe('loadAgentCards', () => {
     it('lettura fallita: nessuna eccezione, carta senza icona, niente in cache', async () => {
         const reads = fakeApi({ bots: { 'id-1': { icon: PNG } }, fail: 'bot' });
         const cards = await loadAgentCards([agent(1)]);
-        expect(cards.get('id-1')).toEqual({ iconDataUri: null });
+        expect(cards.get('id-1')).toEqual({ iconDataUri: null, kind: 'unknown' });
         await loadAgentCards([agent(1)]);
         expect(reads.bot).toHaveLength(2);
     });
 
     it('icona non valida → carta senza icona', async () => {
         fakeApi({ bots: { 'id-1': { icon: '/9j/4AAQ' } } });
-        expect((await loadAgentCards([agent(1)])).get('id-1')).toEqual({ iconDataUri: null });
+        expect((await loadAgentCards([agent(1)])).get('id-1')).toEqual({ iconDataUri: null, kind: 'standard' });
+    });
+});
+
+// ── il tipo di agent (spec 010) ──────────────────────────────────────────────
+
+/** L'oracolo: scritto dalla spec, non dal codice. */
+const kindOracle = (raw: unknown): 'harness' | 'standard' | 'unknown' => {
+    if (typeof raw !== 'string') return 'unknown';
+    const v = raw.trim().toLowerCase();
+    if (/^cliagent-/.test(v)) return 'harness';
+    if (/^default-/.test(v)) return 'standard';
+    return 'unknown';
+};
+
+describe('agentKindOf — matrice (FR-002, FR-003)', () => {
+    const inputs: unknown[] = [
+        'cliagent-1.0.0', 'default-2.1.0', 'cliagent-9.9.9', 'default-9.9', 'cliagent-', 'default-',
+        'CLIAGENT-1.0.0', 'Default-2.1.0', '  cliagent-1.0.0  ', '\tdefault-2.1.0\n',
+        'cliagent', 'default', 'cliagent1.0.0', 'xcliagent-1.0.0', 'cliagent_1.0.0', 'declarative-1.0.0',
+        'weird', '', '   ', null, undefined, 5, {}, [], ['cliagent-1.0.0'],
+    ];
+    for (const raw of inputs) {
+        it(`${JSON.stringify(raw)} → ${kindOracle(raw)}`, () => expect(agentKindOf(raw)).toBe(kindOracle(raw)));
+    }
+
+    it('il tipo non dipende da altro che dal template (nome e schema non contano)', () => {
+        // la funzione prende solo il valore: un nome che contiene "cliagent-" non e' un input possibile
+        expect(agentKindOf('default-2.1.0')).toBe('standard');
+        expect(agentKindOf('weird cliagent-1.0.0')).toBe('unknown');
+    });
+});
+
+describe('il tipo letto con la carta (FR-005, FR-006)', () => {
+    beforeEach(() => clearCardCache());
+
+    it('ogni agent ha il tipo del suo template, nella stessa lettura', async () => {
+        const reads = fakeApi({ bots: {
+            'id-1': { template: 'default-2.1.0' }, 'id-2': { template: 'cliagent-1.0.0' },
+            'id-3': { template: 'weird' }, 'id-4': { template: null },
+        } });
+        const cards = await loadAgentCards([agent(1), agent(2), agent(3), agent(4)]);
+        expect([1, 2, 3, 4].map(n => cards.get(`id-${n}`)!.kind)).toEqual(['standard', 'harness', 'unknown', 'unknown']);
+        expect(reads.bot).toHaveLength(1);
+    });
+
+    it('una lettura fallita da tipo sconosciuto, mai standard', async () => {
+        fakeApi({ bots: { 'id-1': { template: 'default-2.1.0' } }, fail: 'bot' });
+        expect((await loadAgentCards([agent(1)])).get('id-1')!.kind).toBe('unknown');
+    });
+
+    it('la query chiede la colonna template', async () => {
+        const api = (globalThis as unknown as { dataverseAPI: Record<string, unknown> }).dataverseAPI;
+        fakeApi({ bots: { 'id-1': {} } });
+        const inner = api.fetchXmlQuery as (xml: string) => Promise<unknown>;
+        let seen = '';
+        api.fetchXmlQuery = async (xml: string) => { seen = xml; return inner(xml); };
+        await loadAgentCards([agent(1)]);
+        expect(seen).toContain('<attribute name="template"/>');
     });
 });

@@ -16,7 +16,7 @@ dice che cosa i test **non** coprono e come controllarlo a mano.
 | [007](007-release-process/spec.md) | Processo di rilascio: changelog, versione, pubblicazione | Implementata (manca il primo publish vero) | (processo) | Constitution 1.2.0 |
 | [008](008-agent-icon-and-description/spec.md) | Icona dell'agent nelle liste | **Implementata** (provata su un DEV vero) | — | estende 002 |
 | [009](009-agent-architectures/spec.md) | Due architetture di agent: baseline per architettura (standard e GitHub Copilot harness) | **Implementata** | — | estende 001 (FR-097) |
-| [010](010-agent-type-column/spec.md) | Colonna Agent type con l'icona dell'architettura (standard / GitHub Copilot harness) | **Specificata, non implementata** (domande aperte) | — | estende 008 |
+| [010](010-agent-type-column/spec.md) | Colonna Agent type con l'icona dell'architettura (standard / GitHub Copilot harness) | **Implementata** (resta da provare la lettura reale di `bot.template`) | — | estende 008 |
 
 ## Come leggere le specifiche successive
 

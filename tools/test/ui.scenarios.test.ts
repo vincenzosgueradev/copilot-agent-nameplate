@@ -307,14 +307,15 @@ describe('revisione e anteprima: layout', () => {
         await ui.startRename();
         const widths = Array.from(ui.doc.querySelectorAll('#agent-list colgroup col'))
             .map(c => (c as HTMLElement).style.width);
-        // checkbox stretta; agente e nome ricevono una quota; l'ultima prende il resto
+        // checkbox stretta; agente e nome ricevono una quota; il tipo ha una larghezza fissa; l'ultima prende il resto
         expect(widths[0]).toBe('48px');
         expect(widths[1]).toMatch(/%$/);
-        expect(widths[2]).toBe(widths[1]);
-        expect(widths[3]).toBe('');
+        expect(widths[2]).toMatch(/px$/);
+        expect(widths[3]).toBe(widths[1]);
+        expect(widths[4]).toBe('');
         const share = (w: string) => Number(w.replace('%', ''));
-        expect(share(widths[1]!) + share(widths[2]!)).toBeLessThanOrEqual(70);   // lascia spazio al toggle
-        expect(share(widths[1]!) + share(widths[2]!)).toBeGreaterThanOrEqual(50);
+        expect(share(widths[1]!) + share(widths[3]!)).toBeLessThanOrEqual(70);   // lascia spazio al toggle
+        expect(share(widths[1]!) + share(widths[3]!)).toBeGreaterThanOrEqual(50);
     });
 
     it('le descrizioni degli artefatti non hanno una larghezza massima', () => {
@@ -722,9 +723,10 @@ describe('contenuto non fidato: nessun HTML eseguibile', () => {
     it('il nome di un agent resta testo in ogni schermata', async () => {
         const ui = await boot(world);
         await ui.openSolution('S1');
-        expect(ui.doc.querySelector('#step-solution img')).toBeNull();
+        // l'unico <img> ammesso e' il logo dell'app nella cella del tipo (spec 010)
+        expect(ui.doc.querySelector('#step-solution img:not([src="./logo.svg"])')).toBeNull();
         await ui.startRename();
-        expect(ui.doc.querySelector('#step-suffix img')).toBeNull();
+        expect(ui.doc.querySelector('#step-suffix img:not([src="./logo.svg"])')).toBeNull();
         expect(ui.suffixRows()[0]!.name).toBe(evil);
         await ui.typeSuffix('UAT');
         await ui.next();

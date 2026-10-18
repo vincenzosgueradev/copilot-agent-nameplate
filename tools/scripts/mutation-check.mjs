@@ -120,6 +120,16 @@ const MUTATIONS = [
     ['compat.ts', "src/services/compat.ts", "for (const p of Object.keys(files)) if (re.test(p)) for", "for (const p of Object.keys(files).filter(q => re.test(q)).slice(0, 1)) for", "v1.1.0 (009): gli elementi si leggono solo dal primo file"],
     ['compat.ts', "src/services/compat.ts", "if (!previous.configurationByArchitecture || !actual.configurationByArchitecture) return [];", "if (!actual.configurationByArchitecture) return [];", "v1.1.0 (009): una registrazione vecchia produce rumore"],
     ['compat.ts', "src/services/compat.ts", "if (!profile) {", "if (!profile && false) {", "v1.1.0 (009): un'architettura sconosciuta non viene segnalata"],
+    ['agentCards.ts', "src/services/agentCards.ts", "value.startsWith('cliagent-')", "value.includes('cliagent')", "v1.1.0 (010): un nome che contiene cliagent diventa harness"],
+    ['agentCards.ts', "src/services/agentCards.ts", "if (value.startsWith('default-')) return 'standard';", "if (value.startsWith('default-')) return 'unknown';", "v1.1.0 (010): lo standard non si riconosce"],
+    ['agentCards.ts', "src/services/agentCards.ts", "if (typeof raw !== 'string') return 'unknown';\n    const value", "if (typeof raw !== 'string') return 'standard';\n    const value", "v1.1.0 (010): un template assente vale come standard"],
+    ['agentCards.ts', "src/services/agentCards.ts", "const value = raw.trim().toLowerCase();", "const value = raw;", "v1.1.0 (010): spazi e maiuscole cambiano il tipo"],
+    ['agentCards.ts', "src/services/agentCards.ts", "const EMPTY: AgentCard = { iconDataUri: null, kind: 'unknown' };", "const EMPTY: AgentCard = { iconDataUri: null, kind: 'standard' };", "v1.1.0 (010): una lettura fallita dichiara tutti standard"],
+    ['agentCards.ts', "src/services/agentCards.ts", "                <attribute name=\"template\"/>\n", "", "v1.1.0 (010): la colonna template non viene letta"],
+    ['agentCards.ts', "src/services/agentCards.ts", "kind: agentKindOf(templateOf.get(a.id)),", "kind: 'standard',", "v1.1.0 (010): il tipo non dipende dal template"],
+    ['app.ts', "src/app.ts", "harness: 'GitHub Copilot harness agent',", "harness: '',", "v1.1.0 (010): l'icona harness non ha etichetta"],
+    ['app.ts', "src/app.ts", "el.outerHTML = agentKindHtml(el.dataset.cardKind ?? '');", "void 0;", "v1.1.0 (010): il tipo non si riempie dopo la lettura"],
+    ['app.ts', "src/app.ts", "<th>Agent</th>\n                            <th>Agent type</th>", "<th>Agent</th>\n                            <th>Type</th>", "v1.1.0 (010): la colonna ha un altro titolo"],
     // ── packaging.ts: il collegamento
     ['packaging.ts', 'src/services/packaging.ts', "expected.publish![c.file] = c.after === 'true';", 'expected.publish![c.file] = true;', 'la verifica riceve publishOnImport sbagliato'],
 ];

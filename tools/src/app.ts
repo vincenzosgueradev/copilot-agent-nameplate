@@ -24,6 +24,7 @@ import {
     SUFFIX_MAX,
     TEAMS_NAME_LIMIT,
     type AgentCard,
+    type AgentKind,
     type AgentListItem,
     type ArtifactSet,
     type NameOccurrence,
@@ -657,6 +658,7 @@ function renderSolutionDetail(keepScroll = false): void {
                     <thead>
                         <tr>
                             <th>Agent</th>
+                            <th>Agent type</th>
                             <th>Status</th>
                             <th>Last published</th>
                             <th>Modified</th>
@@ -667,6 +669,7 @@ function renderSolutionDetail(keepScroll = false): void {
                         ${agents.map(a => `
                         <tr data-agent="${escapeHtml(a.id)}"${a.id === state.highlightAgentId ? ' class="is-highlight"' : ''}>
                             <td class="cell-strong" title="${escapeHtml(a.name)}">${agentCellHtml(a)}</td>
+                            <td class="cell-type">${agentKindHtml(a.id)}</td>
                             <td><span class="chip chip--${a.isActive ? 'success' : 'muted'}">${a.isActive ? 'Active' : 'Inactive'}</span></td>
                             ${dateCell(a.publishedOn, '<span class="cell-never">Never published</span>')}
                             ${dateCell(a.modifiedOn, '—')}
@@ -1029,7 +1032,6 @@ function bulkToggleHtml(): string {
         <button class="toggle-btn${common === m ? ' is-active' : ''}" data-publish-all="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}</div>`;
 }
 
-/** Una riga per agent: spunta, nome attuale e nome che avra'. Si riscrive a ogni digitazione. */
 /** L'icona dell'agent: quella letta se valida, altrimenti la generica. Il `src` e' costruito qui da un valore gia' validato (FR-003). */
 function agentIconHtml(id: string, size: 16 | 20 | 24 = 24): string {
     const uri = state.cards.get(id)?.iconDataUri;
@@ -1039,16 +1041,42 @@ function agentIconHtml(id: string, size: 16 | 20 | 24 = 24): string {
     return `<span class="agent-icon agent-icon--${size}" data-card-icon="${escapeHtml(id)}">${inner}</span>`;
 }
 
+const KIND_LABEL: Record<AgentKind, string> = {
+    standard: 'Standard agent',
+    harness: 'GitHub Copilot harness agent',
+    unknown: 'Unknown agent type',
+};
+
+/**
+ * La cella del tipo di agent (spec 010): il logo dell'app per lo standard, il marchio GitHub
+ * Copilot per l'harness, un trattino se il tipo non si riconosce. Prima della lettura e' vuota ma
+ * ha gia' le sue dimensioni, quindi le righe non si spostano. Etichetta e suggerimento dicono il
+ * nome del tipo: l'icona da sola non basta a chi non la riconosce.
+ */
+function agentKindHtml(id: string): string {
+    const kind = state.cards.get(id)?.kind;
+    const attrs = `data-card-kind="${escapeHtml(id)}"`;
+    if (!kind) return `<span class="agent-kind" ${attrs} data-kind=""></span>`;
+    const label = KIND_LABEL[kind];
+    const inner = kind === 'standard'
+        ? '<img src="./logo.svg" alt="" width="20" height="20">'
+        : kind === 'harness' ? icon('github-copilot') : icon('minus', 'icon--sm');
+    return `<span class="agent-kind agent-kind--${kind}" ${attrs} data-kind="${kind}" role="img" aria-label="${label}" title="${label}">${inner}</span>`;
+}
+
 /** Icona e nome: la cella dell'agent nelle liste (spec 008). */
 function agentCellHtml(a: AgentListItem): string {
     return `<div class="agent-cell">${agentIconHtml(a.id)}<span class="agent-name">${escapeHtml(a.name)}</span></div>`;
 }
 
-/** Riempie sul posto le icone: le righe hanno altezza fissa, quindi non si spostano. */
+/** Riempie sul posto icone e tipi: le righe hanno altezza fissa, quindi non si spostano. */
 function paintCards(): void {
     document.querySelectorAll<HTMLElement>('[data-card-icon]').forEach(el => {
         const size = el.classList.contains('agent-icon--16') ? 16 : el.classList.contains('agent-icon--20') ? 20 : 24;
         el.outerHTML = agentIconHtml(el.dataset.cardIcon ?? '', size);
+    });
+    document.querySelectorAll<HTMLElement>('[data-card-kind]').forEach(el => {
+        el.outerHTML = agentKindHtml(el.dataset.cardKind ?? '');
     });
 }
 
@@ -1067,8 +1095,8 @@ function agentRowsHtml(): string {
     const mixed = suffixesAfter(names, state.suffix);
     return `
         <table class="data-table data-table--fill">
-            <colgroup><col style="width:48px"><col style="width:30%"><col style="width:30%"><col></colgroup>
-            <thead><tr><th></th><th>Agent</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
+            <colgroup><col style="width:48px"><col style="width:28%"><col style="width:96px"><col style="width:28%"><col></colgroup>
+            <thead><tr><th></th><th>Agent</th><th>Agent type</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
             <tbody>${agents.map(a => {
                 const on = !state.excludedAgents.has(a.id);
                 const next = buildName(a.name, state.suffix);
@@ -1077,6 +1105,7 @@ function agentRowsHtml(): string {
                     <td><input type="checkbox" data-agent="${escapeHtml(a.id)}"
                         aria-label="Rename ${escapeHtml(a.name)}" ${on ? 'checked' : ''}></td>
                     <td class="cell-strong" title="${escapeHtml(a.name)}">${agentCellHtml(a)}</td>
+                    <td class="cell-type">${agentKindHtml(a.id)}</td>
                     <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap" title="${escapeHtml(next)}">${on
                         ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '')
                         : 'left as it is'}</td>
@@ -1085,7 +1114,7 @@ function agentRowsHtml(): string {
             }).join('')}</tbody>
             <tfoot>
                 <tr>
-                    <td colspan="3" class="foot-cell">
+                    <td colspan="4" class="foot-cell">
                         <div class="foot-row">
                             <span class="hint">Publish on import carries the new name to Teams and Microsoft 365 Copilot.</span>
                             <span class="foot-label">Set for all ticked agents</span>

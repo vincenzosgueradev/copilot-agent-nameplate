@@ -380,11 +380,11 @@ describe('schermata: struttura della tabella degli agent', () => {
         await ui.openSolution('S1');
         await ui.startRename();
         const table = ui.doc.querySelector('#agent-list table')!;
-        // colonna del toggle di riga: la quarta; nel piede la prima cella copre le prime tre
-        const rowCell = table.querySelector('tbody tr td:nth-child(4)')!;
+        // colonna del toggle di riga: la quinta (spunta, agent, tipo, nome dopo, publish); nel piede la prima cella copre le prime quattro
+        const rowCell = table.querySelector('tbody tr td:nth-child(5)')!;
         const footCells = Array.from(table.querySelectorAll('tfoot tr td'));
         expect(footCells.length).toBe(2);
-        expect(footCells[0]!.getAttribute('colspan')).toBe('3');
+        expect(footCells[0]!.getAttribute('colspan')).toBe('4');
         const footCell = footCells[1]!;
         const cols = (c: Element) => Array.from(c.querySelectorAll('.toggle-btn')).map(b => b.textContent?.trim());
         expect(cols(footCell)).toEqual(cols(rowCell));
@@ -398,7 +398,7 @@ describe('schermata: struttura della tabella degli agent', () => {
         await ui.startRename();
         const table = ui.doc.querySelector('#agent-list table')!;
         expect(table.classList.contains('data-table--fill')).toBe(true);
-        expect(table.querySelectorAll('colgroup col').length).toBe(4);
+        expect(table.querySelectorAll('colgroup col').length).toBe(5);
     });
     it('il nome risultante non va a capo', async () => {
         const ui = await boot(worldOf(2, rng(3)));

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-18
 
-**Status**: **Specificata, non implementata** (in attesa delle risposte alle domande aperte)
+**Status**: **Implementata** (2026-10-18) · **la lettura reale di `bot.template` via Web API resta da provare su un DEV vero** (tasks T001)
 
 **Input**: Richiesta dell'utente (2026-10-18): *"nuova specifica: voglio una colonna nuova con tipo agente in cui metti l'icona"*, con l'icona del **GitHub Copilot** (SVG fornita) per gli agent harness e *"l'icona Copilot ce l'hai già"* per gli agent standard (indicata nello screenshot: il logo dell'intestazione dell'app, `src/public/logo.svg`). Nello screenshot, la vista della solution `testAgentTool` con cinque agent: tre classici e due GitHub Copilot harness.
 
@@ -22,7 +22,7 @@ Nella vista della solution c'è una colonna **Agent type** con l'icona del tipo:
 ### US2 — Nessuna supposizione (P1)
 Un agent il cui tipo non si riconosce NON è dichiarato "classico": mostra un'icona neutra e il suggerimento "Unknown agent type".
 
-### US3 — Lo stesso tipo dove si decide (P2, *da confermare*)
+### US3 — Lo stesso tipo dove si decide (P2, *confermata*)
 La tabella del passo del suffisso mostra la stessa colonna.
 
 ## Requisiti
@@ -35,7 +35,7 @@ La tabella del passo del suffisso mostra la stessa colonna.
 - **FR-006**: Se la lettura fallisce, la colonna mostra l'icona neutra e il log un avviso, senza bloccare la lista (come 008, FR-005).
 - **FR-007**: Il tipo NON DEVE comparire nel package, nel manifest o nello storico, e NON si scrive nulla su Dataverse.
 - **FR-008**: La colonna NON DEVE spostare le righe: la cella ha larghezza e altezza fisse e si riempie sul posto dopo la lettura.
-- **FR-009** *(solo se US3 è confermata)*: Gli stessi tipo e icona compaiono nel passo del suffisso.
+- **FR-009**: Gli stessi tipo e icona compaiono nel passo del suffisso, nella colonna **Agent type** subito dopo **Agent**.
 
 ## Criteri di successo
 
@@ -44,11 +44,11 @@ La tabella del passo del suffisso mostra la stessa colonna.
 - **SC-003**: Nessuna query in più rispetto alla 008; riaprire la solution non rilegge.
 - **SC-004**: *Manuale*: sulla solution `testAgentTool` gli agent 1-3 hanno l'icona classica, 4-5 quella GitHub Copilot.
 
-## Domande aperte
+## Decisioni (2026-10-18)
 
-1. **Passo del suffisso** (US3): la colonna anche lì, o solo nella vista della solution?
-2. **Icona dello standard**: va bene il logo dell'app (`logo.svg`, a colori) o preferisci l'icona ufficiale di Copilot Studio (da fornire)?
-3. **Prefisso a parte**: `template` ha un solo valore osservato per tipo (`default-2.1.0`, `cliagent-1.0.0`). Il confronto per prefisso (`default-`, `cliagent-`) regge a nuove versioni, ma altri tipi di agent (per esempio quelli del Copilot chat harness) hanno altri valori: finiscono in "sconosciuto" finché non li misuriamo. Va bene?
+1. **Passo del suffisso**: sì, la colonna c'è anche lì (FR-009).
+2. **Icona dello standard**: il logo dell'app (`logo.svg`, a colori).
+3. **Altri tipi di agent**: finiscono in "sconosciuto" finché non si misura il loro `template`.
 
 ## Fuori ambito
 

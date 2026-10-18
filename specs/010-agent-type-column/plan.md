@@ -1,6 +1,6 @@
 # Implementation Plan: colonna Agent type
 
-**Spec**: [spec.md](spec.md) · **Stato**: bozza, in attesa delle domande aperte
+**Spec**: [spec.md](spec.md) · **Stato**: implementata
 
 ## Approccio
 
