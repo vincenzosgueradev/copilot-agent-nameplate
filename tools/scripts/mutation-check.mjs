@@ -114,6 +114,12 @@ const MUTATIONS = [
     ['agentCards.ts', 'src/services/agentCards.ts', "for (const a of missing) out.set(a.id, EMPTY);", "throw err;", "v1.1.0 (008): una lettura fallita rompe la schermata"],
     ['app.ts', 'src/app.ts', "void loadCards(agents, seq);", "void loadCards(state.agents, seq);", "v1.1.0 (008): si leggono gli agent di tutto l'environment"],
     ['app.ts', 'src/app.ts', "void loadCards(agents, seq);", "", "v1.1.0 (008): icone e descrizioni non vengono mai lette"],
+    ['compat.ts', "src/services/compat.ts", "const profile = profiles.find(p => p.recognizer === recognizer);", "const profile = profiles[0];", "v1.1.0 (009): ogni agent si confronta col baseline standard"],
+    ['compat.ts', "src/services/compat.ts", "profile.keys, keys, 'baseline', profile.optionalKeys", "profile.keys, keys, 'baseline'", "v1.1.0 (009): le chiavi opzionali del profilo non contano"],
+    ['compat.ts', "src/services/compat.ts", "if (typeof kind === 'string' && kind) return kind;", "if (typeof kind === 'string') return kind;", "v1.1.0 (009): un recognizer vuoto vale come architettura"],
+    ['compat.ts', "src/services/compat.ts", "for (const p of Object.keys(files)) if (re.test(p)) for", "for (const p of Object.keys(files).filter(q => re.test(q)).slice(0, 1)) for", "v1.1.0 (009): gli elementi si leggono solo dal primo file"],
+    ['compat.ts', "src/services/compat.ts", "if (!previous.configurationByArchitecture || !actual.configurationByArchitecture) return [];", "if (!actual.configurationByArchitecture) return [];", "v1.1.0 (009): una registrazione vecchia produce rumore"],
+    ['compat.ts', "src/services/compat.ts", "if (!profile) {", "if (!profile && false) {", "v1.1.0 (009): un'architettura sconosciuta non viene segnalata"],
     // ── packaging.ts: il collegamento
     ['packaging.ts', 'src/services/packaging.ts', "expected.publish![c.file] = c.after === 'true';", 'expected.publish![c.file] = true;', 'la verifica riceve publishOnImport sbagliato'],
 ];

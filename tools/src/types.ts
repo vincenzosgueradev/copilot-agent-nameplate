@@ -194,7 +194,13 @@ export interface FormatFingerprint {
     topLevelPaths: string[];
     botElements: string[];
     botComponentElements: string[];
+    /** Unione delle chiavi di `configuration.json` di tutti gli agent. */
     configurationKeys: string[];
+    /**
+     * Le stesse chiavi raggruppate per architettura (`recognizer.$kind`, o `(none)`). Assente nelle
+     * registrazioni dello storico anteriori alla spec 009.
+     */
+    configurationByArchitecture?: Record<string, string[]>;
 }
 
 export interface FormatDrift {

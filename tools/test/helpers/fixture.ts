@@ -22,6 +22,13 @@ export interface AgentSpec {
     connected?: boolean;
     /** Numero di topic da generare. Default 2. */
     topics?: number;
+    /**
+     * `standard` = agent Copilot Studio classico (GPT, topic, `GenerativeAIRecognizer`).
+     * `harness` = agent GitHub Copilot harness (`cliagent-1.0.0`, `CLICopilotRecognizer`):
+     * nessun componente GPT e nessun topic, solo un componente di feedback (verificato su un
+     * export reale, 2026-10-18).
+     */
+    architecture?: 'standard' | 'harness';
 }
 
 export interface PackageSpec {
@@ -48,13 +55,30 @@ export function botXml(a: AgentSpec): string {
   <language>1033</language>
   <name>${escapeXml(a.name)}</name>
   <runtimeprovider>0</runtimeprovider>
-  <template>default-2.1.0</template>
+  <template>${a.architecture === 'harness' ? 'cliagent-1.0.0' : 'default-2.1.0'}</template>
   <timezoneruleversionnumber>4</timezoneruleversionnumber>
 </bot>`;
 }
 
 export function configJson(a: AgentSpec): string {
     const connected = a.connected !== false;
+    if (a.architecture === 'harness') {
+        // Un agent harness appena creato ha solo queste chiavi; dopo che e' stato aperto e salvato
+        // (o collegato a un canale) ne compaiono altre (verificato su due agent reali)
+        const h: Record<string, unknown> = { $kind: 'BotConfiguration', recognizer: { $kind: 'CLICopilotRecognizer' } };
+        h.agentSettings = { $kind: 'AgentSettings', model: { $kind: 'ModelConfig', series: 'claude-opus-5-5' },
+            instructions: { $kind: 'Instructions' }, web: { $kind: 'WebSettings', enableWebSearch: true } };
+        if (connected) {
+            h.categories = [];
+            h.channels = [{ $kind: 'ChannelDefinition', channelId: 'MsTeams' }];
+            h.settings = { GenerativeActionsEnabled: true };
+            h.publishOnCreate = true;
+            h.isLightweightBot = false;
+            h.deferredProvisioning = false;
+        }
+        if (a.publishOnImport !== null) h.publishOnImport = a.publishOnImport;
+        return JSON.stringify(h, null, 2);
+    }
     const cfg: Record<string, unknown> = { $kind: 'BotConfiguration' };
     if (connected) {
         cfg.channels = [
@@ -117,6 +141,20 @@ export function packageFiles(spec: PackageSpec): Record<string, Uint8Array> {
     for (const a of spec.agents) {
         files[`bots/${a.schema}/bot.xml`] = botXml(a);
         files[`bots/${a.schema}/configuration.json`] = configJson(a);
+        if (a.architecture === 'harness') {
+            files[`botcomponents/Default_Feedback_${a.schema}/botcomponent.xml`] =
+                `<botcomponent schemaname="Default_Feedback_${a.schema}">
+  <componenttype>18</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <parentbotid>
+    <schemaname>${a.schema}</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>`;
+            files[`botcomponents/Default_Feedback_${a.schema}/data`] = 'kind: DefaultFeedbackCollection\n';
+            continue;
+        }
         const base = a.name.replace(/\s\[[^\]]{1,20}\]$/, '');
         files[`botcomponents/${a.schema}.gpt.default/botcomponent.xml`] =
             botComponentXml(a.schema, 'gpt.default', a.gptName ?? base);

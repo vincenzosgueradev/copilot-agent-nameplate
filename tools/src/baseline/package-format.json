@@ -52,32 +52,68 @@
             "statuscode"
         ],
         "optionalElements": [
-            "description"
+            "description",
+            "name"
         ],
-        "$comment": "description e' una colonna nullable preesistente (non un campo nuovo di piattaforma): l'export la serializza solo quando ha un valore. Documentata su learn.microsoft.com/power-apps/developer/data-platform/reference/entities/botcomponent."
+        "$comment": "description e' una colonna nullable preesistente (non un campo nuovo di piattaforma): l'export la serializza solo quando ha un valore. Documentata su learn.microsoft.com/power-apps/developer/data-platform/reference/entities/botcomponent. name manca nel componente di feedback (Default_FeedbackCollectionBotSettings) di un agent GitHub Copilot harness: verificato il 2026-10-18; gli elementi si leggono da tutti i componenti e si uniscono."
     },
     "configurationJson": {
         "path": "bots/<schemaname>/configuration.json",
-        "keys": [
-            "$kind",
-            "channels",
-            "settings",
-            "isAgentConnectable",
-            "publishOnImport",
-            "gPTSettings",
-            "isLightweightBot",
-            "aISettings",
-            "recognizer",
-            "deferredProvisioning"
-        ],
-        "optionalKeys": [
-            "publishOnImport",
-            "publishOnCreate",
-            "deferredProvisioning",
-            "channels",
-            "isLightweightBot"
-        ],
-        "$comment": "channels e isLightweightBot mancano in un agent mai collegato a un canale (verificato su un agent nuovo di testAgentTool, 2026-10-17); le chiavi si leggono da tutti gli agent del package. publishOnImport e' assente su 28 agent su 40 nell'environment di riferimento. Assente significa 'non specificato': il comportamento di default all'import non e' documentato da Microsoft (research.md §12)."
+        "$comment": "Ogni architettura di agent scrive chiavi sue in configuration.json: si riconosce dal $kind di `recognizer`. Un agent si confronta col profilo della SUA architettura, mai con quello di un'altra (spec 009). Una nuova architettura = un nuovo profilo qui, senza toccare il codice. Le chiavi si leggono da tutti gli agent dell'architettura e si uniscono.",
+        "profiles": [
+            {
+                "id": "standard",
+                "label": "standard agent",
+                "recognizer": "GenerativeAIRecognizer",
+                "keys": [
+                    "$kind",
+                    "channels",
+                    "settings",
+                    "isAgentConnectable",
+                    "publishOnImport",
+                    "gPTSettings",
+                    "isLightweightBot",
+                    "aISettings",
+                    "recognizer",
+                    "deferredProvisioning"
+                ],
+                "optionalKeys": [
+                    "publishOnImport",
+                    "publishOnCreate",
+                    "deferredProvisioning",
+                    "channels",
+                    "isLightweightBot"
+                ],
+                "$comment": "channels e isLightweightBot mancano in un agent mai collegato a un canale (verificato su un agent nuovo di testAgentTool, 2026-10-17); le chiavi si leggono da tutti gli agent del package. publishOnImport e' assente su 28 agent su 40 nell'environment di riferimento. Assente significa 'non specificato': il comportamento di default all'import non e' documentato da Microsoft (research.md §12)."
+            },
+            {
+                "id": "harness",
+                "label": "GitHub Copilot harness agent",
+                "recognizer": "CLICopilotRecognizer",
+                "keys": [
+                    "$kind",
+                    "recognizer",
+                    "agentSettings",
+                    "publishOnImport",
+                    "publishOnCreate",
+                    "categories",
+                    "channels",
+                    "settings",
+                    "isLightweightBot",
+                    "deferredProvisioning"
+                ],
+                "optionalKeys": [
+                    "publishOnImport",
+                    "publishOnCreate",
+                    "categories",
+                    "channels",
+                    "settings",
+                    "isLightweightBot",
+                    "deferredProvisioning"
+                ],
+                "$comment": "Misurato il 2026-10-18 su due agent reali di testAgentTool (template cliagent-1.0.0). Un agent appena creato ha solo $kind, recognizer, agentSettings e publishOnImport; dopo che e' stato aperto, salvato e collegato a un canale compaiono categories, channels, settings, publishOnCreate, isLightweightBot e deferredProvisioning. Obbligatori: $kind, recognizer, agentSettings. L'agent harness non ha componente GPT ne' topic: solo un componente di feedback."
+            }
+        ]
     },
     "knownNameOccurrences": [
         {

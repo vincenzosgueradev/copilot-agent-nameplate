@@ -100,6 +100,7 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
   the ones left as they were, so an agent kept on purpose can be told from one forgotten.
 - `npm run smoke:multi`: checks the two-agent case (uniform suffix, exclusion respected,
   excluded agent byte-identical).
+- **GitHub Copilot harness agents.** A solution can now mix classic Copilot Studio agents and GitHub Copilot harness agents. The rename works the same (the name lives in the same place, verified on a real import) and the package-format check compares each agent with the baseline of **its own architecture**, so a legitimate package no longer shows the "agentSettings appeared" warning. A key that is really out of place, or an architecture the tool has never seen, is still reported, once, naming the architecture.
 - **Agent icon in the lists.** The solution view and the suffix step show each agent's icon
   (Copilot Studio's own) next to the name, the review shows the small icon and the search
   results carry it in the chip. It is read, read-only, only for the solution you open, after

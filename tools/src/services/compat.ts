@@ -23,6 +23,17 @@ function childElementNames(xml: string): string[] {
     return [...names].sort();
 }
 
+/** Valore di `recognizer.$kind`: identifica l'architettura dell'agent (spec 009). */
+export const NO_RECOGNIZER = '(none)';
+function architectureOf(config: Record<string, unknown>): string {
+    const r = config.recognizer;
+    if (r && typeof r === 'object' && !Array.isArray(r)) {
+        const kind = (r as { $kind?: unknown }).$kind;
+        if (typeof kind === 'string' && kind) return kind;
+    }
+    return NO_RECOGNIZER;
+}
+
 export function computeFingerprint(
     files: Record<string, Uint8Array>,
     text: (path: string) => string,
@@ -35,25 +46,37 @@ export function computeFingerprint(
         Object.keys(files).map(p => (p.includes('/') ? p.slice(0, p.indexOf('/') + 1) : p)),
     )].sort();
 
-    const botPath = Object.keys(files).find(p => /^bots\/[^/]+\/bot\.xml$/.test(p));
-    const botComponentPath = Object.keys(files).find(p => /^botcomponents\/[^/]+\/botcomponent\.xml$/.test(p));
+    // Come per le chiavi di configuration.json: gli elementi si leggono da **tutti** i file e si
+    // uniscono. Un agent harness ha un solo componente, di feedback, senza `<name>`: guardare il
+    // primo file trovato darebbe un esito diverso a seconda dell'ordine dello zip.
+    const elementsOf = (re: RegExp): string[] => {
+        const all = new Set<string>();
+        for (const p of Object.keys(files)) if (re.test(p)) for (const n of childElementNames(text(p))) all.add(n);
+        return [...all].sort();
+    };
     // Le chiavi di configuration.json si leggono da **tutti** gli agent e si uniscono: con piu'
     // agent il primo file dello zip e' un'estrazione arbitraria, e un agent mai collegato a un
     // canale non scrive chiavi che un altro scrive. Una chiave "sparisce" solo se manca ovunque.
     const keySet = new Set<string>();
+    const byArchitecture = new Map<string, Set<string>>();
     for (const path of Object.keys(files)) {
         if (!/^bots\/[^/]+\/configuration\.json$/.test(path)) continue;
         try {
             const parsed: unknown = JSON.parse(text(path));
             // Solo un oggetto ha chiavi di configurazione: un array o un valore semplice no
             if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                for (const k of Object.keys(parsed)) keySet.add(k);
+                const arch = architectureOf(parsed as Record<string, unknown>);
+                const set = byArchitecture.get(arch) ?? new Set<string>();
+                byArchitecture.set(arch, set);
+                for (const k of Object.keys(parsed)) { keySet.add(k); set.add(k); }
             }
         } catch {
             // un JSON illeggibile non contribuisce chiavi; l'errore vero esce in readPackage
         }
     }
     const configurationKeys = [...keySet].sort();
+    const configurationByArchitecture = Object.fromEntries(
+        [...byArchitecture].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, [...v].sort()]));
 
     return {
         solutionPackageVersion: root?.getAttribute('SolutionPackageVersion') ?? '',
@@ -63,9 +86,10 @@ export function computeFingerprint(
             serviceabilityVersion: root?.getAttribute('CRMServerServiceabilityVersion') ?? '',
         },
         topLevelPaths,
-        botElements: botPath ? childElementNames(text(botPath)) : [],
-        botComponentElements: botComponentPath ? childElementNames(text(botComponentPath)) : [],
+        botElements: elementsOf(/^bots\/[^/]+\/bot\.xml$/),
+        botComponentElements: elementsOf(/^botcomponents\/[^/]+\/botcomponent\.xml$/),
         configurationKeys,
+        configurationByArchitecture,
     };
 }
 
@@ -175,11 +199,9 @@ function compare(
         topLevelPaths: string[];
         botElements: string[];
         botComponentElements: string[];
-        configurationKeys: string[];
         platformStamps?: FormatFingerprint['platformStamps'];
         optionalTopLevelPaths?: string[];
         optionalBotComponentElements?: string[];
-        optionalConfigurationKeys?: string[];
     },
     actual: FormatFingerprint,
     against: FormatDrift['against'],
@@ -194,7 +216,6 @@ function compare(
     out.push(...diffList('top-level folders', ref.topLevelPaths, actual.topLevelPaths, against, ref.optionalTopLevelPaths));
     out.push(...diffList('bot.xml elements', ref.botElements, actual.botElements, against));
     out.push(...diffList('botcomponent.xml elements', ref.botComponentElements, actual.botComponentElements, against, ref.optionalBotComponentElements));
-    out.push(...diffList('configuration.json keys', ref.configurationKeys, actual.configurationKeys, against, ref.optionalConfigurationKeys));
 
     // I timbri di versione cambiano a ogni aggiornamento di Dataverse: si segnalano, mai si bloccano
     if (ref.platformStamps && ref.platformStamps.version !== actual.platformStamps.version) {
@@ -202,6 +223,49 @@ function compare(
             against, kind: 'changed', blocking: false,
             what: `platform version: ${ref.platformStamps.version} → ${actual.platformStamps.version}`,
         });
+    }
+    return out;
+}
+
+const profiles = baseline.configurationJson.profiles;
+const archLabel = (recognizer: string) => profiles.find(p => p.recognizer === recognizer)?.label ?? recognizer;
+
+/**
+ * Le chiavi di `configuration.json` si confrontano **per architettura** (spec 009): ogni agent
+ * col profilo della sua. Un'architettura senza profilo non produce una riga per chiave, ma una
+ * sola che dice che non c'e' nulla con cui confrontarla.
+ */
+function configurationDriftAgainstBaseline(actual: FormatFingerprint): FormatDrift[] {
+    const out: FormatDrift[] = [];
+    const byArch = actual.configurationByArchitecture ?? {};
+    for (const [recognizer, keys] of Object.entries(byArch)) {
+        const profile = profiles.find(p => p.recognizer === recognizer);
+        if (!profile) {
+            out.push({
+                against: 'baseline', kind: 'added', blocking: false,
+                what: `configuration.json: unknown agent architecture "${recognizer}" — no baseline to compare its keys with (${keys.join(', ')})`,
+            });
+            continue;
+        }
+        out.push(...diffList(`configuration.json keys (${profile.label})`, profile.keys, keys, 'baseline', profile.optionalKeys));
+    }
+    return out;
+}
+
+/** Stesso confronto contro l'ultimo packaging; una registrazione senza raggruppamento non si confronta. */
+function configurationDriftAgainstPrevious(previous: FormatFingerprint, actual: FormatFingerprint): FormatDrift[] {
+    if (!previous.configurationByArchitecture || !actual.configurationByArchitecture) return [];
+    const out: FormatDrift[] = [];
+    for (const [recognizer, keys] of Object.entries(actual.configurationByArchitecture)) {
+        const before = previous.configurationByArchitecture[recognizer];
+        if (!before) {
+            out.push({
+                against: 'previous', kind: 'added', blocking: false,
+                what: `configuration.json: agent architecture "${recognizer}" was not in the previous packaging`,
+            });
+            continue;
+        }
+        out.push(...diffList(`configuration.json keys (${archLabel(recognizer)})`, before, keys, 'previous'));
     }
     return out;
 }
@@ -222,13 +286,15 @@ export function detectDrift(
         topLevelPaths: baseline.topLevelPaths,
         botElements: baseline.botXml.elements,
         botComponentElements: baseline.botComponentXml.elements,
-        configurationKeys: baseline.configurationJson.keys,
         optionalTopLevelPaths: baseline.optionalTopLevelPaths,
         optionalBotComponentElements: baseline.botComponentXml.optionalElements,
-        optionalConfigurationKeys: baseline.configurationJson.optionalKeys,
     }, actual, 'baseline');
+    out.push(...configurationDriftAgainstBaseline(actual));
 
-    if (previous) out.push(...compare(previous, actual, 'previous'));
+    if (previous) {
+        out.push(...compare(previous, actual, 'previous'));
+        out.push(...configurationDriftAgainstPrevious(previous, actual));
+    }
     return out;
 }
 
