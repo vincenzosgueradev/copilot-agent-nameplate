@@ -9,7 +9,7 @@
 - [x] T007 Test negativi: il pin non cambia i conteggi, non entra in package/manifest/storico, un errore di `settings` non blocca la lista
 - [x] T008 Mutazioni 012: pin ignorato dalla partizione, ordine del gruppo invertito, chiave d'ambiente ignorata, `stopPropagation` tolto, pin che cambia i conteggi, orfano che manda in errore
 - [x] T009 `tsc`, build, `npm test` (295 verdi) e mutazioni 012 (13/13 scoperte); `test:full` e `test:mutation` interi restano per il rilascio
-- [ ] T010 Changelog (*Added*), `specs/README.md` (stato), tabella di tracciabilità sotto
+- [x] T010 Changelog (*Added*), `specs/README.md` (stato), tabella di tracciabilità sotto
 - [ ] T011 Quickstart a mano su un DEV vero
 
 ## Tracciabilità *(da completare a fine lavoro)*

@@ -7,7 +7,7 @@
 - [x] T005 Prova sugli export reali 1.0.0.12–.15: nessun avviso
 - [x] T006 Mutazioni (009) in `scripts/mutation-check.mjs`: 6/6 scoperte
 - [x] T007 Changelog, `specs/README.md`
-- [ ] T008 `test:full` e `test:mutation` completi prima del rilascio
+- [x] T008 `test:full` (310/310) e `test:mutation` completi prima del rilascio (2026-10-18; le sopravvissute sono state coperte con `ui.regressions.test.ts`)
 
 ## Tracciabilità
 
