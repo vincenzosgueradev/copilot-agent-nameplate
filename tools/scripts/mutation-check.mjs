@@ -140,6 +140,20 @@ const MUTATIONS = [
     ['app.ts', "src/app.ts", "{ label: 'Agents', value: String(agents) },\n        ]);", "{ label: 'Agents', value: String(agents) },\n            { label: 'Managed', value: String(counts.managed) },\n        ]);", "v1.1.0 (011): il conteggio managed si ripete nelle tile"],
     // ── packaging.ts: il collegamento
     ['packaging.ts', 'src/services/packaging.ts', "expected.publish![c.file] = c.after === 'true';", 'expected.publish![c.file] = true;', 'la verifica riceve publishOnImport sbagliato'],
+    // ── pins.ts / app.ts: pin delle solution (012)
+    ['pins.ts', 'src/services/pins.ts', 'return [...pinned, ...rest];', 'return [...rest, ...pinned];', 'pin: le fissate vanno in fondo'],
+    ['pins.ts', 'src/services/pins.ts', '(isPinned(item) ? pinned : rest).push(item);', 'rest.push(item);', 'pin: il pin viene ignorato'],
+    ['pins.ts', 'src/services/pins.ts', 'return [...pinned, ...rest];', 'return [...pinned, ...rest].reverse();', 'pin: ordine dentro i gruppi si inverte'],
+    ['pins.ts', 'src/services/pins.ts', 'return parse(raw)[environment] ?? [];', 'return Object.values(parse(raw)).flat();', 'pin: i pin valgono in ogni ambiente'],
+    ['pins.ts', 'src/services/pins.ts', /if \(next\.length\) map\[environment\] = next;\s+else delete map\[environment\];/, 'map[environment] = next;', 'pin: ultimo pin lascia una chiave vuota'],
+    ['pins.ts', 'src/services/pins.ts', "(current.includes(uniqueName) ? current : [...current, uniqueName])", '[...current, uniqueName]', 'pin: duplicati nell elenco'],
+    ['pins.ts', 'src/services/pins.ts', "names.filter((n): n is string => typeof n === 'string')", 'names as string[]', 'pin: valori non stringa accettati'],
+    ['pins.ts', 'src/services/pins.ts', 'queue = run.catch(() => {});', 'queue = run;', 'pin: un errore blocca le scritture successive'],
+    ['app.ts', 'src/app.ts', "ev.stopPropagation();                 // il pin non apre la solution", '', 'pin: il click sul pin apre la solution'],
+    ['app.ts', 'src/app.ts', 'return pinFirst(sorted, s => state.pins.includes(s.uniqueName));', 'return sorted;', 'pin: la lista non usa i pin'],
+    ['app.ts', 'src/app.ts', 'state.pins = await readPins(conn.name);', '', 'pin: i pin non si leggono all avvio'],
+    ['app.ts', 'src/app.ts', "aria-pressed=\"${on}\"", 'aria-pressed="false"', 'pin: aria-pressed non segue lo stato'],
+    ['app.ts', 'src/app.ts', "    setPinned(state.connectionName, uniqueName, on).catch(", "    Promise.resolve().catch(", 'pin: il pin non si salva'],
 ];
 
 const only = process.argv[2];

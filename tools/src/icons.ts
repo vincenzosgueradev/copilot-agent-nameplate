@@ -19,6 +19,7 @@ export type IconName =
     | 'close'
     | 'bot'
     | 'github-copilot'
+    | 'pin'
     | 'chevron-up'
     | 'chevron-down'
     | 'chevron-left'

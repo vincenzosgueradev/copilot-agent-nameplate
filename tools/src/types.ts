@@ -308,6 +308,9 @@ export interface DeploymentRecord {
     message: string;
 }
 
+/** Pin delle solution (spec 012): nomi univoci fissati, per ambiente. */
+export type PinMap = Record<string, string[]>;
+
 /**
  * Voce di History. Sostituisce `BackupRecord`: non essendoci scritture su Dataverse non
  * c'è nulla da annullare, l'artefatto di ripristino è il package originale (FR-078).

@@ -37,6 +37,8 @@ export interface UiSolution {
     friendly?: string;
     managed?: boolean;
     version?: string;
+    /** Data di creazione ISO (spec 012: serve a ordinare). Default: 2026-10-10. */
+    created?: string;
 }
 
 export interface UiWorld {
@@ -60,7 +62,7 @@ function solutionFixture(s: UiSolution, world: UiWorld, dev?: FakeDev): Solution
     return {
         solutionId: `sol-${s.unique}`, uniqueName: s.unique, friendlyName: s.friendly ?? `Solution ${s.unique}`,
         isManaged: s.managed === true, isVisible: true, publisherPrefix: 'ava', publisherName: 'Contoso',
-        version: dev ? dev.versionOf(s.unique) : (s.version ?? '1.0.0.2'), createdOn: '2026-10-10T10:00:00Z',
+        version: dev ? dev.versionOf(s.unique) : (s.version ?? '1.0.0.2'), createdOn: s.created ?? '2026-10-10T10:00:00Z',
         agentCount: world.agents.filter(a => a.solution === s.unique).length,
         exportable: s.managed !== true,
     };
@@ -162,7 +164,7 @@ const STEP_IDS: Record<string, string> = {
     preview: 'step-preview', verify: 'step-verify', result: 'step-result', history: 'step-history',
 };
 
-export async function boot(world: UiWorld): Promise<Driver> {
+export async function boot(world: UiWorld, presetSettings?: Record<string, unknown>): Promise<Driver> {
     vi.resetModules();
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
 
@@ -170,7 +172,7 @@ export async function boot(world: UiWorld): Promise<Driver> {
     document.body.innerHTML = body;
     (Element.prototype as unknown as { scrollIntoView: () => void }).scrollIntoView = () => {};
 
-    const fs: FakeFs = { files: new Map(), dirs: new Set(), settings: new Map() };
+    const fs: FakeFs = { files: new Map(), dirs: new Set(), settings: new Map(Object.entries(presetSettings ?? {})) };
     const g = globalThis as unknown as Record<string, unknown>;
     g.toolboxAPI = {
         connections: { getActiveConnection: async () => ({ name: 'DEV' }) },
