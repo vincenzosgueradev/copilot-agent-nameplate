@@ -69,6 +69,8 @@ Il file `data` del componente GPT può contenere **`displayName: <nome dell'agen
 
 È lo stesso tema dell'aperto della 002 (research §2): non è verificato se quel `displayName` abbia un effetto su ciò che l'utente vede dopo l'import. **Follow-up**: aggiungere la lettura del YAML al controllo delle occorrenze (solo segnalazione) e verificare l'effetto in UAT. Non fa parte di questa funzione, ma l'ha fatta emergere.
 
+**Osservazione manuale (2026-10-18)**: dopo l'import in UAT di un package con il `displayName` ancora a `[DEV]` nel YAML, l'utente ha visto l'agent **rinominato `[UAT]` dappertutto**. Al momento quel valore risulta inerte; resta un'osservazione a occhio, non una verifica completa di ogni schermata e canale. Il follow-up sul controllo delle occorrenze (solo segnalazione) resta facoltativo.
+
 ## §6 — Alternative scartate
 
 - **Leggere l'icona dal package invece che da Dataverse**: il package è già in mano al tool solo dopo l'export (dopo che l'utente ha scelto); le liste servono prima.

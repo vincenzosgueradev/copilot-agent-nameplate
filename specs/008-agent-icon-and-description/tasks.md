@@ -72,4 +72,4 @@ description: "Task list — icona e descrizione dell'agent"
 
 ## Follow-up (fuori ambito)
 
-- Leggere anche il YAML `data` del componente GPT nel controllo delle occorrenze del nome (research §5): riguarda la spec 002.
+- Leggere anche il YAML `data` del componente GPT nel controllo delle occorrenze del nome (research §5): riguarda la spec 002. Facoltativo: in UAT il nome risulta già `[UAT]` dappertutto (osservazione manuale del 2026-10-18).
