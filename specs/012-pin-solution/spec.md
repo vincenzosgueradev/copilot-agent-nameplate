@@ -52,6 +52,8 @@ Dopo aver chiuso e riaperto lo strumento, le solution fissate sono ancora fissat
 - **FR-007**: Un pin che non corrisponde a nessuna solution dell'ambiente DEVE essere ignorato in silenzio e NON DEVE essere cancellato finché la solution non è confermata assente da una lista completa.
 - **FR-008**: Il pin NON DEVE comparire nel package, nel manifest o nello storico e NON si scrive nulla su Dataverse.
 - **FR-009**: L'ordine delle righe NON DEVE saltare né ricaricare i dati quando si fissa o si toglie un pin: la riga si sposta sul posto, con la selezione e lo scorrimento coerenti.
+- **FR-010**: Le solution fissate DEVONO essere al massimo 3 per ambiente; raggiunto il limite i pin delle altre righe sono disabilitati e il `title` dice di toglierne una prima. I pin di solution non più esistenti NON contano. Etichetta del pin su riga non fissata: "Pin solution to the top".
+- **FR-011**: Le fissate DEVONO restare ancorate sotto l'intestazione mentre si scorre la lista (sticky, impilate), con sfondo pieno, e non scomparire.
 
 ## Key Entities
 

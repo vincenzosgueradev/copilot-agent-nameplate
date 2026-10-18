@@ -25,3 +25,5 @@
 | FR-007 pin orfani | `services/pins.ts`, `app.ts` | T002, T006 |
 | FR-008 nessuna traccia | — | T007 |
 | FR-009 spostamento sul posto | `app.ts` | T006 «nessuna rilettura» |
+| FR-010 massimo 3 pin | `app.ts` (`pinsFull`), `services/pins.ts` (`MAX_PINS`) | `ui.pins.test.ts` «massimo tre fissate» |
+| FR-011 fissate ancorate allo scroll | `app.ts` (`anchorPinnedRows`), `styles.css` (`.is-pinned`) | `ui.pins.test.ts` «classe che le ancora» (i pixel dello scroll: prova a mano) |
