@@ -32,6 +32,7 @@ description: "Task list — rename a livello di solution (retroattivo: tutto com
 - [x] T013 [US6] `agentOutcomes()` unica fonte per manifest e storico; `excluded` registrato — `60ee56d`, `490291d`
 - [x] T014 [US4] Revisione: una riga per agent; esclusi nominati; avviso `No name changes` — `60ee56d`
 - [x] T015 [US4] Nome risultante non va a capo (`cell-nowrap`) — `bb6858e`
+- [x] T018 [US3] Riga dell'escluso con il suffisso che mantiene + avviso che nomina gli agent (`clashingAgents`, `.cell-warn`) — `7ede0c2`
 
 ## Phase 4 — Specifiche e documentazione
 
@@ -44,7 +45,7 @@ description: "Task list — rename a livello di solution (retroattivo: tutto com
 |---|---|---|
 | FR-001 scope solution | `app.ts` `startRename`, `selectedAgents` | `ui.flow` · `ui.matrix` (percorsi) · `engine.plan` (matrice) |
 | FR-002 esclusione | `app.ts` `agentRowsHtml`, `patch.ts` `buildPatchPlan` | `engine.plan` · `engine.pipeline` (esclusi byte-identici) · `ui.scenarios` "riattivare un agent…" |
-| FR-003 nomi misti | `app.ts` `suffixesAfter`, `confirmThenSave` | `ui.matrix` (conferma attesa solo se misti) · `ui.scenarios` "annullare la conferma…" |
+| FR-003 nomi misti | `app.ts` `suffixesAfter`, `clashingAgents`, `confirmThenSave` | `ui.matrix` (conferma attesa solo se misti) · `ui.scenarios` "annullare la conferma…" · `ui.matrix` (`offText`: riga dell'escluso) · `ui.cards` "nomi, spunte e publish" |
 | FR-004 nome finale | `patch.ts` `buildName`, `package.ts` `splitSuffix` | `engine.plan` · `package.format` "suffisso e versione: casi limite" |
 | FR-005 falsi allarmi | `compat.ts` | `package.format` "nessun falso allarme" · "rete di sicurezza" |
 | FR-006 inventario | `package.ts` | `package.format` "inventario del package" |

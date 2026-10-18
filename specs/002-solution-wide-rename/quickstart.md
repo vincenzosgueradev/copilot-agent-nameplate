@@ -35,6 +35,12 @@
 
 **Atteso**: ✅ si apre la sua solution con la riga evidenziata; ✅ una solution managed non offre il rename.
 
+## S6 — Esclusi con un altro suffisso (a occhio)
+
+1. Aprire una solution con agent `[DEV]`, scrivere il suffisso `UAT`, togliere la spunta ad almeno un agent.
+
+**Atteso**: ✅ la riga di ogni escluso dice `left as it is — keeps [DEV]` in arancione e non va a capo male; ✅ l'avviso in fondo li nomina; ✅ togliendo la causa (suffisso uguale o agent riattivato) l'avviso e le note spariscono. I test non vedono colore e larghezza della cella.
+
 ## Verifica automatica
 
 `npm test` (≈40 s) copre S1–S5; `npm run test:full` aggiunge la matrice esaustiva; `npm run test:mutation` controlla che i test scoprano i difetti (spec 006).
