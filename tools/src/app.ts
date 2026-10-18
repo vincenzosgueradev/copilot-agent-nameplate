@@ -927,6 +927,35 @@ function scrollToTop(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>(SCROLLERS).forEach(el => { el.scrollTop = 0; });
 }
 
+/**
+ * Suffisso vuoto = togliere quello che c'e' (spec 013). E' lecito ma sorprende: prima di andare
+ * avanti si dice, con esempi veri, che cosa succede ai nomi.
+ */
+function confirmNoSuffix(): Promise<boolean> {
+    const picked = selectedAgents();
+    const changing = picked.filter(a => splitSuffix(a.name).currentSuffix);
+    const sample = (changing.length ? changing : picked).slice(0, 3);
+    const rows = sample.map(a => `
+        <li><span class="warn-from">${escapeHtml(a.name)}</span>
+            <span class="warn-arrow">${icon('arrow-right', 'icon--xs')}</span>
+            <strong>${escapeHtml(buildName(a.name, ''))}</strong></li>`).join('');
+    const more = (changing.length || picked.length) - sample.length;
+    const lead = changing.length
+        ? `The suffix is empty, so the existing one is <strong>removed</strong> from ${changing.length === 1 ? 'the agent' : `${changing.length} agents`}.`
+        : 'The suffix is empty and these agents have none, so their names stay as they are.';
+    return askConfirm({
+        title: 'No suffix selected',
+        warning: true,
+        okLabel: 'Continue without suffix',
+        cancelLabel: 'Go back and choose one',
+        bodyHtml: `
+            <p class="warn-lead">${lead}</p>
+            <ul class="warn-list">${rows}</ul>
+            ${more > 0 ? `<p class="hint">…and ${more} more.</p>` : ''}
+            <p class="hint">Pick a suffix such as DEV, UAT or PROD if you meant to name the environment.</p>`,
+    });
+}
+
 function navigateTo(step: AppStep): void {
     state.currentStep = step;
     renderBreadcrumb();
@@ -1420,7 +1449,10 @@ function renderSuffixStep(): void {
     });
 
     els.stepSuffix.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('solution'));
-    els.stepSuffix.querySelector('#next-btn')!.addEventListener('click', () => navigateTo('review'));
+    els.stepSuffix.querySelector('#next-btn')!.addEventListener('click', async () => {
+        if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;
+        navigateTo('review');
+    });
 }
 
 // ── Step: anteprima del Patch Plan ────────────────────────────────────────────

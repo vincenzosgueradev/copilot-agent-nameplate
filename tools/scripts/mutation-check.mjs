@@ -154,6 +154,12 @@ const MUTATIONS = [
     ['app.ts', 'src/app.ts', 'state.pins = await readPins(conn.name);', '', 'pin: i pin non si leggono all avvio'],
     ['app.ts', 'src/app.ts', "aria-pressed=\"${on}\"", 'aria-pressed="false"', 'pin: aria-pressed non segue lo stato'],
     ['app.ts', 'src/app.ts', "    setPinned(state.connectionName, uniqueName, on).catch(", "    Promise.resolve().catch(", 'pin: il pin non si salva'],
+    // ── app.ts: avviso "nessun suffisso" (013) e limite dei pin (012)
+    ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "if (state.suffix === '' && !(await confirmNoSuffix())) return;", 'nosuffix: gli spazi non contano come vuoto'],
+    ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "if (!(await confirmNoSuffix())) return;", 'nosuffix: l avviso compare anche con un suffisso'],
+    ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "", 'nosuffix: nessun avviso'],
+    ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "if (state.suffix.trim() === '') await confirmNoSuffix();", 'nosuffix: annullare va avanti lo stesso'],
+    ['app.ts', 'src/app.ts', "return state.pins.filter(n => known.has(n)).length >= MAX_PINS;", "return false;", 'pin: nessun limite'],
 ];
 
 const only = process.argv[2];

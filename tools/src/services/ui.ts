@@ -13,6 +13,9 @@ export interface ConfirmOptions {
     okLabel?: string;
     /** Rende il pulsante di conferma "distruttivo". */
     danger?: boolean;
+    /** Intestazione e bordo in colore di avviso, per i casi che non sono un errore ma meritano un alt. */
+    warning?: boolean;
+    cancelLabel?: string;
 }
 
 /** Risolve `true` sulla conferma; `false` su annulla o Escape. */
@@ -27,6 +30,8 @@ export function askConfirm(opts: ConfirmOptions): Promise<boolean> {
         title.textContent = opts.title;
         body.innerHTML = opts.bodyHtml;
         okBtn.textContent = opts.okLabel ?? 'Confirm';
+        cancelBtn.textContent = opts.cancelLabel ?? 'Cancel';
+        overlay.querySelector('.dialog')!.classList.toggle('dialog--warning', !!opts.warning);
         okBtn.className = opts.danger ? 'btn btn--danger' : 'btn btn--primary';
         overlay.style.display = 'flex';
         okBtn.focus();

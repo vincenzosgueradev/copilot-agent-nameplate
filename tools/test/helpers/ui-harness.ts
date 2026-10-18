@@ -102,6 +102,8 @@ export interface Driver {
     openSolution(unique: string): Promise<void>;
     startRename(): Promise<void>;
     next(): Promise<void>;
+    /** Come next, ma senza rispondere agli avvisi: serve a provare il dialogo stesso. */
+    nextRaw(): Promise<void>;
     back(): Promise<void>;
     crumb(label: string): Promise<void>;
     // ── step del suffisso
@@ -298,7 +300,13 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
             await click($(`.data-row[data-solution="sol-${unique}"]`), `solution ${unique}`);
         },
         async startRename() { await click($('#rename-btn'), 'Set the suffix'); },
-        async next() { await click($('#next-btn', stepEl()), 'Next'); },
+        // Come farebbe l'utente: se compare l'avviso "nessun suffisso" lo conferma
+        async next() {
+            await click($('#next-btn', stepEl()), 'Next');
+            const ok = $('#confirm-ok-btn');
+            if ($('#confirm-overlay')?.getAttribute('style')?.includes('flex') && ok) await click(ok, 'confirm');
+        },
+        async nextRaw() { await click($('#next-btn', stepEl()), 'Next'); },
         async back() { await click($('#back-btn', stepEl()), 'Back'); },
         async crumb(label) {
             const el = Array.from(doc.querySelectorAll('#breadcrumb a, #breadcrumb button, #breadcrumb [data-step]'))
