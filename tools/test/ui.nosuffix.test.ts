@@ -43,6 +43,15 @@ describe('suffisso vuoto: avviso prima della revisione', () => {
         expect(overlay(ui).querySelector('.warn-list')!.textContent).toContain('agent1');
         expect(text(ui)).toContain('Continue without suffix');
     });
+    it('elenca tutti gli agent selezionati, non solo i primi', async () => {
+        const ui = await boot({ solutions: [{ unique: 'S1' }], agents: Array.from({ length: 7 }, (_, i) =>
+            ({ name: `agent${i} [DEV]`, schema: `ava_a${i}`, solution: 'S1', publish: null })) });
+        await ui.openSolution('S1');
+        await ui.startRename();
+        await ui.nextRaw();
+        expect(overlay(ui).querySelectorAll('.warn-list li').length).toBe(7);
+        expect(text(ui)).not.toContain('more');
+    });
     it('"Go back" chiude l\'avviso e resta sul suffisso', async () => {
         const ui = await toSuffix();
         await ui.nextRaw();

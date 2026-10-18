@@ -119,7 +119,7 @@ describe('niente checkbox nude (Constitution)', () => {
     it('la lista delle solution non ha checkbox senza interruttore', async () => {
         const ui = await boot(world());
         const bare = Array.from(ui.doc.querySelectorAll('input[type="checkbox"]'))
-            .filter(i => !i.classList.contains('switch-input'));
+            .filter(i => !i.classList.contains('switch-input') && !i.classList.contains('check-input'));
         expect(bare).toEqual([]);
     });
 });

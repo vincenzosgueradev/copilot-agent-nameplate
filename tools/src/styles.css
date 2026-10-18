@@ -1742,13 +1742,30 @@ select option {
 
 .switch-input:checked + .switch-track .switch-thumb { left: 19px; }
 
-/* Versione compatta per le righe di tabella; "tutti" a meta' mostra la manopola al centro */
-.switch--sm .switch-track { width: 32px; height: 18px; border-radius: 9px; }
-.switch--sm .switch-thumb { width: 12px; height: 12px; top: 3px; }
-.switch--sm .switch-input:checked + .switch-track .switch-thumb { left: 17px; }
-.switch--sm .switch-input:indeterminate + .switch-track { background: var(--color-primary); opacity: 0.6; }
-.switch--sm .switch-input:indeterminate + .switch-track .switch-thumb { left: 10px; }
 .switch-input:focus-visible + .switch-track { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* Colonna della casella: niente ellipsis e piu' aria ai lati */
+.data-table .col-check { overflow: visible; text-overflow: clip; padding-left: var(--sp-5, 20px); padding-right: var(--sp-3); }
+
+/* Casella rotonda a due colori (righe di tabella): anello del colore del tema e, da spuntata, centro pieno.
+   "Tutti" a meta' mostra un trattino. */
+.check { display: inline-flex; cursor: pointer; }
+.check-input { position: absolute; opacity: 0; width: 0; height: 0; }
+.check-mark {
+    width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%;
+    border: 2px solid var(--color-border); background: transparent;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.check:hover .check-mark { border-color: var(--color-primary); }
+.check-input:checked + .check-mark {
+    border-color: var(--color-primary); background: var(--color-primary);
+    box-shadow: inset 0 0 0 3px var(--color-surface);
+}
+.check-input:indeterminate + .check-mark {
+    border-color: var(--color-primary);
+    background: linear-gradient(var(--color-primary), var(--color-primary)) center / 8px 2px no-repeat;
+}
+.check-input:focus-visible + .check-mark { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 /* ── Toggle group (3-state segmented button) ── */
 .toggle-group {

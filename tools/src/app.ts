@@ -934,12 +934,11 @@ function scrollToTop(root: HTMLElement): void {
 function confirmNoSuffix(): Promise<boolean> {
     const picked = selectedAgents();
     const changing = picked.filter(a => splitSuffix(a.name).currentSuffix);
-    const sample = (changing.length ? changing : picked).slice(0, 3);
+    const sample = changing.length ? changing : picked;
     const rows = sample.map(a => `
         <li><span class="warn-from">${escapeHtml(a.name)}</span>
             <span class="warn-arrow">${icon('arrow-right', 'icon--xs')}</span>
             <strong>${escapeHtml(buildName(a.name, ''))}</strong></li>`).join('');
-    const more = (changing.length || picked.length) - sample.length;
     const lead = changing.length
         ? `The suffix is empty, so the existing one is <strong>removed</strong> from ${changing.length === 1 ? 'the agent' : `${changing.length} agents`}.`
         : 'The suffix is empty and these agents have none, so their names stay as they are.';
@@ -951,7 +950,6 @@ function confirmNoSuffix(): Promise<boolean> {
         bodyHtml: `
             <p class="warn-lead">${lead}</p>
             <ul class="warn-list">${rows}</ul>
-            ${more > 0 ? `<p class="hint">…and ${more} more.</p>` : ''}
             <p class="hint">Pick a suffix such as DEV, UAT or PROD if you meant to name the environment.</p>`,
     });
 }
@@ -1189,12 +1187,12 @@ async function loadCards(agents: AgentListItem[], seq: number): Promise<void> {
     paintCards();
 }
 
-/** Interruttore compatto per le righe di una tabella: la Constitution non ammette checkbox nude. */
-function switchHtml(attr: string, label: string, on: boolean): string {
-    return `<label class="switch switch--sm">
-        <input class="switch-input" type="checkbox" role="switch" ${attr}
+/** Casella rotonda a due colori per le righe di tabella: mai la checkbox nuda del browser. */
+function checkHtml(attr: string, label: string, on: boolean): string {
+    return `<label class="check">
+        <input class="check-input" type="checkbox" ${attr}
             aria-label="${escapeHtml(label)}" ${on ? 'checked' : ''}>
-        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="check-mark"></span>
     </label>`;
 }
 
@@ -1204,8 +1202,8 @@ function agentRowsHtml(): string {
     const mixed = suffixesAfter(names, state.suffix);
     return `
         <table class="data-table data-table--fill">
-            <colgroup><col style="width:48px"><col style="width:28%"><col style="width:96px"><col style="width:28%"><col></colgroup>
-            <thead><tr><th>${switchHtml('data-agent-all', 'Select or deselect all agents',
+            <colgroup><col style="width:68px"><col style="width:28%"><col style="width:96px"><col style="width:28%"><col></colgroup>
+            <thead><tr><th class="col-check">${checkHtml('data-agent-all', 'Select or deselect all agents',
                 agents.every(a => !state.excludedAgents.has(a.id)))}</th><th>Agent</th><th>Agent type</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
             <tbody>${agents.map(a => {
                 const on = !state.excludedAgents.has(a.id);
@@ -1217,7 +1215,7 @@ function agentRowsHtml(): string {
                     : 'left as it is';
                 return `
                 <tr${on ? '' : ' class="is-off"'}>
-                    <td>${switchHtml(`data-agent="${escapeHtml(a.id)}"`, `Rename ${a.name}`, on)}</td>
+                    <td class="col-check">${checkHtml(`data-agent="${escapeHtml(a.id)}"`, `Rename ${a.name}`, on)}</td>
                     <td class="cell-strong" title="${escapeHtml(a.name)}">${agentCellHtml(a)}</td>
                     <td class="cell-type">${agentKindHtml(a.id)}</td>
                     <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap" title="${escapeHtml(next)}">${on

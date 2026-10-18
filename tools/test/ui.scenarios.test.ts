@@ -310,7 +310,7 @@ describe('revisione e anteprima: layout', () => {
         const widths = Array.from(ui.doc.querySelectorAll('#agent-list colgroup col'))
             .map(c => (c as HTMLElement).style.width);
         // checkbox stretta; agente e nome ricevono una quota; il tipo ha una larghezza fissa; l'ultima prende il resto
-        expect(widths[0]).toBe('48px');
+        expect(widths[0]).toBe('68px');
         expect(widths[1]).toMatch(/%$/);
         expect(widths[2]).toMatch(/px$/);
         expect(widths[3]).toBe(widths[1]);
