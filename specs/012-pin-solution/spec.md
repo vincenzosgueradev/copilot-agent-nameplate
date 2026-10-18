@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-18
 
-**Status**: Specificata, da implementare
+**Status**: **Implementata** (2026-10-18) · da provare a mano su un DEV vero (T001, T011)
 
 **Input**: Richiesta dell'utente (2026-10-18): *"nuova specifica pin solution cosi anche se cambi ordinamento sta sempre su"*, con lo screenshot della lista Solutions (24 solution unmanaged, ordinate per numero di agent).
 
