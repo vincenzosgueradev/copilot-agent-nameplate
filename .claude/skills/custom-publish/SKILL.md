@@ -14,12 +14,12 @@ The version is decided by the changelog (constitution, *Release Changelog*): the
 `## [x.y.z]` heading of `CHANGELOG.md` is the version to publish. Do **not** use
 `npm run publish-package`: it always bumps a patch and would ignore the changelog.
 
-All commands run from `tools/` unless said otherwise.
+All commands run from `agent-nameplate/` unless said otherwise.
 
 ## Procedure
 
 1. **Read the facts.** Top entry of `CHANGELOG.md` (call it `V`), `name` and `version` of
-   `tools/package.json`, `npm view <name> version` (what npm already has; "not found" means
+   `agent-nameplate/package.json`, `npm view <name> version` (what npm already has; "not found" means
    a first publish), and `git status`.
 2. **Stop and explain if any of these fails** (do not try to fix them silently):
    - `CHANGELOG.md` missing, or its top entry has no date or no content → run

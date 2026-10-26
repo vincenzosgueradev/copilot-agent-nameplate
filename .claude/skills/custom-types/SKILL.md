@@ -1,13 +1,13 @@
 ---
 name: "custom-types"
-description: "Analysis-only TypeScript audit of tools/src: any usage, ts-ignore, missing or loose types, strict-mode violations, unsafe XML/JSON handling. Reports findings; does not modify code."
+description: "Analysis-only TypeScript audit of agent-nameplate/src: any usage, ts-ignore, missing or loose types, strict-mode violations, unsafe XML/JSON handling. Reports findings; does not modify code."
 user-invocable: true
 disable-model-invocation: false
 ---
 
 # TypeScript audit (read-only)
 
-Read `.specify/memory/constitution.md` and `tools/tsconfig.json` (strict, noUnusedLocals, noUnusedParameters) first. Scan `tools/src/**/*.ts` and `tools/scripts/*.mts`.
+Read `.specify/memory/constitution.md` and `agent-nameplate/tsconfig.json` (strict, noUnusedLocals, noUnusedParameters) first. Scan `agent-nameplate/src/**/*.ts` and `agent-nameplate/scripts/*.mts`.
 
 Check:
 1. **`any` usage** — `: any`, `as any`, `any[]`, implicit any, `@ts-ignore`, `@ts-expect-error`, `eslint-disable`.
@@ -19,4 +19,4 @@ Check:
 Report: `[TS-001] file:line — description · Code: <line> · Type: any|loose-type|api-typing|strict|error-handling · Action: <fix>`.
 If none: `TS AUDIT: PASS — no violations found`.
 
-Do not modify any file. Afterwards, offer to fix and verify with `npm run build` from `tools/`.
+Do not modify any file. Afterwards, offer to fix and verify with `npm run build` from `agent-nameplate/`.

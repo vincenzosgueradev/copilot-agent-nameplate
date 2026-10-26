@@ -249,7 +249,7 @@ Every release of a tool MUST be documented in a `CHANGELOG.md` at the repository
    symptom that was seen, not only the cause.
 4. A behavior change that contradicts what a previous version did MUST be listed under
    **Changed** even when it is a fix, so the version bump can be understood from the file alone.
-5. The version of the newest changelog entry MUST equal the `version` in `tools/package.json`
+5. The version of the newest changelog entry MUST equal the `version` in `agent-nameplate/package.json`
    at the time of publishing. (The `version` fields inside `pptb.config.json` are schema
    versions of the invocation and agents contracts, not the tool's version.)
 

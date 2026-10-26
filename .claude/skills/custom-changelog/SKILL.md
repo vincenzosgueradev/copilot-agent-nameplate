@@ -1,6 +1,6 @@
 ---
 name: "custom-changelog"
-description: "Drafts the CHANGELOG.md entry for the next release of Copilot Agent Nameplate from the commits since the last documented version, checks it against tools/package.json, and writes it after confirmation. Run before publishing; implements the constitution's Release Changelog rule."
+description: "Drafts the CHANGELOG.md entry for the next release of Copilot Agent Nameplate from the commits since the last documented version, checks it against agent-nameplate/package.json, and writes it after confirmation. Run before publishing; implements the constitution's Release Changelog rule."
 user-invocable: true
 disable-model-invocation: true
 ---
@@ -14,7 +14,7 @@ tool, not the developer).
 ## Procedure
 
 1. **Find the last documented version.** Read `CHANGELOG.md`; the first `## [x.y.z]` heading is
-   the last release. Read `version` in `tools/package.json`.
+   the last release. Read `version` in `agent-nameplate/package.json`.
    - If `CHANGELOG.md` does not exist, stop and say so.
 2. **Decide the version this run is about.** Three cases:
    - `package.json` version **greater** than the last entry → that is the version being
@@ -52,7 +52,7 @@ tool, not the developer).
    versions that are already published. Then re-read the top of the file to check the heading order.
 7. **Report**: the version, the number of lines per section, and what is still to do before
    publishing: `/custom-commit` for the entry, `/custom-ampush`, then `/custom-publish`, which
-   sets `tools/package.json` to the version of this entry.
+   sets `agent-nameplate/package.json` to the version of this entry.
 
 ## Never
 
