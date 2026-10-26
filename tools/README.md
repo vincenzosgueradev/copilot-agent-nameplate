@@ -1,4 +1,4 @@
-# Copilot Agent Nameplate
+# Agent Nameplate
 
 **Rename Copilot Studio agents per environment — without an unmanaged layer.**
 
@@ -25,10 +25,32 @@ DEV → solution → ExportSolution ×2 (managed + unmanaged)
                          └→ (optional) import into the target environment
 ```
 
-The name lands in the **managed layer**, like any other property of the solution. The tool
-**writes nothing to any environment**: it never touches `bot`, `botcomponent`, or environment
-variables, and therefore cannot create layers. `pptb.config.json` declares `"write": []`, and
-the empty list is intentional.
+The name lands in the **managed layer**, like any other property of the solution. The tool never
+touches `bot`, `botcomponent`, or environment variables, and therefore cannot create layers. It
+makes **one optional write** to the source environment (the solution version, below), and asks
+you to confirm it first.
+
+## What this tool changes
+
+**In the package** (the files it produces, never the environment):
+
+- the content of `<name>` inside `bots/<schemaname>/bot.xml`, one per selected agent;
+- optionally `publishOnImport` in `configuration.json`, per agent;
+- nothing else: every other entry stays byte-identical, verified entry by entry.
+
+**In the source environment (DEV)**, only if "Raise the version" is on (it is by default):
+
+- the **version of the unmanaged solution** you selected, for example `1.0.0.2` → `1.0.0.3`,
+  written **before the export** so DEV, the package and the target stay aligned.
+
+Before writing, the tool shows a dialog naming the environment, the solution and both version
+numbers, and waits for your confirmation. **The tool cannot undo the change**: to go back, set the
+previous version in the solution properties in the portal, or export the solution before
+continuing as a backup. Turn the option off and the environment is not written to at all. In
+headless/MCP mode the same consent is the `confirmVersionWrite: true` input.
+
+Nothing else is written to any environment. Importing the package into a target environment is a
+separate, optional step that you start yourself.
 
 ## What Gets Modified in the Package
 
@@ -43,8 +65,9 @@ entry stays **byte-identical**, and the tool verifies this entry by entry before
 
 **The version is not patched in the package.** Following Microsoft's guidance, the tool raises the
 version of the unmanaged solution **in DEV, before the export** (the default, editable like in the
-portal's export pane), so DEV, the package and the target stay aligned and the next export continues
-from the new number. It is the only thing the tool ever writes to Dataverse. To import the same
+portal's export pane, and confirmed in a dialog), so DEV, the package and the target stay aligned
+and the next export continues from the new number. It is the only thing the tool ever writes to
+Dataverse. To import the same
 version into a second environment, turn the option off: DEV is already at that number.
 
 ## Teams and M365 Copilot
@@ -127,7 +150,7 @@ src/
 ├── baseline/
 │   └── package-format.json reference fingerprint of the solution format, verified 2026-10-15
 └── services/
-    ├── dataverse.ts        reads only (no writes, by design)
+    ├── dataverse.ts        reads only
     ├── solutions.ts        solutions and agents
     ├── export.ts           synchronous ExportSolution + async fallback
     ├── package.ts          package reading

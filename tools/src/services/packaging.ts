@@ -12,6 +12,7 @@
 
 import { exportPair, type ExportProgress } from './export';
 import { raiseSolutionVersion, type VersionChange } from './solutionVersion';
+import { relevantDrift } from './compat';
 import { readPackage } from './package';
 import { applyPatch, buildPatchPlan } from './patch';
 import { buildZip, verifyZip, verificationPassed, type ExpectedValues } from './rezip';
@@ -110,7 +111,8 @@ export async function runPackaging(
         + `${managedPkg.entries.length} entries, ${managedPkg.agents.length} agent(s).`);
     if (managedPkg.drift.length) {
         log(`The format differs from the baseline in ${managedPkg.drift.length} point(s): `
-            + managedPkg.drift.map(d => d.what).join('; '), 'warning');
+            + managedPkg.drift.map(d => d.what).join('; '),
+            relevantDrift(managedPkg.drift).length ? 'warning' : 'info');
     }
     const unexpected = managedPkg.nameOccurrences.filter(o => !o.expected);
     if (unexpected.length) {

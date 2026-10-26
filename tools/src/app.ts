@@ -18,6 +18,7 @@ import { MAX_PINS, pinFirst, readPins, setPinned } from './services/pins';
 import { runPackaging, type PackagingResult } from './services/packaging';
 import { agentOutcomes, buildName, publishModeFor } from './services/patch';
 import { nextVersion, versionProblem } from './services/solutionVersion';
+import { relevantDrift } from './services/compat';
 import { splitSuffix } from './services/package';
 import { icon, type IconName } from './icons';
 import {
@@ -46,6 +47,8 @@ type AppStep = 'welcome' | 'solution' | 'suffix' | 'review' | 'preview' | 'verif
 
 const state = {
     connectionName: '',
+    /** URL dell'environment della connessione attiva: il dialog di scrittura lo nomina (policy §7). */
+    connectionUrl: '',
     solutions: [] as Solution[],
     /** Nomi univoci delle solution fissate in questo ambiente (spec 012). */
     pins: [] as string[],
@@ -99,6 +102,7 @@ const state = {
 const els = {
     connectionBadge: document.getElementById('connection-badge')!,
     connectionName: document.getElementById('connection-name')!,
+    appVersion: document.getElementById('app-version')!,
     refreshBtn: document.getElementById('refresh-solutions-btn') as HTMLButtonElement,
     welcomeScreen: document.getElementById('welcome-screen')!,
     breadcrumb: document.getElementById('breadcrumb')!,
@@ -143,6 +147,7 @@ async function initConnection(): Promise<void> {
             return;
         }
         state.connectionName = conn.name;
+        state.connectionUrl = conn.url ?? '';
         state.pins = await readPins(conn.name);
         setConnectionBadge(conn.name, 'connected');
         log(`Connected to ${conn.name}`, 'success');
@@ -454,7 +459,7 @@ function pinButtonHtml(s: Solution): string {
         : blocked ? `You can pin up to ${MAX_PINS} solutions: unpin one first`
         : 'Pin solution to the top';
     return `<button type="button" class="pin-btn" data-pin="${escapeHtml(s.uniqueName)}"
-                aria-pressed="${on}" aria-label="${title}" title="${title}"${blocked ? ' disabled' : ''}>${icon('pin')}</button>`;
+                aria-pressed="false" aria-label="${title}" title="${title}"${blocked ? ' disabled' : ''}>${icon('pin')}</button>`;
 }
 
 /**
@@ -1481,7 +1486,7 @@ function renderReviewStep(): void {
             ${stepperHtml(2)}
         </div>
 
-        <div class="stack">
+        <div class="two-col">
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('pencil', 'icon--head')}Rename</h3>
@@ -1569,7 +1574,38 @@ function renderReviewStep(): void {
         </div>`;
 
     els.stepReview.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('suffix'));
-    els.stepReview.querySelector('#next-btn')!.addEventListener('click', () => navigateTo('preview'));
+    els.stepReview.querySelector('#next-btn')!.addEventListener('click', async () => {
+        if (state.options.newVersion && !(await confirmVersionWrite(sol))) return;
+        navigateTo('preview');
+    });
+}
+
+/**
+ * Alzare la versione e' l'unica scrittura del tool su Dataverse, e non si annulla da qui:
+ * prima di farla si dice dove, su quale solution, da quale numero a quale, e che cosa fare
+ * per tornare indietro (marketplace policy: nessuna modifica a un ambiente senza consenso).
+ */
+function confirmVersionWrite(sol: Solution): Promise<boolean> {
+    return askConfirm({
+        title: 'Change the solution version in DEV',
+        warning: true,
+        okLabel: 'Change the version and build',
+        cancelLabel: 'Go back',
+        bodyHtml: `
+            <p class="warn-lead">Before exporting, the tool <strong>writes to this environment</strong>:</p>
+            <ul class="warn-list">
+                <li>Environment: <strong>${escapeHtml(state.connectionName || 'DEV')}</strong>${state.connectionUrl
+                    ? ` <span class="cell-muted">(${escapeHtml(state.connectionUrl)})</span>` : ''}</li>
+                <li>Solution: <strong>${escapeHtml(sol.uniqueName)}</strong></li>
+                <li>Version: <code>${escapeHtml(state.versionFrom)}</code> <span class="warn-arrow">${icon('arrow-right', 'icon--xs')}</span>
+                    <code>${escapeHtml(state.options.newVersion ?? '')}</code></li>
+            </ul>
+            <p>Scope: <strong>one property of one solution</strong>. This is the only change the tool makes to
+                the environment. Agents, components and variables are not touched.</p>
+            <p class="hint">The tool cannot undo it. To go back, set the previous version in the solution's
+                properties in the portal. To keep a copy of the current state, export the solution
+                before continuing. To skip the change, go back and turn off "Raise the version".</p>`,
+    });
 }
 
 function renderPreviewStep(): void {
@@ -1912,6 +1948,7 @@ function renderVerifyStep(): void {
     const unexpected = pkg.nameOccurrences.filter(o => !o.expected);
     // Posti noti che il tool non tocca e che portano ancora il suffisso vecchio: un agent
     // creato gia' con `[DEV]` ce l'ha anche nel nome del suo componente GPT (FR-096)
+    const notableDrift = relevantDrift(pkg.drift);
     const keptOld = pkg.nameOccurrences.filter(
         o => o.expected && !o.willBePatched && splitSuffix(o.value).currentSuffix !== null);
     const changedEntries = pkg.entries.length - r.managed.expectedIdenticalEntries;
@@ -1990,12 +2027,12 @@ function renderVerifyStep(): void {
                     its old suffix (${keptOld.map(o => `<code>${escapeHtml(o.file)}</code>`).join(', ')}).
                     It is an internal name; the one shown on channels comes from the agent.
                 </p>` : ''}
-                ${pkg.drift.length ? `
+                ${notableDrift.length ? `
                 <h4 class="section-title">Package format</h4>
                 <div class="note note--warn">
-                    The format differs from the reference one. It does not block packaging —
-                    Dataverse keeps changing — but it is worth knowing:
-                    <ul class="drift-list">${pkg.drift.map(d =>
+                    The package no longer has something this tool changes. Check the result
+                    before you import it:
+                    <ul class="drift-list">${notableDrift.map(d =>
                         `<li>${escapeHtml(d.what)} <span class="cell-muted">(vs ${escapeHtml(d.against)})</span></li>`).join('')}</ul>
                 </div>` : ''}
             </div>
@@ -2179,7 +2216,7 @@ async function saveArtifactSet(): Promise<void> {
         state.versionTouched = false;
         navigateTo('result');
         toolbox.utils.showNotification({
-            title: 'Copilot Agent Nameplate',
+            title: 'Agent Nameplate',
             body: `Artifact set ready in ${written.set.folderName}`,
             type: written.complete ? 'success' : 'warning',
         });
@@ -2503,7 +2540,16 @@ clearSearchBtn.addEventListener('click', () => {
 });
 
 
+/** Tema di PPTB: chiaro o scuro (marketplace policy §3). Senza risposta resta lo scuro. */
+function applyTheme(): void {
+    const set = (light: boolean) => { document.documentElement.dataset.theme = light ? 'light' : 'dark'; };
+    void Promise.resolve(toolbox.utils.getCurrentTheme?.())
+        .then(theme => set(theme === 'light'))
+        .catch(() => set(false));
+}
+
 toolbox.events.on((_event: unknown, payload: { event: string }) => {
+    applyTheme();
     if (payload.event === 'connection:updated' || payload.event === 'connection:created') {
         log('Connection changed. Reloading...', 'info');
         state.agents = [];
@@ -2524,7 +2570,9 @@ toolbox.events.on((_event: unknown, payload: { event: string }) => {
 });
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+els.appVersion.textContent = `v${__APP_VERSION__}`;
+applyTheme();
 attachLog(els.logEntries);
 els.exportLogBtn.disabled = false;
-log('Copilot Agent Nameplate starting...');
+log('Agent Nameplate starting...');
 initConnection();

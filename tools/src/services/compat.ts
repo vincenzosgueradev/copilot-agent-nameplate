@@ -297,3 +297,15 @@ export function detectDrift(
     }
     return out;
 }
+
+/**
+ * Gli scostamenti che l'utente deve vedere: solo quelli che toccano cio' che il tool modifica.
+ *
+ * Il tool scrive `<name>` in `bot.xml` e, a richiesta, `publishOnImport`; tutto il resto resta
+ * byte-identico e lo dimostra la verifica entry per entry. Una chiave nuova o un elemento in
+ * piu' non cambia il risultato, quindi non si mostra: resta nel log e nel manifest. `publishOnImport`
+ * e' opzionale (assente = non specificato), per questo la sua assenza non conta.
+ */
+export function relevantDrift(drift: FormatDrift[]): FormatDrift[] {
+    return drift.filter(d => d.what === 'bot.xml elements: disappeared "name"');
+}

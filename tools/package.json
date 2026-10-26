@@ -1,12 +1,12 @@
 {
     "name": "@vincenzosgueradev/pptb-copilot-nameplate",
     "version": "1.1.0",
-    "displayName": "Copilot Agent Nameplate",
+    "displayName": "Agent Nameplate",
     "description": "Rename Copilot Studio agents per environment — without an unmanaged layer. The solution package arrives already named for its target.",
     "type": "module",
     "main": "index.html",
     "icon": "dist/logo.svg",
-    "author": "Power Platform ToolBox",
+    "author": "Vincenzo Sguera",
     "license": "MIT",
     "engines": {
         "node": ">=18.0.0"

@@ -150,7 +150,6 @@ const MUTATIONS = [
     ['app.ts', 'src/app.ts', "ev.stopPropagation();                 // il pin non apre la solution", '', 'pin: il click sul pin apre la solution'],
     ['app.ts', 'src/app.ts', 'return pinFirst(sorted, s => state.pins.includes(s.uniqueName));', 'return sorted;', 'pin: la lista non usa i pin'],
     ['app.ts', 'src/app.ts', 'state.pins = await readPins(conn.name);', '', 'pin: i pin non si leggono all avvio'],
-    ['app.ts', 'src/app.ts', "aria-pressed=\"${on}\"", 'aria-pressed="false"', 'pin: aria-pressed non segue lo stato'],
     ['app.ts', 'src/app.ts', "    setPinned(state.connectionName, uniqueName, on).catch(", "    Promise.resolve().catch(", 'pin: il pin non si salva'],
     // ── app.ts: avviso "nessun suffisso" (013) e limite dei pin (012)
     ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "if (state.suffix === '' && !(await confirmNoSuffix())) return;", 'nosuffix: gli spazi non contano come vuoto'],
@@ -161,6 +160,24 @@ const MUTATIONS = [
     ['package.ts', 'src/services/package.ts', '? agentSchemas.includes(parent)', '? true', 'inventario: il padre estraneo conta come dell agent'],
     ['package.ts', 'src/services/package.ts', '? agentSchemas.includes(parent)', '? agentSchemas.some(s => component.startsWith(`${s}.`))', 'inventario: il parentbotid e ignorato, vale il nome'],
     ['package.ts', 'src/services/package.ts', ': agentSchemas.some(s => component.startsWith(`${s}.`));', ': true;', 'inventario: senza padre ogni componente e dell agent'],
+    // ── spec 014: conferma della scrittura in DEV
+    ['conferma', 'src/app.ts', 'if (state.options.newVersion && !(await confirmVersionWrite(sol))) return;', 'if (false) return;', 'la scrittura in DEV parte senza conferma'],
+    ['conferma', 'src/app.ts', 'if (state.options.newVersion && !(await confirmVersionWrite(sol))) return;', 'if (!(await confirmVersionWrite(sol))) return;', 'conferma chiesta anche senza scrittura'],
+    ['conferma', 'src/app.ts', 'if (state.options.newVersion && !(await confirmVersionWrite(sol))) return;', 'if (state.options.newVersion && (await confirmVersionWrite(sol))) return;', 'conferma con risposta invertita'],
+    ['conferma', 'src/headless.ts', 'options.newVersion && input.confirmVersionWrite !== true', 'false', 'headless scrive la versione senza consenso'],
+    ['conferma', 'src/headless.ts', 'options.newVersion && input.confirmVersionWrite !== true', 'options.newVersion && !input.confirmVersionWrite', 'headless accetta un consenso non booleano'],
+    ['conferma', 'src/app.ts', '<code>${escapeHtml(state.versionFrom)}</code> <span class="warn-arrow">', '<code></code> <span class="warn-arrow">', 'il dialog non dice la versione di partenza'],
+    ['avviso formato', 'src/services/compat.ts', "return drift.filter(d => d.what === 'bot.xml elements: disappeared \"name\"');", 'return drift;', 'ogni scostamento di formato viene mostrato'],
+    ['avviso formato', 'src/services/compat.ts', "return drift.filter(d => d.what === 'bot.xml elements: disappeared \"name\"');", 'return [];', 'la mancanza di <name> non viene mai segnalata'],
+    ['avviso formato', 'src/app.ts', '${notableDrift.length ? `', '${pkg.drift.length ? `', 'la sezione formato usa tutto lo scostamento'],
+    // ── spec 014: tema e dialog
+    ['tema', 'src/app.ts', "set(theme === 'light')", 'set(true)', 'il tema resta sempre chiaro'],
+    ['tema', 'src/app.ts', "set(theme === 'light')", 'set(false)', 'il tema resta sempre scuro'],
+    ['tema', 'src/app.ts', "payload: { event: string }) => {\n    applyTheme();", "payload: { event: string }) => {\n    void 0;", 'il tema non si rilegge al cambio impostazioni'],
+    ['tema', 'src/styles.css', '--color-text-muted: #6b6b6b;', '--color-text-muted: #c0c0c0;', 'testo secondario illeggibile nel tema chiaro'],
+    ['tema', 'src/styles.css', '--color-surface: #ffffff;', '--color-surface: #252526;', 'superficie scura nel tema chiaro'],
+    ['dialog url', 'src/app.ts', "state.connectionUrl = conn.url ?? '';", "state.connectionUrl = '';", 'il dialog non nomina URL ambiente'],
+    ['dialog url', 'src/app.ts', '<strong>one property of one solution</strong>', '<strong>the solution</strong>', 'il dialog non dice lo scope'],
 ];
 
 const only = process.argv[2];

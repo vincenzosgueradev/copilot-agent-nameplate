@@ -1,5 +1,5 @@
 /* ============================================================
-   Copilot Agent Nameplate — Base Styles
+   Agent Nameplate — Base Styles
    ============================================================ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1934,3 +1934,59 @@ select option {
 .pin-btn:hover:not(:disabled) { color: var(--color-text-strong); background: var(--color-surface-2); }
 .pin-btn[aria-pressed="true"] { opacity: 1; color: var(--color-primary); }
 @media (hover: none) { .pin-btn { opacity: 1; } }
+
+/* ── Tema chiaro ──
+   PPTB ha un tema chiaro e uno scuro (marketplace policy §3): il tool deve leggersi in entrambi.
+   `app.ts` imposta `data-theme` da `getCurrentTheme()`; senza, vale lo scuro. Qui si ridefiniscono
+   le variabili e i pochi colori fissi (chip, badge, avvisi) che nel tema scuro sono su fondo scuro. */
+:root[data-theme="light"] {
+    --color-bg: #f3f3f3;
+    --color-surface: #ffffff;
+    --color-surface-2: #f5f5f5;
+    --color-border: #d0d0d0;
+    --color-text: #333333;
+    --color-text-muted: #6b6b6b;
+    --color-text-strong: #111111;
+    --color-primary: #0067b8;
+    --color-primary-hover: #005a9e;
+    --color-success: #1b7a1f;
+    --color-warning: #a15c00;
+    --color-error: #c62828;
+    --color-info: #0b6cc0;
+    --color-warning-bg: rgba(161, 92, 0, 0.10);
+    --color-warning-ink: #a15c00;
+    color-scheme: light;
+}
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #a0a0a0; }
+:root[data-theme="light"] .hero {
+    background:
+        radial-gradient(900px 140px at 0% 0%, rgba(0, 103, 184, 0.10), transparent 70%),
+        var(--color-surface);
+}
+:root[data-theme="light"] .segment-count { background: rgba(0, 0, 0, 0.08); }
+:root[data-theme="light"] .segment.active .segment-count { background: rgba(255, 255, 255, 0.25); }
+:root[data-theme="light"] mark.hl { background: #fff1b3; color: #5c4500; }
+:root[data-theme="light"] .count-pill { background: #dff1fb; color: #0b5c8a; }
+:root[data-theme="light"] .chip--success,
+:root[data-theme="light"] .badge--unmanaged,
+:root[data-theme="light"] .badge--ok { background: #e3f3e4; color: #1b7a1f; }
+:root[data-theme="light"] .chip--warning,
+:root[data-theme="light"] .badge--managed,
+:root[data-theme="light"] .badge--warning { background: #fff0d6; color: #8a4f00; }
+:root[data-theme="light"] .chip--error { background: #fde4e4; color: #b3261e; }
+:root[data-theme="light"] .banner--warning { color: #8a4f00; }
+:root[data-theme="light"] .banner--info { color: #0b5c8a; }
+:root[data-theme="light"] .banner--success { color: #1b6b1f; }
+:root[data-theme="light"] .banner--error { color: #b3261e; }
+:root[data-theme="light"] .hint--warn,
+:root[data-theme="light"] .cell-warn,
+:root[data-theme="light"] .kv-val--warn { color: #8a4f00; }
+:root[data-theme="light"] .result-banner--success { color: #1b6b1f; background: #e3f3e4; border-color: #1b7a1f; }
+:root[data-theme="light"] .result-banner--error { color: #b3261e; background: #fde4e4; border-color: #c62828; }
+:root[data-theme="light"] .note--warn { background: rgba(161, 92, 0, 0.08); }
+:root[data-theme="light"] .icon--folder { color: #b07d00; }
+:root[data-theme="light"] .icon--archive { color: #a8650a; }
+:root[data-theme="light"] .icon--data { color: #1f6fb5; }
+:root[data-theme="light"] .overlay { background: rgba(0, 0, 0, 0.35); }
+:root[data-theme="light"] .dialog { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2); }
+:root[data-theme="light"] .switch-thumb { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }

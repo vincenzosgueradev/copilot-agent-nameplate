@@ -14,6 +14,8 @@ declare global {
     var toolboxAPI: typeof window.toolboxAPI;
     // eslint-disable-next-line no-var
     var dataverseAPI: typeof window.dataverseAPI;
+    /** Versione di package.json, iniettata dal build (vite `define`). */
+    const __APP_VERSION__: string;
 }
 
 export {};

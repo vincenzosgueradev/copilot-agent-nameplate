@@ -62,7 +62,7 @@ let termId: string | null = null;
 export async function openFolder(path: string): Promise<void> {
     if (!isWindows) throw new Error('available on Windows only: use Copy path');
     const term = globalThis.toolboxAPI.terminal;
-    if (!termId) termId = (await term.create({ name: 'Copilot Agent Nameplate', visible: false })).id;
+    if (!termId) termId = (await term.create({ name: 'Agent Nameplate', visible: false })).id;
     await term.execute(termId, `explorer ${quote(path)}`);
     try { await term.setVisibility(termId, false); } catch { /* non e' un motivo per fallire */ }
 }

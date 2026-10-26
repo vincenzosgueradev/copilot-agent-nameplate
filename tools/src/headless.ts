@@ -3,8 +3,9 @@
  *
  * Contratto: `specs/001-agent-rename-manager/contracts/headless-api.md`.
  *
- * Regola di confine: **l'headless si ferma al file**. `package` scrive solo su filesystem
- * locale e non modifica nessun environment; `deploy` e la rimozione di un unmanaged layer
+ * Regola di confine: **l'headless si ferma al file**. `package` scrive su filesystem
+ * locale e, solo con `options.newVersion` e `confirmVersionWrite: true`, alza la versione
+ * della solution in DEV (l'unica scrittura su un environment, la stessa del dialog in UI); `deploy` e la rimozione di un unmanaged layer
  * restano dietro una conferma umana e non sono esposti qui.
  *
  * Nota sul runtime: la lettura del package usa `DOMParser`. Se l'host headless non lo espone
@@ -34,6 +35,7 @@ const ERRORS = {
     PACKAGE_VERIFICATION_FAILED: 'PACKAGE_VERIFICATION_FAILED',
     OUTPUT_FILE_EXISTS: 'OUTPUT_FILE_EXISTS',
     EXTRA_COMPONENTS_NOT_CONFIRMED: 'EXTRA_COMPONENTS_NOT_CONFIRMED',
+    VERSION_WRITE_NOT_CONFIRMED: 'VERSION_WRITE_NOT_CONFIRMED',
     PERMISSION_DENIED: 'PERMISSION_DENIED',
     CONNECTION_ERROR: 'CONNECTION_ERROR',
 } as const;
@@ -162,6 +164,13 @@ async function packageSolution(input: Json): Promise<Json> {
         return fail(ERRORS.OUTPUT_FILE_EXISTS, 'outputDirectory mancante');
     }
     const options = optionsFrom(input);
+
+    // La scrittura della versione in DEV e' l'unica sull'ambiente: in UI e' un dialog, qui un flag
+    if (options.newVersion && input.confirmVersionWrite !== true) {
+        return fail(ERRORS.VERSION_WRITE_NOT_CONFIRMED,
+            `la versione della solution ${name} verrebbe cambiata in DEV a ${options.newVersion}: `
+            + 'passare confirmVersionWrite: true per consentirlo, oppure options.newVersion vuoto per non toccare l\'ambiente');
+    }
 
     const first = await exportSolution(name, true);
     const probe = readPackage(first.bytes);

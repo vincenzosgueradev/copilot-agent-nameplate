@@ -1,8 +1,13 @@
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
+
+// La versione mostrata nell'header e' quella di package.json: scritta a mano era rimasta a v0.1.0.
+const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 
 export default defineConfig((configEnv) => {
   return {
     base: "./",
+    define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     root: "./src",
     build: {
       outDir: "../dist",

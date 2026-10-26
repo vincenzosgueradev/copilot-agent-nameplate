@@ -44,6 +44,8 @@ export interface UiSolution {
 export interface UiWorld {
     solutions: UiSolution[];
     agents: UiAgent[];
+    /** Cartelle di primo livello in piu' nel package: provocano uno scostamento di formato innocuo. */
+    extraFolders?: string[];
 }
 
 const PUBLISH_BY_LABEL: Record<string, PublishMode> = {
@@ -132,6 +134,8 @@ export interface Driver {
     // ── revisione, anteprima, verifica, salvataggio
     reviewRows(): ReviewRow[];
     buildPackage(): Promise<void>;
+    /** Clic su "Build the package" senza rispondere a un'eventuale conferma. */
+    startBuildRaw(): Promise<void>;
     /** Avvia la costruzione senza aspettarne la fine: per osservare le fasi una a una. */
     startBuild(): Promise<void>;
     /** Fa scorrere il tempo (finto) e lascia girare le promesse. */
@@ -177,9 +181,9 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
     const fs: FakeFs = { files: new Map(), dirs: new Set(), settings: new Map(Object.entries(presetSettings ?? {})) };
     const g = globalThis as unknown as Record<string, unknown>;
     g.toolboxAPI = {
-        connections: { getActiveConnection: async () => ({ name: 'DEV' }) },
-        events: { on: () => {} },
-        utils: { showNotification: () => {}, copyToClipboard: async () => {} },
+        connections: { getActiveConnection: async () => ({ name: 'DEV', url: 'https://dev.crm4.dynamics.com' }) },
+        events: { on: (cb: unknown) => { g.__events = cb; } },
+        utils: { showNotification: () => {}, copyToClipboard: async () => {}, getCurrentTheme: async () => (g.__theme as string | undefined) ?? 'dark' },
         settings: {
             get: async (k: string) => fs.settings.get(k),
             set: async (k: string, v: unknown) => { fs.settings.set(k, v); },
@@ -229,6 +233,7 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
                 uniqueName: solutionName, managed,
                 // L'export porta la versione che DEV ha NEL MOMENTO in cui parte
                 version: dev.versionOf(solutionName),
+                extraFolders: world.extraFolders,
                 agents: mine.map(a => ({
                     schema: a.schema, name: a.name, publishOnImport: a.publish,
                     connected: a.connected, gptName: a.gptFull ? a.name : undefined, topics: 1,
@@ -381,11 +386,18 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
                 };
             });
         },
-        async startBuild() { await click($('#next-btn', stepEl()), 'Build the package'); },
+        async startBuildRaw() { await click($('#next-btn', stepEl()), 'Build the package'); },
+        async startBuild() {
+            await click($('#next-btn', stepEl()), 'Build the package');
+            const ok = $('#confirm-ok-btn');
+            if ($('#confirm-overlay')?.getAttribute('style')?.includes('flex') && ok) await click(ok, 'confirm version write');
+        },
         async tick(ms) { await vi.advanceTimersByTimeAsync(ms); await flush(); },
         runningPhase: () => norm(doc.querySelector('#preview-progress .ph--running')?.textContent) || null,
         async buildPackage() {
             await click($('#next-btn', stepEl()), 'Build the package');
+            const ok = $('#confirm-ok-btn');
+            if ($('#confirm-overlay')?.getAttribute('style')?.includes('flex') && ok) await click(ok, 'confirm version write');
             await settleTimers();
         },
         previewText: () => norm(doc.getElementById('step-preview')?.textContent),
