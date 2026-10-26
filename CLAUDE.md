@@ -15,9 +15,9 @@ L'utente si dimentica quando usare le skill custom: decidi tu quando servono, se
 | L'utente vuole committare, o un blocco di lavoro è concluso e ci sono modifiche non committate | `/custom-commit` (questa si può invocare in automatico) |
 | Sta per fare push, o ha appena committato e parla di push/PR/consegna | `/custom-ampush` |
 | Sono stati cancellati, rinominati o spostati file/moduli (anche da te) | `/custom-cleanup`, poi `/custom-ampush` |
-| Refactoring, nuove funzionalità in `agent-nameplate/src/services/` o più file toccati con logica simile | `/custom-dedup` |
+| Refactoring, nuove funzionalità in `src/services/` o più file toccati con logica simile | `/custom-dedup` |
 | Modificati `types.ts`, parsing XML/JSON, chiamate alle API PPTB/Dataverse, o comparsi `any`/`@ts-ignore`/errori `tsc` | `/custom-types` |
-| Si parla di pubblicare/rilasciare una versione (`publish-package`, bump di versione), o `agent-nameplate/package.json` ha una versione senza voce in `CHANGELOG.md` | `/custom-changelog` (la constitution richiede la voce prima della pubblicazione) |
+| Si parla di pubblicare/rilasciare una versione (`publish-package`, bump di versione), o `package.json` ha una versione senza voce in `CHANGELOG.md` | `/custom-changelog` (la constitution richiede la voce prima della pubblicazione) |
 | Fine di una fase di implementazione speckit | `/custom-types` + `/custom-dedup`, poi `/custom-ampush` e `/custom-commit` |
 
 Ordine tipico a fine lavoro: `/custom-cleanup` (se ci sono stati file rimossi) → `/custom-types` → `/custom-dedup` → `/custom-ampush` → `/custom-commit`. Per rilasciare una versione: `/custom-changelog` → `/custom-commit` (la voce) → `/custom-ampush` → `/custom-publish` → `/custom-commit` (il bump di versione) → push su entrambi i remote.
@@ -44,7 +44,7 @@ Quando proponi il rilascio, scrivi la sequenza: `/custom-changelog` → `/custom
 
 ## Test: niente è finito senza (Constitution — Testing Standard)
 
-Non dichiarare finita una modifica al codice finché non l'hai provata tu, con questi passi (in `agent-nameplate/`):
+Non dichiarare finita una modifica al codice finché non l'hai provata tu, con questi passi (in ``):
 
 - **A ogni modifica al codice**: `npx tsc --noEmit`, `npm run build` e `npm test` (≈40 s). Se falliscono, lo dici così com'è: mai "dovrebbe funzionare".
 - **Una funzione o un comportamento nuovo** ha la sua **matrice di test** (tutte le combinazioni delle sue dimensioni, oppure tutte le coppie + campioni con seme fisso), con un **oracolo scritto dalla spec**, e i **test negativi** di tutto ciò che verifica. Se tocca la schermata, anche il percorso in jsdom.
@@ -52,7 +52,7 @@ Non dichiarare finita una modifica al codice finché non l'hai provata tu, con q
 - **Dopo aver cambiato logica**: `npm run test:mutation` (filtrabile per parola, es. `node scripts/mutation-check.mjs versione`). Un difetto che sopravvive vuol dire un test mancante: lo aggiungi e lo rilanci. Aggiungi le mutazioni della funzione nuova a `scripts/mutation-check.mjs`.
 - **Prima di proporre un rilascio**: `npm run test:full` e `npm run test:mutation` interi.
 - Dì sempre **che cosa i test non coprono** (i pixel, il comportamento vero di Dataverse) e metti quel controllo nel quickstart della specifica.
-- Mentre gira `test:mutation` non toccare `agent-nameplate/src`: lo script altera i file e li ripristina.
+- Mentre gira `test:mutation` non toccare `src`: lo script altera i file e li ripristina.
 
 ## Specifiche per ogni funzione
 
