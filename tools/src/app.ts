@@ -459,7 +459,7 @@ function pinButtonHtml(s: Solution): string {
         : blocked ? `You can pin up to ${MAX_PINS} solutions: unpin one first`
         : 'Pin solution to the top';
     return `<button type="button" class="pin-btn" data-pin="${escapeHtml(s.uniqueName)}"
-                aria-pressed="false" aria-label="${title}" title="${title}"${blocked ? ' disabled' : ''}>${icon('pin')}</button>`;
+                aria-pressed="${on}" aria-label="${title}" title="${title}"${blocked ? ' disabled' : ''}>${icon('pin')}</button>`;
 }
 
 /**
@@ -1486,7 +1486,7 @@ function renderReviewStep(): void {
             ${stepperHtml(2)}
         </div>
 
-        <div class="two-col">
+        <div class="stack">
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('pencil', 'icon--head')}Rename</h3>
@@ -2549,7 +2549,7 @@ function applyTheme(): void {
 }
 
 toolbox.events.on((_event: unknown, payload: { event: string }) => {
-    applyTheme();
+    if (payload.event === 'settings:updated') applyTheme();
     if (payload.event === 'connection:updated' || payload.event === 'connection:created') {
         log('Connection changed. Reloading...', 'info');
         state.agents = [];

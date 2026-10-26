@@ -18,8 +18,5 @@ export default defineConfig({
             name: 'AgentRenameManagerHeadless',
             fileName: () => 'headless.js',
         },
-        rollupOptions: {
-            output: { inlineDynamicImports: true },
-        },
     },
 });
