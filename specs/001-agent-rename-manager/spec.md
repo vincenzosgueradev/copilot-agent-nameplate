@@ -824,7 +824,7 @@ Ogni operazione eseguita viene registrata nel log del tool con tutti i dettagli.
   **tutti** gli agent del package e unirle: con più agent il primo file dello zip è arbitrario, e un
   agent mai collegato a un canale non scrive `channels` né `isLightweightBot`, che quindi sono chiavi
   opzionali nella baseline
-- **FR-097**: Il tool DEVE calcolare a ogni export un'**impronta del formato** del package:
+- **FR-097** (dalla spec 014 l'avviso in schermata compare solo se manca `<name>`; il resto resta nel log e nel manifest): Il tool DEVE calcolare a ogni export un'**impronta del formato** del package:
   `SolutionPackageVersion` e i timbri di versione della piattaforma in `solution.xml`, l'elenco
   delle cartelle di primo livello, i nomi degli elementi di `bot.xml` e `botcomponent.xml`, le
   chiavi di `configuration.json`. L'impronta DEVE essere confrontata **sia** con la baseline

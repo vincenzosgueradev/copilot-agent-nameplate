@@ -189,6 +189,7 @@ Esegue i due export, il patch, il rezip e la verifica, e scrive l'**artifact set
     "overwrite": false
   },
   "confirmExtraComponents": true,
+  "confirmVersionWrite": true,
   "confirmUnexpectedOccurrences": false
 }
 ```
@@ -267,4 +268,5 @@ conferma umana.
 | `BOT_NAME_ELEMENT_MISSING` | `bot.xml` non contiene `<name>` nel formato atteso: il tool si ferma invece di indovinare (FR-069) |
 | `PACKAGE_VERIFICATION_FAILED` | La riapertura di uno dei due archivi patchati non ha superato i controlli: l'intero artifact set è invalidato (FR-077, FR-085) |
 | `OUTPUT_FILE_EXISTS` | Cartella di artifact set già presente e `overwrite: false` (FR-074) |
+| `VERSION_WRITE_NOT_CONFIRMED` | `options.newVersion` è valorizzata (il tool scriverebbe la versione della solution in DEV) e `confirmVersionWrite` non è `true` (spec 014) |
 | `EXTRA_COMPONENTS_NOT_CONFIRMED` | Il package contiene componenti diversi dall'agent selezionato e `confirmExtraComponents` non è `true`: l'elenco è nel messaggio (FR-091) |

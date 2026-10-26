@@ -20,6 +20,7 @@ dice che cosa i test **non** coprono e come controllarlo a mano.
 | [011](011-consistent-headers/spec.md) | Intestazioni uniformi e senza ripetizioni (tile, sottotitoli, percorso) | **Implementata** | — | estende 005 |
 | [012](012-pin-solution/spec.md) | Pin delle solution in cima alla lista, per ambiente | **Implementata** (resta da provare su un DEV vero) | — | estende 005 |
 | [013](013-no-suffix-warning/spec.md) | Avviso se si va avanti senza suffisso, con esempi prima → dopo | **Implementata** (resta da provare su un DEV vero) | — | estende 002 |
+| [014](014-marketplace-review/spec.md) | Correzioni dopo il rifiuto del marketplace: nome senza marchio, autore, versione dell'header, conferma prima di scrivere in DEV | **Implementata** (provata a mano su un DEV vero) | — | estende 004 |
 
 ## Come leggere le specifiche successive
 

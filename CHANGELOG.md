@@ -1,12 +1,44 @@
 # Changelog
 
-All notable changes to **Copilot Agent Nameplate** are listed here, one section per
+All notable changes to **Agent Nameplate** are listed here, one section per
 released version, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the versions follow [Semantic Versioning](https://semver.org/).
 
 Every release MUST have an entry here before it is published (Constitution, *Release
 Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Security**, plus
 **Upgrade notes** when a release asks something of the user.
+
+## [1.1.1] - 2026-10-26
+
+Fixes after the marketplace review of 1.1.0 (spec 014).
+
+### Changed
+- The tool is now called **Agent Nameplate**: the "Copilot" product-line branding is gone from
+  the display name, the window title, the header, the README and the notifications. The npm
+  package name does not change.
+- The author is now **Vincenzo Sguera**, no longer "Power Platform ToolBox".
+- The version in the header is read from `package.json` at build time. It used to be written by
+  hand and still said `v0.1.0`.
+- The "Package format" notice now appears only when `<name>` is missing from `bot.xml`, which is
+  what the tool changes. New keys, elements or folders no longer show a warning (for example
+  `categories` in a standard agent): they stay in the log and in `manifest.json`.
+
+### Added
+- **Confirmation before writing to DEV.** When "Raise the version" is on, a dialog names the
+  environment, the solution and both version numbers, says the tool cannot undo the change and how
+  to go back, and waits for your answer. Going back writes and exports nothing. Headless/MCP asks
+  for `confirmVersionWrite: true`, otherwise it answers `VERSION_WRITE_NOT_CONFIRMED`.
+- The confirmation dialog also names the environment URL and the scope (one property of one solution).
+- **Light theme.** The tool follows the PPTB theme, light or dark (it used to be dark only), and
+  follows it live when the setting changes.
+- README section **What this tool changes**: what goes into the package and what is written to DEV.
+
+### Fixed
+- The README no longer says that the tool writes nothing to any environment: raising the solution
+  version in DEV is a write, and it is now documented as one.
+
+### Upgrade notes
+- Headless/MCP callers that pass `options.newVersion` must also pass `confirmVersionWrite: true`.
 
 ## [1.1.0] - 2026-10-17
 
