@@ -173,7 +173,8 @@ const MUTATIONS = [
     // ── spec 014: tema e dialog
     ['tema', 'src/app.ts', "set(theme === 'light')", 'set(true)', 'il tema resta sempre chiaro'],
     ['tema', 'src/app.ts', "set(theme === 'light')", 'set(false)', 'il tema resta sempre scuro'],
-    ['tema', 'src/app.ts', "payload: { event: string }) => {\n    applyTheme();", "payload: { event: string }) => {\n    void 0;", 'il tema non si rilegge al cambio impostazioni'],
+    ['tema', 'src/app.ts', "if (payload.event === 'settings:updated') applyTheme();", 'void 0;', 'il tema non si rilegge al cambio impostazioni'],
+    ['tema', 'src/app.ts', "if (payload.event === 'settings:updated') applyTheme();", 'applyTheme();', 'il tema si rilegge a ogni evento'],
     ['tema', 'src/styles.css', '--color-text-muted: #6b6b6b;', '--color-text-muted: #c0c0c0;', 'testo secondario illeggibile nel tema chiaro'],
     ['tema', 'src/styles.css', '--color-surface: #ffffff;', '--color-surface: #252526;', 'superficie scura nel tema chiaro'],
     ['dialog url', 'src/app.ts', "state.connectionUrl = conn.url ?? '';", "state.connectionUrl = '';", 'il dialog non nomina URL ambiente'],
