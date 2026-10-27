@@ -12,7 +12,7 @@
         "node": ">=18.0.0"
     },
     "scripts": {
-        "build": "tsc && vite build && vite build --config vite.headless.config.ts",
+        "build": "tsc && vite build",
         "dev": "vite",
         "watch": "vite build --watch",
         "dev-watch": "vite build --mode development --watch",
@@ -69,9 +69,7 @@
         "category": "Copilot Studio"
     },
     "features": {
-        "connections": {
-            "min": 1,
-            "max": 2
-        }
+        "minAPI": "1.2.7",
+        "connections": 1
     }
 }
