@@ -127,7 +127,7 @@ const MUTATIONS = [
     ['agentCards.ts', "src/services/agentCards.ts", "const EMPTY: AgentCard = { iconDataUri: null, kind: 'unknown' };", "const EMPTY: AgentCard = { iconDataUri: null, kind: 'standard' };", "v1.1.0 (010): una lettura fallita dichiara tutti standard"],
     ['agentCards.ts', "src/services/agentCards.ts", "                <attribute name=\"template\"/>\n", "", "v1.1.0 (010): la colonna template non viene letta"],
     ['agentCards.ts', "src/services/agentCards.ts", "kind: agentKindOf(templateOf.get(a.id)),", "kind: 'standard',", "v1.1.0 (010): il tipo non dipende dal template"],
-    ['app.ts', "src/app.ts", "harness: 'GitHub Copilot harness agent',", "harness: '',", "v1.1.0 (010): l'icona harness non ha etichetta"],
+    ['app.ts', "src/app.ts", "harness: 'GitHub Copilot harness',", "harness: '',", "v1.1.0 (010): l'icona harness non ha etichetta"],
     ['app.ts', "src/app.ts", "el.outerHTML = agentKindHtml(el.dataset.cardKind ?? '');", "void 0;", "v1.1.0 (010): il tipo non si riempie dopo la lettura"],
     ['app.ts', "src/app.ts", /<th>Agent<\/th>\s*<th>Agent type<\/th>/, "<th>Agent</th><th>Type</th>", "v1.1.0 (010): la colonna ha un altro titolo"],
     ['app.ts', "src/app.ts", "{ label: 'Version', value: pkg.version },", "{ label: 'Versione', value: pkg.version },", "v1.1.0 (011): un'etichetta in italiano"],

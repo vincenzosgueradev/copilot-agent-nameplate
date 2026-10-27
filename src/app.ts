@@ -1145,8 +1145,8 @@ function agentIconHtml(id: string, size: 16 | 20 | 24 = 24): string {
 }
 
 const KIND_LABEL: Record<AgentKind, string> = {
-    standard: 'Standard agent',
-    harness: 'GitHub Copilot harness agent',
+    standard: 'Standard harness',
+    harness: 'GitHub Copilot harness',
     unknown: 'Unknown agent type',
 };
 

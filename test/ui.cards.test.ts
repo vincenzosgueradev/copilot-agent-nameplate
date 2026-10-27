@@ -141,8 +141,8 @@ const kindWorld = (): UiWorld => ({
         { name: 'empty [DEV]', schema: 'ava_a4', solution: 'S1', publish: null, icon: null, template: null },
     ],
 });
-const STANDARD = { kind: 'standard', label: 'Standard agent', title: 'Standard agent', hasLogo: true, hasMask: false, text: '' };
-const HARNESS = { kind: 'harness', label: 'GitHub Copilot harness agent', title: 'GitHub Copilot harness agent', hasLogo: false, hasMask: true, text: '' };
+const STANDARD = { kind: 'standard', label: 'Standard harness', title: 'Standard harness', hasLogo: true, hasMask: false, text: '' };
+const HARNESS = { kind: 'harness', label: 'GitHub Copilot harness', title: 'GitHub Copilot harness', hasLogo: false, hasMask: true, text: '' };
 const UNKNOWN = { kind: 'unknown', label: 'Unknown agent type', title: 'Unknown agent type', hasLogo: false, hasMask: true, text: '' };
 
 describe('colonna Agent type nella vista della solution (FR-001, FR-002, FR-004)', () => {
