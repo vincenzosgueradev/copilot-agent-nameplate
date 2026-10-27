@@ -13,8 +13,10 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
 Fixes after the second marketplace review.
 
 ### Changed
-- The tool icon is now an original nameplate drawing that follows the theme colour. It replaces
-  the Copilot Studio product logo, which a tool icon must not use.
+- The tool icon is now an original coloured drawing, an agent wearing a brass nameplate, that
+  reads well on both the dark and the light theme. It replaces the Copilot Studio product logo,
+  which a tool icon must not use.
+- The tooltips of the agent type column now read "Standard harness" and "GitHub Copilot harness".
 - The README now matches what the tool does: importing the package into a target environment
   happens outside the tool (maker portal or `pac solution import`), and a usage section and an
   AI Assistance disclosure were added.
