@@ -76,9 +76,6 @@ body {
 .header-left { display: flex; align-items: center; gap: var(--sp-3); }
 /* Il logo e' un'immagine a colori propri, non un'icona che eredita il colore del testo */
 .header-logo { display: block; flex-shrink: 0; }
-/* logo.svg draws with currentColor, which an <img> cannot inherit: it renders black, so invert it on the dark theme */
-img[src$="logo.svg"] { filter: invert(1); }
-:root[data-theme="light"] img[src$="logo.svg"] { filter: none; }
 .header-title { font-weight: 600; color: var(--color-text-strong); font-size: var(--fs-md); }
 .header-version { font-size: var(--fs-xs); color: var(--color-text-muted); }
 
