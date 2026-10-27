@@ -8,6 +8,29 @@ Every release MUST have an entry here before it is published (Constitution, *Rel
 Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Security**, plus
 **Upgrade notes** when a release asks something of the user.
 
+## [1.1.2] - 2026-10-27
+
+Fixes after the second marketplace review.
+
+### Changed
+- The tool icon is now an original nameplate drawing that follows the theme colour. It replaces
+  the Copilot Studio product logo, which a tool icon must not use.
+- The README now matches what the tool does: importing the package into a target environment
+  happens outside the tool (maker portal or `pac solution import`), and a usage section and an
+  AI Assistance disclosure were added.
+- The tool uses only the active connection, so `features.connections` is now `1`, with
+  `minAPI` set to `1.2.7`.
+- Error messages that were in Italian or half Italian are now fully in English.
+
+### Removed
+- The headless/MCP mode is no longer built, published or documented: its configuration file was
+  never part of the published package, so users could not reach it. The source and its tests stay
+  in the repository.
+
+### Fixed
+- The headless error mapping looked for Italian phrases that the services no longer produce, so
+  permission and empty-package errors were reported as connection errors.
+
 ## [1.1.1] - 2026-10-26
 
 Fixes after the marketplace review of 1.1.0 (spec 014).

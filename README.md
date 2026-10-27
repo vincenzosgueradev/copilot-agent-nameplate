@@ -15,6 +15,23 @@ the managed component: from that point on, that layer wins over every subsequent
 upgrade, and the environment quietly drifts away from the package. The risk is not that `UPDATE`
 might fail — it is that it might **succeed**, because the damage is silent.
 
+## Usage
+
+1. **Solutions.** Open the tool with an active connection to your source (DEV) environment and
+   pick the unmanaged solution that contains the agents.
+2. **Suffix.** Type the suffix for the target environment, for example `[UAT]`. Leave it empty to
+   remove a suffix. The tool warns if the names already carry a different one.
+3. **Review.** Choose which agents to rename and whether to raise the solution version in DEV
+   before the export. If you do, a dialog names the environment, the solution and both version
+   numbers and waits for your confirmation.
+4. **Preview.** See exactly what changes in the package, per agent, before anything is exported.
+5. **Checks.** The tool exports the solution twice (managed and unmanaged), patches the name and
+   verifies the result entry by entry.
+6. **Result.** Save the artifact set to a folder. Import the managed zip into the target
+   environment yourself, in the maker portal or with `pac solution import`.
+
+Needs a role that can export the solution, at least System Customizer on the source environment.
+
 ## The Flow
 
 ```text
@@ -22,8 +39,10 @@ DEV → solution → ExportSolution ×2 (managed + unmanaged)
     → patch <name> in bots/<schema>/bot.xml
     → rezip + entry-by-entry verification
     → artifact set: patched pair + originals + manifest.json
-                         └→ (optional) import into the target environment
 ```
+
+Importing the package into the target environment happens **outside the tool**, for example in
+the maker portal or with `pac solution import`.
 
 The name lands in the **managed layer**, like any other property of the solution. The tool never
 touches `bot`, `botcomponent`, or environment variables, and therefore cannot create layers. It
@@ -46,11 +65,10 @@ you to confirm it first.
 Before writing, the tool shows a dialog naming the environment, the solution and both version
 numbers, and waits for your confirmation. **The tool cannot undo the change**: to go back, set the
 previous version in the solution properties in the portal, or export the solution before
-continuing as a backup. Turn the option off and the environment is not written to at all. In
-headless/MCP mode the same consent is the `confirmVersionWrite: true` input.
+continuing as a backup. Turn the option off and the environment is not written to at all.
 
 Nothing else is written to any environment. Importing the package into a target environment is a
-separate, optional step that you start yourself.
+separate step that you do yourself, outside the tool (maker portal or `pac solution import`).
 
 ## What Gets Modified in the Package
 
@@ -122,8 +140,7 @@ version) are told apart by the suffix in the file name and by the **SHA-256 hash
 
 ```bash
 npm install
-npm run build          # UI + headless entry point
-npm run build-headless # headless entry point only
+npm run build
 npm run validate       # pptb-validate
 ```
 
@@ -145,8 +162,7 @@ Requires `@xmldom/xmldom` (devDependency): the production code runs in the brows
 src/
 ├── app.ts                  routing, state, rendering
 ├── types.ts                domain entities
-├── globals.d.ts            PPTB API on globalThis (required by headless)
-├── headless.ts             MCP interface
+├── globals.d.ts            PPTB API on globalThis
 ├── baseline/
 │   └── package-format.json reference fingerprint of the solution format, verified 2026-10-15
 └── services/
@@ -160,11 +176,17 @@ src/
     ├── packaging.ts        orchestrator
     ├── artifacts.ts        artifact set and manifest
     ├── history.ts          packaging history
-    ├── deploy.ts           optional import into target environment
     ├── files.ts            disk writes
     ├── log.ts              log with CSV/JSON export
     └── ui.ts               indicators and confirmation dialogs
 ```
+
+## AI Assistance
+
+A substantial part of this tool's code, tests, specifications and documentation was written with
+an AI assistant (Claude, by Anthropic). The author directs the work, reviews the output, and is
+responsible for the result. Behavior is covered by an automated test suite and by mutation checks,
+and every change is verified with a type check, a build and the tests before it is released.
 
 ## Documentation
 
