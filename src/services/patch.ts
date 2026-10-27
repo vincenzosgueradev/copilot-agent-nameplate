@@ -114,13 +114,13 @@ function replaceElementText(xml: string, tag: string, value: string, file: strin
     const re = new RegExp(`(<${tag}>)([^<]*)(</${tag}>)`, 'g');
     const matches = [...xml.matchAll(re)];
     if (matches.length === 0) {
-        throw new PackageFormatError(`<${tag}> non trovato in ${file}: formato non riconosciuto`, file);
+        throw new PackageFormatError(`<${tag}> not found in ${file}: unrecognized format`, file);
     }
     if (matches.length > 1) {
         // Più di una occorrenza significa che il formato non è quello verificato: fermarsi è
         // più sicuro che scegliere la prima e sperare (FR-069)
         throw new PackageFormatError(
-            `<${tag}> compare ${matches.length} volte in ${file}: il formato del package `
+            `<${tag}> appears ${matches.length} times in ${file}: the package format `
             + `may have changed, check before proceeding.`, file);
     }
     const m = matches[0]!;

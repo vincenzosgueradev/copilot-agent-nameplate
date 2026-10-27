@@ -49,12 +49,12 @@ export function readPackage(bytes: Uint8Array): PackageContents {
     const files = unzipSync(bytes);
     const text = (path: string): string => {
         const data = files[path];
-        if (!data) throw new PackageFormatError(`entry mancante nel package: ${path}`, path);
+        if (!data) throw new PackageFormatError(`missing entry in the package: ${path}`, path);
         return decoder.decode(data);
     };
 
     if (!files['solution.xml']) {
-        throw new PackageFormatError('il package non contiene solution.xml');
+        throw new PackageFormatError('the package does not contain solution.xml');
     }
 
     // ── solution.xml ────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ export function readPackage(bytes: Uint8Array): PackageContents {
             // Formato non riconosciuto: ci si ferma indicando il file, senza tentare
             // sostituzioni approssimative (FR-069)
             throw new PackageFormatError(
-                `bot.xml non contiene l'elemento <name> nel formato atteso: il formato del package `
+                `bot.xml does not contain the <name> element in the expected format: the package format `
                 + `may have changed. Check ${path} before proceeding.`, path);
         }
         const schemaName = new DOMParser().parseFromString(xml, 'application/xml')

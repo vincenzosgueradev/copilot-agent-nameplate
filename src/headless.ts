@@ -48,8 +48,8 @@ function toError(err: unknown): Json {
     if (/<name>/.test(text) && /formato/i.test(text)) {
         return fail(ERRORS.BOT_NAME_ELEMENT_MISSING, text);
     }
-    if (/nessun agent/i.test(text)) return fail(ERRORS.NO_AGENTS_IN_PACKAGE, text);
-    if (/Permessi insufficienti/i.test(text)) return fail(ERRORS.PERMISSION_DENIED, text);
+    if (/holds no agent/i.test(text)) return fail(ERRORS.NO_AGENTS_IN_PACKAGE, text);
+    if (/Not enough permissions/i.test(text)) return fail(ERRORS.PERMISSION_DENIED, text);
     if (/export/i.test(text)) return fail(ERRORS.EXPORT_FAILED, text);
     return fail(ERRORS.CONNECTION_ERROR, text);
 }
@@ -57,8 +57,8 @@ function toError(err: unknown): Json {
 function requireDom(): void {
     if (typeof DOMParser === 'undefined') {
         throw new Error(
-            'questo host headless non espone DOMParser: la lettura del solution package '
-            + 'richiede un runtime con DOM');
+            'this headless host does not expose DOMParser: reading the solution package '
+            + 'requires a runtime with a DOM');
     }
 }
 
@@ -168,8 +168,8 @@ async function packageSolution(input: Json): Promise<Json> {
     // La scrittura della versione in DEV e' l'unica sull'ambiente: in UI e' un dialog, qui un flag
     if (options.newVersion && input.confirmVersionWrite !== true) {
         return fail(ERRORS.VERSION_WRITE_NOT_CONFIRMED,
-            `la versione della solution ${name} verrebbe cambiata in DEV a ${options.newVersion}: `
-            + 'passare confirmVersionWrite: true per consentirlo, oppure options.newVersion vuoto per non toccare l\'ambiente');
+            `the version of solution ${name} would be changed in DEV to ${options.newVersion}: `
+            + 'pass confirmVersionWrite: true to allow it, or leave options.newVersion empty to leave the environment untouched');
     }
 
     const first = await exportSolution(name, true);
@@ -180,24 +180,24 @@ async function packageSolution(input: Json): Promise<Json> {
     const unexpected = probe.nameOccurrences.filter(o => !o.expected);
     if (unexpected.length && input.confirmUnexpectedOccurrences !== true) {
         return fail(ERRORS.UNEXPECTED_NAME_OCCURRENCE,
-            'il display name compare in punti non previsti: '
+            'the display name appears in unexpected places: '
             + unexpected.map(o => `${o.file} ${o.locator}`).join('; '));
     }
     const extra = probe.inventory.filter(c => !c.relatedToSelectedAgent);
     if (extra.length && input.confirmExtraComponents !== true) {
         return fail(ERRORS.EXTRA_COMPONENTS_NOT_CONFIRMED,
-            'il package contiene componenti oltre all\'agent: '
+            'the package contains components beyond the agent: '
             + extra.map(c => `${c.kind} x${c.count}`).join('; '));
     }
 
     const result = await runPackaging(name, suffix, selected, options);
     if (!result.valid) {
         return fail(ERRORS.PACKAGE_VERIFICATION_FAILED,
-            'la verifica non è passata su almeno uno dei due archivi');
+            'verification failed on at least one of the two archives');
     }
 
     const confirmations = [
-        ...(unexpected.length ? [{ what: 'occorrenze impreviste del nome', confirmedAt: new Date().toISOString() }] : []),
+        ...(unexpected.length ? [{ what: 'unexpected occurrences of the name', confirmedAt: new Date().toISOString() }] : []),
         ...(extra.length ? [{ what: 'componenti oltre all\'agent', confirmedAt: new Date().toISOString() }] : []),
     ];
     const written = await writeArtifactSet(outputDirectory, {
@@ -237,11 +237,11 @@ export async function invokeHeadless(input: Json): Promise<Json> {
             case 'deploy':
             case 'removeUnmanagedLayer':
                 return fail(ERRORS.PERMISSION_DENIED,
-                    `"${op}" modifica un environment e resta dietro una conferma umana: `
-                    + 'non è disponibile in headless');
+                    `"${op}" changes an environment and stays behind a human confirmation: `
+                    + 'it is not available in headless');
             default:
                 return fail(ERRORS.CONNECTION_ERROR,
-                    `operazione sconosciuta "${op}". Disponibili: listSolutions, inspectPackage, `
+                    `unknown operation "${op}". Available: listSolutions, inspectPackage, `
                     + 'previewPatch, package');
         }
     } catch (err) {
