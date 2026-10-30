@@ -1557,8 +1557,12 @@ function renderReviewStep(): void {
                                 : `<strong>only the managed one</strong>, the only one you will
                                    import, and the manifest.`}</span></li>
                         <li>${icon('shield', 'icon--sm')}
-                            <span><strong>Nothing is written to Dataverse</strong>: the
-                            artifact is born on disk.</span></li>
+                            <span>${state.options.newVersion
+                                ? `<strong>The only change to Dataverse is the solution version</strong>
+                                   in DEV, which you confirm before the build. The artifact itself is
+                                   born on disk.`
+                                : `<strong>Nothing is written to Dataverse</strong>: the
+                                   artifact is born on disk.`}</span></li>
                         <li>${icon('history', 'icon--sm')}
                             <span>From a few seconds to a few minutes, depending on the size
                             of the solution.</span></li>

@@ -95,3 +95,18 @@ describe('README: cosa cambia il tool', () => {
         expect(readme).not.toMatch(/reads only \(no writes/i);
     });
 });
+
+describe('la revisione non si contraddice sulla scrittura in DEV', () => {
+    const facts = (ui: { doc: Document }) =>
+        ui.doc.querySelector('#step-review .facts')!.textContent!.replace(/\s+/g, ' ');
+
+    it('con la versione da alzare non dice "Nothing is written to Dataverse"', async () => {
+        const ui = await toReview(true);
+        expect(facts(ui)).not.toMatch(/Nothing is written to Dataverse/);
+        expect(facts(ui)).toMatch(/only change.*version.*DEV/i);
+    });
+    it('con la versione non alzata dice che nulla viene scritto a Dataverse', async () => {
+        const ui = await toReview(false);
+        expect(facts(ui)).toMatch(/Nothing is written to Dataverse/);
+    });
+});

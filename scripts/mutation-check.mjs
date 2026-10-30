@@ -88,6 +88,9 @@ const MUTATIONS = [
     ['app.ts', 'src/app.ts', '<strong>Update</strong>, which never removes components.', '<strong>Update</strong>, which keeps things tidy.', 'v1.1.0: il testo non dice che Update non rimuove nulla'],
     ['app.ts', 'src/app.ts', '<em>Update</em> and <em>Stage for upgrade</em> keep them.', '', 'v1.1.0: il testo non avverte su Update e Stage for upgrade'],
     ['app.ts', 'src/app.ts', '<strong>Upgrade</strong> (the default): agents you', '<strong>Update</strong> (the default): agents you', 'v1.1.0: il testo consiglia Update invece di Upgrade'],
+    // ── la revisione non si contraddice sulla scrittura in DEV
+    ['app.ts', 'src/app.ts', '? `<strong>The only change to Dataverse is the solution version</strong>', '? `<strong>Nothing is written to Dataverse</strong>', 'revisione: dice "Nothing is written to Dataverse" anche quando scrive la versione'],
+    ['app.ts', 'src/app.ts', ': `<strong>Nothing is written to Dataverse</strong>: the', ': `<strong>The only change to Dataverse is the solution version</strong>: the', 'revisione: dice che scrive la versione anche quando non lo fa'],
     // ── la versione si alza in DEV, non nello zip (FR-073)
     ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (cmp === 0) return { from, to, changed: false };', '', 'v1.1.0: la stessa versione viene riscritta'],
     ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (cmp < 0) {', 'if (false) {', 'v1.1.0: si scrive anche una versione piu\' bassa di DEV'],
