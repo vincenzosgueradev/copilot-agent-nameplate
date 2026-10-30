@@ -1,0 +1,26 @@
+name: Bug report
+description: Something does not work as it should
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes: {label: Tool version (shown in the tool), placeholder: "1.1.2"}
+    validations: {required: true}
+  - type: textarea
+    id: did
+    attributes: {label: What you did}
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes: {label: What you expected}
+    validations: {required: true}
+  - type: textarea
+    id: happened
+    attributes: {label: What happened}
+    validations: {required: true}
+  - type: input
+    id: env
+    attributes: {label: Theme (light or dark), PPTB version, operating system}
+  - type: markdown
+    attributes:
+      value: Attach a generated or anonymised sample package only. Never a real tenant package, manifest or token.

@@ -1,0 +1,12 @@
+name: Feature request
+description: Ask for a change or a new capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes: {label: What problem you have today}
+    validations: {required: true}
+  - type: textarea
+    id: wish
+    attributes: {label: What you would like the tool to do}
+    validations: {required: true}

@@ -1,53 +1,37 @@
 # Agent Nameplate
 
-**Rename Copilot Studio agents per environment — without an unmanaged layer.**
+**Rename Copilot Studio agents per environment — without an unmanaged layer.** A Power Platform ToolBox tool
+for ALM owners who promote a solution from DEV to UAT and PROD: it produces a solution package where the agent
+display names are already set for the target, so the agent arrives **already wearing the right nameplate**.
 
-Produces a solution package where Copilot Studio agent display names are already set for the
-target environment: the agent arrives in UAT or PROD **already wearing the right nameplate**,
-instead of being renamed once it gets there. The difference between a clean package and an
-unmanaged layer you carry forever.
+Renaming an agent in the target environment creates an unmanaged layer that wins over every later solution
+upgrade. This tool moves the rename into the package, where it belongs to the managed layer.
 
-## The Problem
+![Solutions step: the solutions of the source environment with their agents](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/01-solutions.png)
 
-When a solution containing a Copilot Studio agent lands in UAT or PROD, the agent carries its
-DEV display name. Renaming it in the target environment **creates an unmanaged layer** on top of
-the managed component: from that point on, that layer wins over every subsequent solution
-upgrade, and the environment quietly drifts away from the package. The risk is not that `UPDATE`
-might fail — it is that it might **succeed**, because the damage is silent.
+## Features
 
-## Usage
+**Pick it**
+- **Choose the solution.** Lists the solutions of the connected DEV environment with the agents each one holds,
+  their icon and type (standard or GitHub Copilot harness); pin the ones you use most.
 
-1. **Solutions.** Open the tool with an active connection to your source (DEV) environment and
-   pick the unmanaged solution that contains the agents.
-2. **Suffix.** Type the suffix for the target environment, for example `[UAT]`. Leave it empty to
-   remove a suffix. The tool warns if the names already carry a different one.
-3. **Review.** Choose which agents to rename and whether to raise the solution version in DEV
-   before the export. If you do, a dialog names the environment, the solution and both version
-   numbers and waits for your confirmation.
-4. **Preview.** See exactly what changes in the package, per agent, before anything is exported.
-5. **Checks.** The tool exports the solution twice (managed and unmanaged), patches the name and
-   verifies the result entry by entry.
-6. **Result.** Save the artifact set to a folder. Import the managed zip into the target
-   environment yourself, in the maker portal or with `pac solution import`.
+**Name it**
+- **Set one suffix for the whole solution**, such as `[UAT]`, with preset buttons, and see the name each agent
+  will get as you type. The tool warns when the names already carry a different suffix, or none.
+- **Leave agents out.** Untick an agent and it stays exactly as it is.
+- **Set publish on import per agent**: leave as is, force yes or force no, or the same value for all.
+- **Raise the solution version in DEV** before the export so DEV, package and target stay aligned; a dialog
+  names the environment, the solution and both numbers and waits for your confirmation.
 
-Needs a role that can export the solution, at least System Customizer on the source environment.
+**Check it**
+- **Preview first.** See exactly what changes in the package, per agent, before anything is exported.
+- **Verify entry by entry.** The solution is exported twice (managed and unmanaged), one element is patched, and
+  the result is checked against the original: every other entry must be byte-identical.
 
-## The Flow
-
-```text
-DEV → solution → ExportSolution ×2 (managed + unmanaged)
-    → patch <name> in bots/<schema>/bot.xml
-    → rezip + entry-by-entry verification
-    → artifact set: patched pair + originals + manifest.json
-```
-
-Importing the package into the target environment happens **outside the tool**, for example in
-the maker portal or with `pac solution import`.
-
-The name lands in the **managed layer**, like any other property of the solution. The tool never
-touches `bot`, `botcomponent`, or environment variables, and therefore cannot create layers. It
-makes **one optional write** to the source environment (the solution version, below), and asks
-you to confirm it first.
+**Keep it**
+- **Save an artifact set** with the patched pair, the original exports and a `manifest.json` with a SHA-256
+  hash, and keep a history of what you packaged.
+- **Works in the light and the dark theme** of Power Platform ToolBox.
 
 ## What this tool changes
 
@@ -69,6 +53,66 @@ continuing as a backup. Turn the option off and the environment is not written t
 
 Nothing else is written to any environment. Importing the package into a target environment is a
 separate step that you do yourself, outside the tool (maker portal or `pac solution import`).
+
+## What it does not cover
+
+- It does **not import** the package: importing into the target environment is a step you do yourself, in the
+  maker portal or with `pac solution import`.
+- It renames the display name of the agent in the package. Names inside topics, prompts or other components are
+  not rewritten; the tool reports the places where the name appears and leaves them alone.
+- It is not compatible with native **Power Platform Pipelines**, which distribute the same managed artifact to
+  every stage.
+- Microsoft does not support manual edits of files extracted from a solution; see *Supportability* below.
+
+## Installation
+
+Install **Agent Nameplate** from the Power Platform ToolBox marketplace. It needs **one connection**: the source
+(DEV) environment, with a role that can export the solution (at least System Customizer).
+
+## Usage
+
+1. **Solutions.** Open the tool with an active connection to your source (DEV) environment and pick the
+   unmanaged solution that contains the agents. You see its agents with their icon and type, then press **Set the suffix**.
+
+   ![Solutions step with the agents of each solution](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/01-solutions.png)
+
+   ![The agents of the chosen solution with their icon and type (standard or GitHub Copilot harness)](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/02-agents.png)
+2. **Suffix.** Type the suffix for the target environment, for example `[UAT]`, or use a preset. Leave it empty
+   to remove a suffix. Choose which agents to rename and how each one is published on import.
+
+   ![Suffix step: the suffix field with the preset buttons DEV, TEST, UAT, STAGING, PREPROD and PROD](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/03-suffix.png)
+
+   ![Agents table: the name each agent will get and the publish on import toggle of each, with a row to set them all](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/04-publish.png)
+3. **Review.** Check the new names and options, and decide whether to raise the solution version in DEV before
+   the export.
+
+   ![Review step: the new names, the options and the version to write in DEV](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/05-review.png)
+
+   ![Options of the review: the version written to DEV before the export and what happens next](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/06-options.png)
+
+   ![Confirmation dialog: the environment, the solution and the old and new version, before anything is written to DEV](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/07-version-dialog.png)
+4. **Preview.** See what changes in the package, per agent, while the solution is exported and patched.
+
+   ![Preview step: the five phases of the export and patch, all completed](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/08-preview.png)
+5. **Checks.** The tool verifies the patched package entry by entry against the original.
+
+   ![Checks step: what travels in the package, the folders and how many agents](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/09-checks.png)
+
+   ![Checks step: managed and unmanaged packages verified, 94 of 94 entries byte-identical where unchanged, 7 entries changed](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/10-verified.png)
+6. **Result.** Save the artifact set to a folder. Import the managed zip into the target environment yourself.
+
+   ![Result step: the warning not to import the unmanaged archive, the version note and where the artifact set was saved](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/11-result.png)
+
+   ![The saved folder: the managed zip to import and manifest.json](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/12-files.png)
+
+## The Flow
+
+```text
+DEV → solution → ExportSolution ×2 (managed + unmanaged)
+    → patch <name> in bots/<schema>/bot.xml
+    → rezip + entry-by-entry verification
+    → artifact set: patched pair + originals + manifest.json
+```
 
 ## What Gets Modified in the Package
 
@@ -136,6 +180,20 @@ testAgentTool_1.0.0.2_UAT_20261015-143022/
 Two artifacts at the same `<Version>` (one for UAT, one for PROD, built from the same DEV
 version) are told apart by the suffix in the file name and by the **SHA-256 hash** in the manifest.
 
+## Privacy and network use
+
+The tool talks only to the Dataverse environment of the active connection, through Power Platform ToolBox: it
+reads solutions and agents, exports the solution you choose and, only if you confirm, writes the version of that
+solution. It sends nothing anywhere else, has no telemetry and no network call of its own. The package is patched
+on your computer and saved where you choose.
+
+## Support and bugs
+
+Report a bug or ask for a change in the [GitHub Issues](https://github.com/vincenzosgueradev/copilot-agent-nameplate/issues).
+Give the tool version (shown in the tool), what you did, what you expected and what happened, and attach only a
+**generated or anonymised** sample, never a real package or tenant data. A vulnerability goes to the private
+reporting described in [SECURITY.md](SECURITY.md), not to a public issue.
+
 ## Development
 
 ```bash
@@ -188,12 +246,42 @@ an AI assistant (Claude, by Anthropic). The author directs the work, reviews the
 responsible for the result. Behavior is covered by an automated test suite and by mutation checks,
 and every change is verified with a type check, a build and the tests before it is released.
 
-## Documentation
+## Updates
 
-Specs, decisions, and measurements: `specs/001-agent-rename-manager/`. In particular
-`research.md`, which collects fifteen sections of verifications run against real data —
-including every mistake made along the way and the reasoning behind each choice.
+Newest first. The full history is in [CHANGELOG.md](CHANGELOG.md). Rules: [docs/marketplace-page-standard.md](docs/marketplace-page-standard.md).
+
+### 1.1.2 - 2026-10-27
+
+- Changed the tool icon to an original coloured drawing that reads well on the dark and the light theme.
+- Changed the agent type tooltips to "Standard harness" and "GitHub Copilot harness".
+- Changed the tool to use only the active connection.
+- Changed every error message to English.
+- Removed the headless/MCP mode from the published tool and its documentation.
+- Fixed permission and empty-package errors being reported as connection errors.
+
+### 1.1.1 - 2026-10-26
+
+- Added a confirmation dialog before the solution version is written to DEV.
+- Added the light theme, which follows Power Platform ToolBox live.
+- Added the README section "What this tool changes".
+- Changed the tool name to **Agent Nameplate** and the author to Vincenzo Sguera.
+- Fixed the version in the header, which still said `v0.1.0`.
+- Fixed the "Package format" notice appearing for harmless new keys or folders.
+
+### 1.1.0 - 2026-10-17
+
+- Added the rename of the whole solution with one suffix, and publish on import per agent.
+- Changed the version to be raised in DEV before the export, like the portal does, so DEV, package and target stay aligned.
+- Fixed mixed names in one environment when only one agent of a solution was renamed.
+- Fixed false warnings for agents created with the suffix, never connected to Teams, or sharing a display name.
+- Fixed every screen so it opens at the top.
+
+### 1.0.0 - 2026-10-16
+
+- Added the first release: rename Copilot Studio agents inside a solution package, with the export, the entry-by-entry verification and the artifact set.
 
 ## License
 
-MIT
+MIT, see [LICENSE](LICENSE).
+
+Specs live in [specs/](specs/); the project rules are in [.specify/memory/constitution.md](.specify/memory/constitution.md).
