@@ -2,7 +2,7 @@
     "name": "@vincenzosgueradev/pptb-copilot-nameplate",
     "version": "1.1.2",
     "displayName": "Agent Nameplate",
-    "description": "Rename Copilot Studio agents per environment — without an unmanaged layer. The solution package arrives already named for its target.",
+    "description": "Rename Copilot Studio agents per environment without an unmanaged layer. Pick a solution, set a suffix such as [UAT], and get a verified managed package where every agent display name is already set for its target. Optionally raises the solution version in DEV, with your confirmation.",
     "type": "module",
     "main": "index.html",
     "icon": "dist/logo.svg",
@@ -49,7 +49,8 @@
     },
     "contributors": [
         {
-            "name": "Vincenzo Sguera"
+            "name": "Vincenzo Sguera",
+            "url": "https://github.com/vincenzosgueradev"
         }
     ],
     "keywords": [
@@ -65,7 +66,8 @@
     ],
     "configurations": {
         "repository": "https://github.com/vincenzosgueradev/copilot-agent-nameplate",
-        "readmeUrl": "https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/agent-nameplate/README.md",
+        "readmeUrl": "https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/README.md",
+        "website": "https://github.com/vincenzosgueradev/copilot-agent-nameplate",
         "category": "Copilot Studio"
     },
     "features": {
