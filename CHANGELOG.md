@@ -8,6 +8,26 @@ Every release MUST have an entry here before it is published (Constitution, *Rel
 Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Security**, plus
 **Upgrade notes** when a release asks something of the user.
 
+## [1.1.3] - 2026-10-31
+
+Fixes to the review text and to the marketplace page.
+
+### Changed
+- The tool icon is redrawn: an agent over a brass nameplate with square brackets, on a light tile,
+  in the same style as the other tools of the family.
+- The README is now the marketplace page: features, what the tool changes and does not cover,
+  installation, usage with 12 screenshots, privacy, support and the list of updates. The
+  repository also gets a LICENSE, a SECURITY.md and issue templates for bugs and requests.
+
+### Fixed
+- **The review contradicted itself about writing to DEV.** With "Raise the version" on, the Options
+  panel said the version is written to the solution in DEV and, a few lines below, "Nothing is
+  written to Dataverse". It now says that the only change to Dataverse is the solution version, which
+  you confirm before the build, and keeps the old wording only when nothing is written.
+- **The marketplace page showed no README.** The published address of the README pointed to a file
+  that does not exist (`main/agent-nameplate/README.md`), so the page had no text. It now points to the
+  README at the root of the repository.
+
 ## [1.1.2] - 2026-10-27
 
 Fixes after the second marketplace review.
