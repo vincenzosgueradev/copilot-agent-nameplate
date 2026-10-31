@@ -27,3 +27,34 @@ describe('icona del tool nel marketplace', () => {
         expect(existsSync(resolve(dist, pkg.icon ?? 'manca'))).toBe(true);
     });
 });
+
+describe('icona a un solo colore (PPTB-PUBLISHING-RULES, sezione 4)', () => {
+    const svg = readFileSync(resolve(root, 'src/public', pkg.icon ?? 'manca'), 'utf8');
+    it('usa currentColor', () => {
+        expect(svg).toContain('currentColor');
+    });
+    it('non ha colori fissi', () => {
+        expect(svg).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+        expect(svg).not.toMatch(/(fill|stroke)="(?!none|currentColor)[a-zA-Z]+"/);
+    });
+    it('non ha sfumature ne` una tile di sfondo', () => {
+        expect(svg).not.toMatch(/Gradient/i);
+        expect(svg).not.toMatch(/<rect[^>]*fill="(?!none)/);
+    });
+    it('il logo a colori dell\'app e` un altro file, usato nell\'intestazione', () => {
+        expect(existsSync(resolve(root, 'src/public/logo-color.svg'))).toBe(true);
+        expect(readFileSync(resolve(root, 'src/index.html'), 'utf8')).toContain('src="./logo-color.svg"');
+    });
+});
+
+describe('README come pagina del marketplace (sezione 3)', () => {
+    const readme = readFileSync(resolve(root, 'README.md'), 'utf8');
+    it('ogni link e immagine e` un URL completo', () => {
+        const relative = [...readme.matchAll(/\]\(([^)]*)\)/g)].map(m => m[1]!)
+            .filter(u => !u.startsWith('https://') && !u.startsWith('#'));
+        expect(relative).toEqual([]);
+    });
+    it('non contiene HTML grezzo', () => {
+        expect(readme).not.toMatch(/<(img|a|div|br|p|span|table)[\s>]/i);
+    });
+});

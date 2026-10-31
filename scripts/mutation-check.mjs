@@ -93,6 +93,10 @@ const MUTATIONS = [
     ['app.ts', 'src/app.ts', ': `<strong>Nothing is written to Dataverse</strong>: the', ': `<strong>The only change to Dataverse is the solution version</strong>: the', 'revisione: dice che scrive la versione anche quando non lo fa'],
     // ── l'icona del marketplace: percorso relativo a dist
     ['package.json', 'package.json', '"icon": "logo.svg"', '"icon": "dist/logo.svg"', 'icona: percorso relativo al pacchetto invece che a dist (il marketplace mostra la scatola)'],
+    ['icona: un colore', 'src/public/logo.svg', 'stroke="currentColor" stroke-width="4"', 'stroke="#1f2328" stroke-width="4"', 'icona: un colore fisso al posto di currentColor (il marketplace la mostra come quadrato)'],
+    ['icona: un colore', 'src/public/logo.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none"', '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="#e4e9fb"', 'icona: uno sfondo pieno invece di un contorno'],
+    ['icona: un colore', 'src/index.html', 'src="./logo-color.svg"', 'src="./logo.svg"', 'icona: la intestazione usa il logo a un colore e diventa nero sul tema scuro'],
+    ['README: link completi', 'README.md', '](https://github.com/vincenzosgueradev/copilot-agent-nameplate/blob/main/SECURITY.md)', '](SECURITY.md)', 'README: un link relativo non si apre sul marketplace'],
     // ── la versione si alza in DEV, non nello zip (FR-073)
     ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (cmp === 0) return { from, to, changed: false };', '', 'v1.1.0: la stessa versione viene riscritta'],
     ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (cmp < 0) {', 'if (false) {', 'v1.1.0: si scrive anche una versione piu\' bassa di DEV'],

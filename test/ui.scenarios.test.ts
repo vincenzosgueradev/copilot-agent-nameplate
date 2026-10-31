@@ -725,9 +725,9 @@ describe('contenuto non fidato: nessun HTML eseguibile', () => {
         const ui = await boot(world);
         await ui.openSolution('S1');
         // l'unico <img> ammesso e' il logo dell'app nella cella del tipo (spec 010)
-        expect(ui.doc.querySelector('#step-solution img:not([src="./logo.svg"])')).toBeNull();
+        expect(ui.doc.querySelector('#step-solution img:not([src="./logo-color.svg"])')).toBeNull();
         await ui.startRename();
-        expect(ui.doc.querySelector('#step-suffix img:not([src="./logo.svg"])')).toBeNull();
+        expect(ui.doc.querySelector('#step-suffix img:not([src="./logo-color.svg"])')).toBeNull();
         expect(ui.suffixRows()[0]!.name).toBe(evil);
         await ui.typeSuffix('UAT');
         await ui.next();

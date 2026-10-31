@@ -1162,7 +1162,7 @@ function agentKindHtml(id: string): string {
     if (!kind) return `<span class="agent-kind" ${attrs} data-kind=""></span>`;
     const label = KIND_LABEL[kind];
     const inner = kind === 'standard'
-        ? '<img src="./logo.svg" alt="" width="20" height="20">'
+        ? '<img src="./logo-color.svg" alt="" width="20" height="20">'
         : kind === 'harness' ? icon('github-copilot') : icon('minus', 'icon--sm');
     return `<span class="agent-kind agent-kind--${kind}" ${attrs} data-kind="${kind}" role="img" aria-label="${label}" title="${label}">${inner}</span>`;
 }
