@@ -44,6 +44,22 @@ Quando proponi il rilascio, scrivi la sequenza: `/custom-changelog` → `/custom
 
 **Dopo la pubblicazione su npm** ricorda all'utente il passo sul marketplace (`docs/marketplace-page-standard.md`, sezione 6): in **My Tools** (powerplatformtoolbox.com/tools) la riga del tool deve mostrare la nuova versione; se mostra ancora la vecchia, **More → Trigger Update** (confermato il 2026-10-31: compare "Updating" e in pochi minuti la nuova versione); poi controllare logo, descrizione e README sulla pagina pubblica. Un tool in "Needs Changes" si sistema con una nuova versione e **Resubmit**. La sezione Updates del README si aggiorna solo dopo la pubblicazione.
 
+## Regole di pubblicazione PPTB: leggere sempre, aggiornare sempre
+
+Il file condiviso `../PPTB-PUBLISHING-RULES.md` (cartella sopra i tool) raccoglie cosa chiedono le pagine ufficiali e cosa
+hanno chiesto le revisioni passate. È fonte di verità per `package.json`, README, icona e rilascio.
+
+- **Leggilo per intero** prima di toccare `package.json`, il README, l'icona o la pagina del marketplace, prima di
+  proporre o preparare un rilascio, e prima di `/custom-publish`. Non fidarti di quello che ricordi di una sessione
+  precedente: il file cambia.
+- **Verifica il lavoro contro la sua checklist** (sezione 8) e dì in una riga cosa non la rispetta, prima di chiedere conferma.
+- **Aggiornalo ogni volta che impari qualcosa di nuovo**: una revisione che chiede una modifica, un errore trovato dopo
+  la pubblicazione, un comportamento del marketplace confermato. Aggiungi la riga alla sezione 1 (e al punto giusto delle
+  altre) e il test che impedisce il ritorno del difetto nel tool. Aggiorna anche la data "Last checked" quando riconfronti
+  le pagine ufficiali.
+- In caso di conflitto tra questo CLAUDE.md, lo standard di pagina del tool e quel file, vince la pagina ufficiale
+  di PPTB, poi quel file. Dì all'utente dove i tre non concordano.
+
 ## Test: niente è finito senza (Constitution — Testing Standard)
 
 Non dichiarare finita una modifica al codice finché non l'hai provata tu, con questi passi (in ``):
