@@ -250,6 +250,12 @@ and every change is verified with a type check, a build and the tests before it 
 
 Newest first. The full history is in [CHANGELOG.md](https://github.com/vincenzosgueradev/copilot-agent-nameplate/blob/main/CHANGELOG.md). Rules: [docs/marketplace-page-standard.md](https://github.com/vincenzosgueradev/copilot-agent-nameplate/blob/main/docs/marketplace-page-standard.md).
 
+### 1.1.4 - 2026-10-31
+
+- Changed the marketplace icon to a one-colour outline of the same agent over a nameplate.
+- Fixed the marketplace card showing a generic box instead of the tool icon.
+- Fixed the README links that did not open on the marketplace page.
+
 ### 1.1.3 - 2026-10-31
 
 - Changed the tool icon to an agent over a brass nameplate.
