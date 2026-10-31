@@ -250,6 +250,13 @@ and every change is verified with a type check, a build and the tests before it 
 
 Newest first. The full history is in [CHANGELOG.md](CHANGELOG.md). Rules: [docs/marketplace-page-standard.md](docs/marketplace-page-standard.md).
 
+### 1.1.3 - 2026-10-31
+
+- Changed the tool icon to an agent over a brass nameplate.
+- Changed the README into the marketplace page, with screenshots, what the tool changes and does not cover, privacy and support.
+- Fixed the review saying "Nothing is written to Dataverse" while the solution version is written to DEV.
+- Fixed the marketplace page showing no README.
+
 ### 1.1.2 - 2026-10-27
 
 - Changed the tool icon to an original coloured drawing that reads well on the dark and the light theme.
