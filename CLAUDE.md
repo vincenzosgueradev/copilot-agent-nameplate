@@ -42,7 +42,7 @@ Se il codice è stato **stravolto** (molti file, flusso riscritto, tipi o contra
 
 Quando proponi il rilascio, scrivi la sequenza: `/custom-changelog` → `/custom-commit` → `/custom-ampush` → `/custom-publish` → commit del bump → push. **`/custom-publish` e il push li lancia sempre l'utente**: tu li prepari e li ricordi, non li esegui.
 
-**Dopo la pubblicazione su npm** ricorda all'utente il passo sul marketplace (`docs/marketplace-page-standard.md`, sezione 6): in **My Tools** (powerplatformtoolbox.com/tools) la riga del tool deve mostrare la nuova versione; se dopo circa 30 minuti mostra ancora la vecchia, **More → Trigger Update**; poi controllare logo, descrizione e README sulla pagina pubblica. Un tool in "Needs Changes" si sistema con una nuova versione e **Resubmit**. La sezione Updates del README si aggiorna solo dopo la pubblicazione.
+**Dopo la pubblicazione su npm** ricorda all'utente il passo sul marketplace (`docs/marketplace-page-standard.md`, sezione 6): in **My Tools** (powerplatformtoolbox.com/tools) la riga del tool deve mostrare la nuova versione; se mostra ancora la vecchia, **More → Trigger Update** (confermato il 2026-10-31: compare "Updating" e in pochi minuti la nuova versione); poi controllare logo, descrizione e README sulla pagina pubblica. Un tool in "Needs Changes" si sistema con una nuova versione e **Resubmit**. La sezione Updates del README si aggiorna solo dopo la pubblicazione.
 
 ## Test: niente è finito senza (Constitution — Testing Standard)
 
