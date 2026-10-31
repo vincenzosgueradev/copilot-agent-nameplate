@@ -8,6 +8,15 @@ Every release MUST have an entry here before it is published (Constitution, *Rel
 Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Security**, plus
 **Upgrade notes** when a release asks something of the user.
 
+## [1.1.4] - 2026-10-31
+
+Fix to the icon on the marketplace card.
+
+### Fixed
+- **The marketplace card showed a generic box instead of the tool icon.** The icon path in the package
+  pointed to a file the marketplace could not find (it expects the path relative to the `dist` folder),
+  so the fallback box appeared on the card of 1.1.2 and 1.1.3. It now points to the right file.
+
 ## [1.1.3] - 2026-10-31
 
 Fixes to the review text and to the marketplace page.
