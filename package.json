@@ -1,6 +1,6 @@
 {
     "name": "@vincenzosgueradev/pptb-copilot-nameplate",
-    "version": "1.1.3",
+    "version": "1.1.4",
     "displayName": "Agent Nameplate",
     "description": "Rename Copilot Studio agents per environment without an unmanaged layer. Pick a solution, set a suffix such as [UAT], and get a verified managed package where every agent display name is already set for its target. Optionally raises the solution version in DEV, with your confirmation.",
     "type": "module",
