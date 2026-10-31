@@ -193,7 +193,7 @@ describe('verifyZip respinge lo zip sbagliato', () => {
     it('una entry che doveva essere patchata ma non lo e\' stata', () => {
         const s = scenario();
         const files = unzipSync(s.good);
-        files['bots/ava_a2/bot.xml'] = s.pkg.entries.find(e => e.path === 'bots/ava_a2/bot.xml')!.data;
+        files['bots/ava_a2/bot.xml'] = new Uint8Array(s.pkg.entries.find(e => e.path === 'bots/ava_a2/bot.xml')!.data);
         expect(s.verify(rezip(files)).patchedValuesConfirmed).toBe(false);
     });
 });

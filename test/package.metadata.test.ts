@@ -58,3 +58,19 @@ describe('README come pagina del marketplace (sezione 3)', () => {
         expect(readme).not.toMatch(/<(img|a|div|br|p|span|table)[\s>]/i);
     });
 });
+
+describe('dipendenze di produzione (npm audit)', () => {
+    const dep = (JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { dependencies: Record<string, string> }).dependencies;
+    const installed = (JSON.parse(readFileSync(resolve(root, 'node_modules/fflate/package.json'), 'utf8')) as { version: string }).version;
+    const atLeast = (v: string, min: string) => {
+        const a = v.split('.').map(Number), b = min.split('.').map(Number);
+        for (let i = 0; i < 3; i++) if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+        return true;
+    };
+    it('fflate dichiarato non e` nell\'intervallo con il ciclo infinito su ZIP64 (0.8.0 - 0.8.2)', () => {
+        expect(atLeast(dep.fflate!, '0.8.3')).toBe(true);
+    });
+    it('fflate installato non e` nell\'intervallo vulnerabile', () => {
+        expect(atLeast(installed, '0.8.3')).toBe(true);
+    });
+});
