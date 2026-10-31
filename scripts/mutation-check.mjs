@@ -91,6 +91,8 @@ const MUTATIONS = [
     // ── la revisione non si contraddice sulla scrittura in DEV
     ['app.ts', 'src/app.ts', '? `<strong>The only change to Dataverse is the solution version</strong>', '? `<strong>Nothing is written to Dataverse</strong>', 'revisione: dice "Nothing is written to Dataverse" anche quando scrive la versione'],
     ['app.ts', 'src/app.ts', ': `<strong>Nothing is written to Dataverse</strong>: the', ': `<strong>The only change to Dataverse is the solution version</strong>: the', 'revisione: dice che scrive la versione anche quando non lo fa'],
+    // ── l'icona del marketplace: percorso relativo a dist
+    ['package.json', 'package.json', '"icon": "logo.svg"', '"icon": "dist/logo.svg"', 'icona: percorso relativo al pacchetto invece che a dist (il marketplace mostra la scatola)'],
     // ── la versione si alza in DEV, non nello zip (FR-073)
     ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (cmp === 0) return { from, to, changed: false };', '', 'v1.1.0: la stessa versione viene riscritta'],
     ['solutionVersion.ts', 'src/services/solutionVersion.ts', 'if (cmp < 0) {', 'if (false) {', 'v1.1.0: si scrive anche una versione piu\' bassa di DEV'],
