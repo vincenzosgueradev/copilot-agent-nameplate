@@ -10,12 +10,20 @@ Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Se
 
 ## [1.1.4] - 2026-10-31
 
-Fix to the icon on the marketplace card.
+Fixes to the icon and the links on the marketplace page.
+
+### Changed
+- The icon on the marketplace card is now a one-colour outline of the same agent over a nameplate. The
+  marketplace draws icons as a one-colour mask, so the coloured tile of 1.1.3 would have shown as a plain
+  square. Inside the tool, the header and the agent type column keep the colour drawing.
 
 ### Fixed
 - **The marketplace card showed a generic box instead of the tool icon.** The icon path in the package
   pointed to a file the marketplace could not find (it expects the path relative to the `dist` folder),
   so the fallback box appeared on the card of 1.1.2 and 1.1.3. It now points to the right file.
+- **The links in the README did not open on the marketplace page.** The links to the security policy,
+  the changelog, the licence and the specs were relative, which does not work where the page is rendered
+  from a raw address. They are now full addresses.
 
 ## [1.1.3] - 2026-10-31
 
