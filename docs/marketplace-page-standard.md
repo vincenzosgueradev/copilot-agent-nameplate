@@ -130,4 +130,40 @@ The README Updates section is derived from it at release time, never the other w
 - [ ] Every README heading (features, changes, does not cover, privacy) still matches the build.
 - [ ] Screenshot shows the current version of the screen.
 - [ ] Every issue fixed in this version is named in the entry and will be closed with the version.
+- [ ] After `npm publish`: the tool's row in **My Tools** shows the new version (section 6); if not, **Trigger Update**.
 - [ ] The GitHub description and topics are still true (Principle VI).
+
+## 6. Marketplace: from npm to the page (My Tools)
+
+Where the author sees and drives a listed tool: **My Tools**, https://www.powerplatformtoolbox.com/tools (signed in).
+One row per tool: category, version, status, verified status, downloads, rating, MAU, actions.
+
+| Status | Meaning | Action in the row |
+|--------|---------|-------------------|
+| **Active** | Listed and installable. | **View**, and **More**: Get Verified, Update categories, **Trigger Update**, Deprecate, Delete. |
+| **Needs Changes** | Rejected at intake (downloads, rating and MAU show `--`). | **Resubmit**, after fixing the cause and publishing a fixed version. |
+
+What the PPTB documentation says (https://docs.powerplatformtoolbox.com/tool-development/publishing and
+https://docs.powerplatformtoolbox.com/policies/marketplace):
+
+- First time: publish to npm, test with Install from npm, then fill the **Tool Submission Form** (npm package name,
+  up to three categories). Automated checks, then a manual review, typically 48 to 72 hours.
+- The registry **syncs automatically with npm**: a new version is picked up and installed users are notified.
+- Limits: 2 submissions in intake at a time for established publishers, 1 for new ones.
+- The policy applies to **every version**, so each release must comply with it.
+- **Verified** is separate from intake: request it from **More** after acceptance.
+- Not written anywhere (found out in 2026-10): whether a new npm version is reviewed again, and how a rejected tool
+  is re-reviewed. Ask in the PPTB Discord.
+
+How we work after each release:
+
+1. Publish to npm, then check the tool's row in My Tools: the **version** column must show the new number.
+2. If it still shows the old one after about 30 minutes, press **More, Trigger Update**.
+3. Open the tool's public page and check the logo, the description and the README with its screenshots.
+4. After a **Needs Changes**: fix, publish a new version, then press **Resubmit** on the row.
+
+Written down 2026-10-31 from the My Tools page and the PPTB docs. Step 2 is not confirmed yet: after the first
+Trigger Update, replace this note with what happened (the version changed or not, and how long it took).
+
+A fix that only changes the README or the images still needs a new npm version: the page reads the README from the
+repository (`readmeUrl`), but the logo and description come from `package.json` in the published package.
