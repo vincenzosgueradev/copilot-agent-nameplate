@@ -1,6 +1,6 @@
 # Specifica 016 — Targets: le destinazioni del rilascio, un solo giro
 
-**Stato**: **Proposta, non implementata.** Le decisioni sono prese (D1–D6); mancano plan, research, data-model, quickstart, tasks e checklist.
+**Stato**: **Proposta, non implementata.** Decisioni prese (D1–D6); plan, research, data-model, contratto del manifest, quickstart, tasks e checklist scritti. Resta da confermare l'assunzione P1 (vedi `research.md` §6).
 **Estende**: 002 (suffisso unico per la solution), 004 (versione alzata in DEV), artifact set (001 FR-078/FR-083), 012 (impostazioni per ambiente, come i pin). **Nasce da**: la domanda su come si arriva in PROD (vedi 015) e dall'idea dell'utente: una lista di destinazioni che ognuno compone e che il tool ricorda.
 
 ## Il problema
@@ -29,7 +29,7 @@ Non è «lo stesso artefatto in ogni ambiente» (il principio delle Pipelines): 
 ### La lista
 - **FR-001**: Il tool DEVE mantenere una **lista di Targets per ambiente DEV collegato**. Ogni Target ha: un **nome** che coincide con il suffisso (può essere vuoto per «nessun suffisso», una sola volta nella lista), un **ordine** e un valore di **publish on import** (leave as is / force yes / force no).
 - **FR-002**: Alla prima apertura su un ambiente la lista DEVE essere precompilata con i preset già esistenti (DEV, TEST, UAT, STAGING, PREPROD, PROD) e l'utente DEVE poter togliere quelli che non gli servono.
-- **FR-003**: L'utente DEVE poter **creare** un Target personalizzato, **rinominarlo**, **toglierlo**, **riordinarlo** (trascinando) e **cambiarne il publish on import**. Le regole del suffisso restano quelle di oggi (lunghezza massima, caratteri non ammessi).
+- **FR-003**: L'utente DEVE poter **creare** un Target personalizzato, **rinominarlo**, **toglierlo**, **riordinarlo** (trascinando, e con pulsanti su/giù da tastiera) e **cambiarne il publish on import**. Le regole del suffisso restano quelle di oggi (lunghezza massima, caratteri non ammessi).
 - **FR-004**: La lista DEVE essere salvata a ogni modifica, come i pin. Se il salvataggio fallisce, il tool DEVE dirlo e dire che la lista dura solo fino alla chiusura. Un valore salvato illeggibile DEVE essere ignorato senza rompere la schermata.
 - **FR-005**: Due Target NON DEVONO avere lo stesso nome (senza distinguere maiuscole).
 
@@ -43,7 +43,7 @@ Non è «lo stesso artefatto in ogni ambiente» (il principio delle Pipelines): 
 
 ### Il risultato
 - **FR-012**: Il set di file DEVE contenere **una cartella**, uno zip managed per Target (nome con etichetta e suffisso), gli export originali **una volta** e un `manifest.json` con l'hash dell'export di partenza e l'elenco `targets[]` (nome, ordine, hash dello zip, publish on import). Il formato è lo stesso anche con un solo Target (D6) e la versione del formato sale, così uno script può riconoscerlo.
-- **FR-013**: Il manifest DEVE riportare il **confronto tra i Target**: per ogni coppia, le entry diverse (con la loro natura: nome di un agent, `publishOnImport`) e la conferma che **tutte le altre** sono identiche byte per byte. Se un'entry diversa non è nell'elenco atteso, la verifica DEVE fallire.
+- **FR-013**: Il manifest DEVE riportare il **confronto tra i Target**: per ogni Target **rispetto al primo spuntato**, le entry diverse (con la loro natura: nome di un agent, `publishOnImport`) e la conferma che **tutte le altre** sono identiche byte per byte. Il confronto è col primo, non a coppie: tutti gli zip partono dallo stesso export, quindi la differenza fra due Target qualsiasi è l'unione delle due liste. Se un'entry diversa non è nell'elenco atteso, la verifica DEVE fallire.
 - **FR-014**: Lo storico DEVE registrare **un'operazione** con N Target, non N operazioni scollegate.
 - **FR-015**: Nessuna scrittura in DEV oltre alla versione (invariata); nessun import (invariato).
 
@@ -51,7 +51,7 @@ Non è «lo stesso artefatto in ogni ambiente» (il principio delle Pipelines): 
 Dimensioni: numero di Target spuntati (1, 2, 3) × presenza di un Target con suffisso vuoto × publish on import per Target (uguale / diverso) × agent esclusi (nessuno / uno). Oracolo scritto dalla spec: numero di zip, un solo export, una sola scrittura di versione, differenze del manifest limitate ai nomi e al publish. Test negativi: nome duplicato, lista illeggibile, salvataggio fallito, Target tolto che era spuntato.
 
 ## Domande aperte
-Nessuna: tutte decise (D1–D6). Prima di implementare: scrivere plan, research, data-model, quickstart, tasks e checklist; la matrice di test e le mutazioni nascono con il codice.
+Nessuna sulle decisioni (D1–D6). Un'assunzione del piano da confermare: l'eccezione di publish per agent è uguale per tutti i Target e prevale sul default del Target (`research.md` §6, checklist P1).
 
 ## Da ricordare al rilascio
 Cambia il formato del manifest e come si leggono i dati salvati (nuova lista di Target nelle impostazioni): è un **MINOR con Upgrade notes**, o un MAJOR se si decide che rompe gli script esistenti. Prima di rilasciare: avvisare dell'impatto (CLAUDE.md) e leggere `../PPTB-PUBLISHING-RULES.md`.
