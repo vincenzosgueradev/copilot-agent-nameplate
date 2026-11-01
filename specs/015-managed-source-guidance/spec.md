@@ -14,6 +14,7 @@ Chi apre il tool su un ambiente dove le solution sono managed capisce **subito**
 - **FR-003**: Se l'ambiente contiene solo solution managed (con agent), l'elenco DEVE mostrare sopra la tabella una nota che dice il nome dell'ambiente connesso, che è atteso in UAT o PROD, che le managed non si esportano e dove andare (il tool su una connessione a DEV). La nota compare nelle viste Managed e All, mai nella vista Unmanaged.
 - **FR-004**: Se l'ambiente contiene sia unmanaged sia managed, la nota compare **solo** nella vista Managed e dice che le managed non possono essere sorgente e che quelle da cui si parte stanno sotto Unmanaged. Nelle viste All e Unmanaged NON compare. Se non ci sono solution managed, non compare mai.
 - **FR-005**: Il nome dell'ambiente è testo, mai HTML (nota e banner).
+- **FR-007**: La riga **«Agents without a solution»** (agent fuori da ogni solution visibile) NON DEVE comparire nella vista **Managed**, perché quella vista mostra solo solution managed; resta nelle viste **Unmanaged** e **All**. Nella vista Managed senza solution managed l'elenco dice che non ce ne sono e rimanda alle unmanaged. Vale anche con la ricerca attiva. Nasce dalla segnalazione dell'utente su DEV: con Managed a 0 compariva comunque una riga.
 - **FR-006**: Nessuna scrittura su Dataverse né nel package; nessuna impostazione salvata; nessuna chiamata di rete in più.
 
 ## Tabella della nota (FR-003, FR-004)

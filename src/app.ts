@@ -536,9 +536,11 @@ function renderSolutionsTable(): void {
     const matchedOrphans = q
         ? orphans.filter(a => a.name.toLowerCase().includes(q))
         : orphans;
-    const showOrphans = q
+    // Gli agent senza solution non sono managed: la vista Managed mostra solo solution managed (spec 015 FR-007)
+    const orphansInView = effectiveFilter() !== 'managed';
+    const showOrphans = orphansInView && (q
         ? matchedOrphans.length > 0
-        : orphans.length > 0;
+        : orphans.length > 0);
 
     if (!rows.length && !showOrphans) {
         const f = effectiveFilter();

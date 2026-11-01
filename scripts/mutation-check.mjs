@@ -202,6 +202,9 @@ const MUTATIONS = [
     ['managed', 'src/app.ts', "${s.isManaged ? ' title=\"Managed:", "${!s.isManaged ? ' title=\"Managed:", 'managed: il tooltip sta sulle unmanaged'],
     ['managed', 'src/app.ts', "const env = state.connectionName ? ` in <strong>${escapeHtml(state.connectionName)}</strong>` : '';", "const env = '';", 'managed: il banner non nomina l\'ambiente'],
     ['managed', 'src/app.ts', "const env = state.connectionName ? ` in <strong>${escapeHtml(state.connectionName)}</strong>` : '';", "const env = state.connectionName ? ` in <strong>${state.connectionName}</strong>` : '';", 'managed: il nome nel banner diventa HTML'],
+    ['managed', 'src/app.ts', "const orphansInView = effectiveFilter() !== 'managed';", 'const orphansInView = true;', 'managed: gli agent senza solution compaiono nella vista Managed'],
+    ['managed', 'src/app.ts', "const orphansInView = effectiveFilter() !== 'managed';", "const orphansInView = effectiveFilter() === 'unmanaged';", 'managed: gli agent senza solution spariscono dalla vista All'],
+    ['managed', 'src/app.ts', "const orphansInView = effectiveFilter() !== 'managed';", "const orphansInView = effectiveFilter() !== 'unmanaged';", 'managed: gli agent senza solution spariscono dalla vista Unmanaged'],
     ['managed', 'src/app.ts', "    if (sol.exportable) return '';\n    const env", "    const env", 'managed: il banner compare anche su una solution esportabile'],
 ];
 

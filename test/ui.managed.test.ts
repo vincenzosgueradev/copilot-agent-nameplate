@@ -185,3 +185,52 @@ describe('banner nella solution managed (FR-001)', () => {
         expect(ui.exists('#rename-btn')).toBe(true);
     });
 });
+
+describe('agenti senza solution: la riga non compare nella vista Managed', () => {
+    // Un DEV con una solution unmanaged e un agent fuori da ogni solution (nessuna managed)
+    const WITH_ORPHAN: UiWorld = {
+        solutions: [{ unique: 'U1' }],
+        agents: [agent('u1', 'U1'), { name: 'lonely [DEV]', schema: 'ava_lonely', solution: null, publish: null }],
+    };
+    const orphanRow = (ui: { doc: Document }) =>
+        ui.doc.querySelector('#solutions-table-container tr[data-solution="__none__"]');
+    const container = (ui: { doc: Document }) =>
+        ui.doc.getElementById('solutions-table-container')!.textContent!.replace(/\s+/g, ' ');
+
+    // Oracolo: la riga mostra agent che non sono ne' managed ne' unmanaged; la vista Managed mostra solo managed.
+    const EXPECT_ORPHAN: Record<Filter, boolean> = { unmanaged: true, managed: false, all: true };
+
+    for (const filter of ['unmanaged', 'managed', 'all'] as Filter[]) {
+        it(`filtro ${filter}: riga degli agent senza solution ${EXPECT_ORPHAN[filter] ? 'presente' : 'assente'}`, async () => {
+            const ui = await boot(WITH_ORPHAN);
+            await ui.clickSelector(`#solution-type-filter [data-filter="${filter}"]`);
+            expect(orphanRow(ui) !== null).toBe(EXPECT_ORPHAN[filter]);
+        });
+    }
+
+    it('vista Managed con 0 managed: dice che non ce ne sono e rimanda alle unmanaged', async () => {
+        const ui = await boot(WITH_ORPHAN);
+        await ui.clickSelector('#solution-type-filter [data-filter="managed"]');
+        expect(container(ui)).toContain('No managed solutions with agents found');
+        expect(container(ui)).toContain('switch the type above');
+    });
+
+    it('la ricerca di un agent orfano non lo mostra nella vista Managed, lo mostra in All', async () => {
+        const ui = await boot(WITH_ORPHAN);
+        await ui.clickSelector('#solution-type-filter [data-filter="managed"]');
+        await ui.search('lonely');
+        expect(orphanRow(ui)).toBeNull();
+        await ui.clickSelector('#solution-type-filter [data-filter="all"]');
+        expect(orphanRow(ui)).not.toBeNull();
+    });
+
+    it('in un ambiente a valle (solo managed) gli agent orfani non nascondono la nota ne\' le solution', async () => {
+        const ui = await boot({
+            solutions: [{ unique: 'M1', managed: true }],
+            agents: [agent('m1', 'M1'), { name: 'lonely [DEV]', schema: 'ava_lonely', solution: null, publish: null }],
+        });
+        expect(kindOf(ui)).toBe('downstream');
+        expect(row(ui, 'M1')).not.toBeNull();
+        expect(orphanRow(ui)).toBeNull();
+    });
+});
