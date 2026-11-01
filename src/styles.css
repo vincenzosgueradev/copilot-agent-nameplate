@@ -590,6 +590,18 @@ mark.hl {
 }
 .list-note[hidden] { display: none; }
 
+/* Le note managed hanno una struttura: titolo, spiegazione, passi numerati (spec 015) */
+.note-rich p { margin: 0 0 6px; }
+.note-rich .note-title { font-weight: 600; color: var(--color-text-strong); }
+.note-rich .note-label {
+    margin-top: 10px; margin-bottom: 2px;
+    font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--color-text-muted);
+}
+.note-rich .note-steps { margin: 0; padding-left: 22px; }
+.note-rich .note-steps li { margin: 3px 0; }
+.note-rich > :last-child { margin-bottom: 0; }
+
 /* Nella vista "All" le managed si distinguono a colpo d'occhio dalle unmanaged (spec 015) */
 .data-row.is-managed .cell-strong { color: var(--color-text-muted); }
 

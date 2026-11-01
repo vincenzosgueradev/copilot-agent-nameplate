@@ -77,7 +77,7 @@ describe('nota sopra l\'elenco: mondo × filtro (FR-003, FR-004)', () => {
         const ui = await view('only-managed', 'managed', 'UAT');
         const t = noteText(ui);
         expect(t).toContain('UAT holds only managed solutions');
-        expect(t).toContain('open the tool on a connection to');
+        expect(t).toContain('Open the tool in another tab');
         expect(t).toContain('usually DEV');
     });
 
@@ -87,10 +87,19 @@ describe('nota sopra l\'elenco: mondo × filtro (FR-003, FR-004)', () => {
         expect(noteText(ui)).toContain('<b>x</b> holds only');
     });
 
+    it('nota: la versione a valle ha titolo e due passi, quella del filtro Managed solo titolo e spiegazione', async () => {
+        const down = await view('only-managed', 'managed', 'UAT');
+        expect(note(down).querySelector('.note-title')!.textContent).toContain('UAT holds only managed solutions');
+        expect(note(down).querySelectorAll('ol.note-steps li').length).toBe(2);
+        const mixed = await view('mixed', 'managed');
+        expect(note(mixed).querySelector('.note-title')!.textContent).toContain('cannot be the source of a package');
+        expect(note(mixed).querySelector('ol')).toBeNull();
+    });
+
     it('con unmanaged presenti, la nota del filtro Managed rimanda al filtro Unmanaged e non parla di DEV', async () => {
         const ui = await view('mixed', 'managed');
         expect(noteText(ui)).toContain('cannot be the source of a package');
-        expect(noteText(ui)).not.toContain('open the tool on a connection to');
+        expect(noteText(ui)).not.toContain('Open the tool in another tab');
     });
 
     it('cambiando filtro la nota sparisce e ricompare', async () => {
@@ -140,12 +149,12 @@ describe('banner nella solution managed (FR-001)', () => {
         await ui.openSolution('M1');
         const t = ui.text('solution');
         expect(t).toContain('cannot be exported');
-        expect(t).toContain('in UAT');
+        expect(t).toContain('A managed solution in UAT is normal');
         expect(t).toContain('is what an import leaves behind');
-        expect(t).toContain('open the tool on a connection to');
+        expect(t).toContain('Open the tool in another tab');
         expect(t).toContain('M1');
         expect(t).toContain('unmanaged');
-        expect(t).toContain('import the package here');
+        expect(t).toContain('Import the package here');
         expect(ui.exists('#rename-btn')).toBe(false);
     });
 
@@ -153,7 +162,20 @@ describe('banner nella solution managed (FR-001)', () => {
         const ui = await boot(WORLDS['only-managed'], undefined, '<b>x</b>');
         await ui.openSolution('M1');
         expect(ui.doc.querySelector('#step-solution .panel-note--warning b')).toBeNull();
-        expect(ui.text('solution')).toContain('in <b>x</b>');
+        expect(ui.text('solution')).toContain('solution in <b>x</b> is normal');
+    });
+
+    it('banner: titolo, spiegazione e tre passi numerati (struttura)', async () => {
+        const ui = await boot(WORLDS['only-managed'], undefined, 'UAT');
+        await ui.openSolution('M1');
+        const banner = ui.doc.querySelector('#step-solution .panel-note--warning')!;
+        expect(banner.querySelector('.note-title')!.textContent).toContain('cannot be exported');
+        expect(banner.querySelector('.note-label')!.textContent).toContain('To build a package');
+        const steps = Array.from(banner.querySelectorAll('ol.note-steps li')).map(li => li.textContent!.replace(/\s+/g, ' ').trim());
+        expect(steps.length).toBe(3);
+        expect(steps[0]).toContain('M1');
+        expect(steps[1]).toContain('Build the package there');
+        expect(steps[2]).toContain('Import the package here');
     });
 
     it('una solution unmanaged non mostra il banner e offre il rename', async () => {

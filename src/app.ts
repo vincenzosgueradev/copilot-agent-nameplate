@@ -391,12 +391,18 @@ function renderListNotice(filter: SolutionFilter, counts: Record<SolutionFilter,
     if (!kind) { host.hidden = true; host.innerHTML = ''; return; }
     const env = state.connectionName ? `<strong>${escapeHtml(state.connectionName)}</strong>` : 'This environment';
     host.innerHTML = kind === 'downstream'
-        ? `${env} holds only <strong>managed</strong> solutions, which is what you expect in UAT or
-            PROD: a managed solution is what an import leaves behind, and Microsoft does not allow
-            exporting it. To build a package, open the tool on a connection to the environment where
-            these solutions are <strong>unmanaged</strong> — usually DEV, in another tool tab — and build it there.`
-        : `Managed solutions cannot be exported, so they cannot be the source of a package.
-            The solutions you can build from are under <strong>Unmanaged</strong>.`;
+        ? `<p class="note-title">${env} holds only managed solutions.</p>
+            <p>That is what you expect in UAT or PROD: a managed solution is what an import leaves
+            behind, and Microsoft does not allow exporting it.</p>
+            <p class="note-label">To build a package</p>
+            <ol class="note-steps">
+                <li>Open the tool in another tab, on a connection to the environment where these
+                    solutions are <strong>unmanaged</strong> — usually DEV.</li>
+                <li>Build the package there, then import it here.</li>
+            </ol>`
+        : `<p class="note-title">Managed solutions cannot be the source of a package.</p>
+            <p>Microsoft does not allow exporting a managed solution. The solutions you can build
+            from are under <strong>Unmanaged</strong>.</p>`;
     host.hidden = false;
 }
 
@@ -802,13 +808,17 @@ function notExportableBannerHtml(sol: Solution): string {
     if (sol.exportable) return '';
     const env = state.connectionName ? ` in <strong>${escapeHtml(state.connectionName)}</strong>` : '';
     return `
-        <div class="panel-note panel-note--warning">
-            <strong>This solution is managed and cannot be exported.</strong>
-            A managed solution${env} is what an import leaves behind, so it is normal downstream,
-            but Microsoft does not allow exporting it and it cannot be the source of a package.
-            To build one, open the tool on a connection to the environment where
-            <code>${escapeHtml(sol.uniqueName)}</code> is <strong>unmanaged</strong> — usually DEV, in another tool tab — and build the package there;
-            then import the package here.
+        <div class="panel-note panel-note--warning note-rich">
+            <p class="note-title">This solution is managed and cannot be exported.</p>
+            <p>A managed solution${env} is normal: it is what an import leaves behind. Microsoft does
+            not allow exporting it, so it cannot be the source of a package.</p>
+            <p class="note-label">To build a package</p>
+            <ol class="note-steps">
+                <li>Open the tool in another tab, on a connection to the environment where
+                    <code>${escapeHtml(sol.uniqueName)}</code> is <strong>unmanaged</strong> — usually DEV.</li>
+                <li>Build the package there.</li>
+                <li>Import the package here.</li>
+            </ol>
         </div>`;
 }
 
