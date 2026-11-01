@@ -188,6 +188,21 @@ const MUTATIONS = [
     ['tema', 'src/styles.css', '--color-surface: #ffffff;', '--color-surface: #252526;', 'superficie scura nel tema chiaro'],
     ['dialog url', 'src/app.ts', "state.connectionUrl = conn.url ?? '';", "state.connectionUrl = '';", 'il dialog non nomina URL ambiente'],
     ['dialog url', 'src/app.ts', '<strong>one property of one solution</strong>', '<strong>the solution</strong>', 'il dialog non dice lo scope'],
+    // ── spec 015: guida sulle solution managed
+    ['managed', 'src/app.ts', "if (filter === 'unmanaged' || counts.managed === 0) return null;", 'if (counts.managed === 0) return null;', 'managed: la nota compare anche nella vista Unmanaged'],
+    ['managed', 'src/app.ts', "if (filter === 'unmanaged' || counts.managed === 0) return null;", "if (filter === 'unmanaged') return null;", 'managed: la nota compare senza solution managed'],
+    ['managed', 'src/app.ts', "if (counts.unmanaged === 0) return 'downstream';", "if (false) return 'downstream';", 'managed: un ambiente solo managed non lo dice'],
+    ['managed', 'src/app.ts', "return filter === 'managed' ? 'managed-view' : null;", "return 'managed-view';", 'managed: la nota del filtro Managed compare anche in All'],
+    ['managed', 'src/app.ts', "return filter === 'managed' ? 'managed-view' : null;", 'return null;', 'managed: con unmanaged presenti la vista Managed non spiega'],
+    ['managed', 'src/app.ts', "if (!kind) { host.hidden = true; host.innerHTML = ''; return; }", 'if (!kind) { return; }', 'managed: la nota resta quando cambia il filtro'],
+    ['managed', 'src/app.ts', "const env = state.connectionName ? `<strong>${escapeHtml(state.connectionName)}</strong>` : 'This environment';", "const env = state.connectionName ? `<strong>${state.connectionName}</strong>` : 'This environment';", 'managed: il nome dell\'ambiente diventa HTML'],
+    ['managed', 'src/app.ts', "const env = state.connectionName ? `<strong>${escapeHtml(state.connectionName)}</strong>` : 'This environment';", "const env = 'This environment';", 'managed: la nota non nomina l\'ambiente'],
+    ['managed', 'src/app.ts', "${s.isManaged && showType ? ' is-managed' : ''}", "${s.isManaged ? ' is-managed' : ''}", 'managed: la riga si spegne anche fuori dalla vista All'],
+    ['managed', 'src/app.ts', "${s.isManaged && showType ? ' is-managed' : ''}", "${showType ? ' is-managed' : ''}", 'managed: anche le unmanaged risultano spente'],
+    ['managed', 'src/app.ts', "${s.isManaged ? ' title=\"Managed:", "${!s.isManaged ? ' title=\"Managed:", 'managed: il tooltip sta sulle unmanaged'],
+    ['managed', 'src/app.ts', "const env = state.connectionName ? ` in <strong>${escapeHtml(state.connectionName)}</strong>` : '';", "const env = '';", 'managed: il banner non nomina l\'ambiente'],
+    ['managed', 'src/app.ts', "const env = state.connectionName ? ` in <strong>${escapeHtml(state.connectionName)}</strong>` : '';", "const env = state.connectionName ? ` in <strong>${state.connectionName}</strong>` : '';", 'managed: il nome nel banner diventa HTML'],
+    ['managed', 'src/app.ts', "    if (sol.exportable) return '';\n    const env", "    const env", 'managed: il banner compare anche su una solution esportabile'],
 ];
 
 const only = process.argv[2];

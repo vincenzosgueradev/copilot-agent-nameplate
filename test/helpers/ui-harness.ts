@@ -170,7 +170,7 @@ const STEP_IDS: Record<string, string> = {
     preview: 'step-preview', verify: 'step-verify', result: 'step-result', history: 'step-history',
 };
 
-export async function boot(world: UiWorld, presetSettings?: Record<string, unknown>): Promise<Driver> {
+export async function boot(world: UiWorld, presetSettings?: Record<string, unknown>, connectionName = 'DEV'): Promise<Driver> {
     vi.resetModules();
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
 
@@ -181,7 +181,7 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
     const fs: FakeFs = { files: new Map(), dirs: new Set(), settings: new Map(Object.entries(presetSettings ?? {})) };
     const g = globalThis as unknown as Record<string, unknown>;
     g.toolboxAPI = {
-        connections: { getActiveConnection: async () => ({ name: 'DEV', url: 'https://dev.crm4.dynamics.com' }) },
+        connections: { getActiveConnection: async () => ({ name: connectionName, url: 'https://dev.crm4.dynamics.com' }) },
         events: { on: (cb: unknown) => { g.__events = cb; } },
         utils: { showNotification: () => {}, copyToClipboard: async () => {}, getCurrentTheme: async () => (g.__theme as string | undefined) ?? 'dark' },
         settings: {

@@ -370,6 +370,36 @@ function visibleSolutions(): Solution[] {
     return pinFirst(sorted, s => state.pins.includes(s.uniqueName));
 }
 
+/**
+ * Which note (if any) the list shows about managed solutions (spec 015 FR-003/FR-004). Pure, so
+ * the rule stays in one place: a note appears only when managed rows are on screen and
+ * either the Managed type is picked or the environment holds nothing else.
+ */
+function listNoticeKind(
+    filter: SolutionFilter, counts: Record<SolutionFilter, number>,
+): 'downstream' | 'managed-view' | null {
+    if (filter === 'unmanaged' || counts.managed === 0) return null;
+    if (counts.unmanaged === 0) return 'downstream';
+    return filter === 'managed' ? 'managed-view' : null;
+}
+
+/** Fills the note above the list; hides it when there is nothing to say. */
+function renderListNotice(filter: SolutionFilter, counts: Record<SolutionFilter, number>): void {
+    const host = document.getElementById('solutions-notice');
+    if (!host) return;
+    const kind = listNoticeKind(filter, counts);
+    if (!kind) { host.hidden = true; host.innerHTML = ''; return; }
+    const env = state.connectionName ? `<strong>${escapeHtml(state.connectionName)}</strong>` : 'This environment';
+    host.innerHTML = kind === 'downstream'
+        ? `${env} holds only <strong>managed</strong> solutions, which is what you expect in UAT or
+            PROD: a managed solution is what an import leaves behind, and Microsoft does not allow
+            exporting it. To build a package, switch the active connection to the environment where
+            these solutions are <strong>unmanaged</strong> — usually DEV — and run the tool there.`
+        : `Managed solutions cannot be exported, so they cannot be the source of a package.
+            The solutions you can build from are under <strong>Unmanaged</strong>.`;
+    host.hidden = false;
+}
+
 /** Keeps the type switch, its counts and the subtitle in step with the data. */
 function renderTypeFilter(): void {
     const host = document.getElementById('solution-type-filter');
@@ -386,6 +416,7 @@ function renderTypeFilter(): void {
                 ${FILTER_LABEL[f]}<span class="segment-count">${counts[f]}</span>
             </button>`).join('');
     }
+    renderListNotice(active, counts);
     const stats = document.getElementById('hero-stats');
     if (stats) {
         const agents = state.agents.length;
@@ -559,7 +590,7 @@ function renderSolutionsTable(): void {
             </thead>
             <tbody>
                 ${rows.map(({ solution: s, matchedAgents }) => `
-                <tr class="data-row${state.pins.includes(s.uniqueName) ? ' is-pinned' : ''}" data-solution="${escapeHtml(s.solutionId)}">
+                <tr class="data-row${state.pins.includes(s.uniqueName) ? ' is-pinned' : ''}${s.isManaged && showType ? ' is-managed' : ''}" data-solution="${escapeHtml(s.solutionId)}"${s.isManaged ? ' title="Managed: it cannot be exported, so it cannot be the source of a package"' : ''}>
                     <td class="cell-strong">${pinButtonHtml(s)}${highlight(s.friendlyName || s.uniqueName, q)}</td>
                     <td class="cell-muted">${highlight(s.uniqueName, q)}</td>
                     <td class="col-num"><span class="count-pill">${s.agentCount}</span></td>
@@ -769,13 +800,15 @@ function renderSolutionDetail(keepScroll = false): void {
  */
 function notExportableBannerHtml(sol: Solution): string {
     if (sol.exportable) return '';
+    const env = state.connectionName ? ` in <strong>${escapeHtml(state.connectionName)}</strong>` : '';
     return `
         <div class="panel-note panel-note--warning">
             <strong>This solution is managed and cannot be exported.</strong>
-            Microsoft does not allow exporting a managed solution, so it cannot be the source
-            of a package. Open the tool on the environment where
+            A managed solution${env} is what an import leaves behind, so it is normal downstream,
+            but Microsoft does not allow exporting it and it cannot be the source of a package.
+            To build one, switch the active connection to the environment where
             <code>${escapeHtml(sol.uniqueName)}</code> is <strong>unmanaged</strong> — usually DEV —
-            and build the package from there.
+            and run the tool there; then import the package here.
         </div>`;
 }
 

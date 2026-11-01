@@ -581,6 +581,18 @@ mark.hl {
     border-left: 3px solid var(--color-warning, #d9900a);
 }
 
+/* Nota sopra l'elenco delle solution: perche' le managed non possono essere sorgente (spec 015) */
+.list-note {
+    margin-bottom: var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-warning, #d9900a);
+    border-radius: var(--radius);
+}
+.list-note[hidden] { display: none; }
+
+/* Nella vista "All" le managed si distinguono a colpo d'occhio dalle unmanaged (spec 015) */
+.data-row.is-managed .cell-strong { color: var(--color-text-muted); }
+
 /* A panel that fills the whole step area; its table scrolls inside it, so the step itself
    neither scrolls nor needs the scrollbar spacing. */
 #step-solution {
