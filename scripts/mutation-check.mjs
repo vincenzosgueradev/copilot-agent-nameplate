@@ -243,6 +243,26 @@ const MUTATIONS = [
     ['motore', 'src/services/packaging.ts', 'const valid = results.every(r => r.valid);', 'const valid = results.some(r => r.valid);', 'motore: basta un Target valido per dire valido il giro'],
     ['motore', 'src/services/packaging.ts', "[{ name: suffix, publishOnImport: options.publishOnImport }]", "[{ name: suffix, publishOnImport: 'keep' }]", 'motore: runPackaging ignora il publish di partenza'],
     ['motore', 'src/services/packaging.ts', "        valid,\n        versionChange,\n    };\n}\n\n/**\n * Un solo suffisso", "        valid: true,\n        versionChange,\n    };\n}\n\n/**\n * Un solo suffisso", 'motore: il giro risulta sempre valido'],
+    // ── spec 016: artifact set, manifest v2 e storico
+    ['artefatti', 'src/services/artifacts.ts', 'if (names.length > 3) return', 'if (names.length > 4) return', 'artefatti: il conteggio dei Target nel nome della cartella parte tardi'],
+    ['artefatti', 'src/services/artifacts.ts', "names.map(n => safeForPath(n) || 'no suffix').join(', ')", "names.map(n => safeForPath(n)).join(', ')", 'artefatti: un Target senza suffisso lascia le parentesi vuote nella cartella'],
+    ['artefatti', 'src/services/artifacts.ts', "const suffixTag = tr.target.name.trim() || 'nosuffix';", "const suffixTag = tr.target.name || 'nosuffix';", 'artefatti: gli spazi finiscono nel nome del file'],
+    ['artefatti', 'src/services/artifacts.ts', "    if (options.keepSourceArtifacts) {\n        const first", "    if (true) {\n        const first", 'artefatti: gli export originali si scrivono anche con le copie extra spente'],
+    ['artefatti', 'src/services/artifacts.ts', "            ...(f.target !== undefined ? { target: f.target } : {}),\n", "", 'artefatti: i file non dicono a quale Target appartengono'],
+    ['artefatti', 'src/services/artifacts.ts', 'manifestVersion: 2,', 'manifestVersion: 1,', 'artefatti: la versione del formato del manifest'],
+    ['artefatti', 'src/services/artifacts.ts', 'sharedFiles: files.filter(f => f.target === undefined).map(fileEntry),', 'sharedFiles: files.map(fileEntry),', 'artefatti: ogni file risulta comune a tutti i Target'],
+    ['artefatti', 'src/services/artifacts.ts', 'comparison: tr.comparison\n', 'comparison: false\n', 'artefatti: il confronto non va nel manifest'],
+    ['artefatti', 'src/services/artifacts.ts', 'against: tr.comparison.against,', "against: '',", 'artefatti: il confronto non nomina il riferimento'],
+    ['artefatti', 'src/services/artifacts.ts', '            order,\n', '            order: 0,\n', 'artefatti: tutti i Target hanno ordine 0'],
+    ['artefatti', 'src/services/artifacts.ts', 'suffix: tr.target.name.trim(),', 'suffix: tr.target.name,', 'artefatti: il suffisso del manifest non e\' ripulito'],
+    ['artefatti', 'src/services/artifacts.ts', 'publishByAgent: options.publishByAgent ?? {},', 'publishByAgent: {},', 'artefatti: le eccezioni per agent non vanno nel manifest'],
+    ['artefatti', 'src/services/artifacts.ts', 'warnAboutDialogs(planned.length);', 'warnAboutDialogs(1);', 'artefatti: il numero di salvataggi annunciato e\' sbagliato'],
+    ['artefatti', 'src/services/artifacts.ts', ".join(' + ')", ".join(', ')", 'artefatti: lo storico unisce i nomi con una virgola'],
+    ['artefatti', 'src/services/artifacts.ts', 'options: { ...options, publishOnImport: first.target.publishOnImport },', 'options: { ...options },', 'artefatti: lo storico non riporta il publish del primo Target'],
+    ['artefatti', 'src/services/artifacts.ts', "status: written.complete ? 'ok' : 'failed',", "status: 'ok',", 'artefatti: un salvataggio incompleto risulta ok nello storico'],
+    ['artefatti', 'src/services/artifacts.ts', '            valid: tr.valid,\n', '            valid: true,\n', 'artefatti: lo storico dice sempre valido un Target'],
+    ['artefatti', 'src/services/packaging.ts', "    if (!t) throw new Error(`No target at position ${index}.`);", "    if (!t) return r.targets[0] as never;", 'artefatti: una posizione inesistente non da errore'],
+    ['artefatti', 'src/services/packaging.ts', "        valid: r.valid,\n        versionChange: r.versionChange,\n    };\n}\n\n/**\n * Un solo suffisso", "        valid: t.valid,\n        versionChange: r.versionChange,\n    };\n}\n\n/**\n * Un solo suffisso", 'artefatti: la vista dice valido un Target anche se il giro non lo e\''],
 ];
 
 const only = process.argv[2];

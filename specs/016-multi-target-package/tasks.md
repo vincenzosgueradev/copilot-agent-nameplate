@@ -14,11 +14,11 @@ Regole del progetto (CLAUDE.md): a ogni modifica `npx tsc --noEmit`, `npm run bu
 - [x] T007 Test: `test/engine.targets.test.ts` (matrice di 48 casi: un export, una scrittura di versione, contenuto di ogni zip, confronto; un Target = `runPackaging`) e `test/compare.test.ts` (26 test); 18 mutazioni (`confronto:` e `motore:`)
 
 ## Fase 3 — Artifact set, manifest, storico
-- [ ] T008 `writeArtifactSet` multi-Target e nome della cartella (FR-012)
-- [ ] T009 `buildManifest` v2 secondo `contracts/manifest-v2.md` (FR-012, FR-013)
-- [ ] T010 Riscrivere i test del formato del manifest sulla spec
-- [ ] T011 `PackagingRecord.targets`, un record per operazione; riscrivere i test della riga di storico (FR-014)
-- [ ] T012 Adattare `headless.ts` (un Target, nessun cambio di comportamento)
+- [x] T008 `writeArtifactSet` multi-Target: una cartella, uno zip managed per Target, gli export originali una volta; nome della cartella con fino a 3 etichette, oltre `[N targets]` (FR-012)
+- [x] T009 `buildManifest` v2 secondo `contracts/manifest-v2.md`, sempre (D6); `ArtifactFile.target` lega ogni file al suo Target (FR-012, FR-013)
+- [x] T010 Riscritti sulla spec i test che leggevano il manifest 1.x (`ui.matrix`, `ui.scenarios`); nuovi `test/artifacts.targets.test.ts` (26 test)
+- [x] T011 `PackagingRecord.targets` e `buildHistoryRecord`: un record per operazione, i campi di sempre sono quelli del primo Target (FR-014); 19 mutazioni (`artefatti:`)
+- [x] T012 `headless.ts` usa il motore con un Target; l'app, per ora, anche (un Target, adattatore `targetView`)
 
 ## Fase 4 — Schermata
 - [ ] T013 Passo Targets: lista, aggiunta, rinomina, rimozione, su/giù, trascinamento, publish per Target (FR-001…FR-005, FR-011)

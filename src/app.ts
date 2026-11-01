@@ -8,14 +8,14 @@ import {
     type FetchedData,
     type SuffixVariableHint,
 } from './services/solutions';
-import { OverwriteDeclined, writeArtifactSet } from './services/artifacts';
+import { OverwriteDeclined, buildHistoryRecord, writeArtifactSet } from './services/artifacts';
 import { describeError } from './services/dataverse';
 import { openFolder, saveJsonFile, saveTextFile, selectFolder } from './services/files';
 import { addRecord, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
 import { loadAgentCards } from './services/agentCards';
 import { MAX_PINS, pinFirst, readPins, setPinned } from './services/pins';
-import { runPackaging, type PackagingResult } from './services/packaging';
+import { runPackagingTargets, targetView, type MultiPackagingResult, type PackagingResult } from './services/packaging';
 import { agentOutcomes, buildName, publishModeFor } from './services/patch';
 import { nextVersion, versionProblem } from './services/solutionVersion';
 import { relevantDrift } from './services/compat';
@@ -32,7 +32,6 @@ import {
     type NameOccurrence,
     type PackageComponent,
     type PackagingOptions,
-    type PackagingRecord,
     type PatchChange,
     type PublishMode,
     type Solution,
@@ -77,7 +76,7 @@ const state = {
     versionInput: '',
     versionTouched: false,
     /** Esito dell'ultimo packaging preparato, tenuto in memoria finché non viene salvato. */
-    packaging: null as PackagingResult | null,
+    packaging: null as MultiPackagingResult | null,
     /** Da cosa è stato generato: se non cambia, non si riesporta (l'export costa 13-110 s). */
     packagingKey: '',
     /** Artifact set appena scritto su disco. */
@@ -1683,7 +1682,7 @@ function renderPreviewStep(): void {
     // dell'environment di riferimento la coppia costa 111 secondi (research.md §13).
     const key = packagingKey(sol, chosen);
     if (state.packaging && state.packagingKey === key) {
-        renderPreviewResult(state.packaging);
+        renderPreviewResult(targetView(state.packaging));
         return;
     }
     state.packaging = null;
@@ -1769,8 +1768,10 @@ async function runPreview(
         paint();
     };
     try {
-        const result = await runPackaging(
-            sol.uniqueName, state.suffix, schemaNames, state.options, setProgress)
+        // Per ora un Target solo: quello del suffisso scelto (le schermate dei Target arrivano con la fase 4)
+        const result = await runPackagingTargets(
+            sol.uniqueName, [{ name: state.suffix, publishOnImport: state.options.publishOnImport }],
+            schemaNames, state.options, setProgress)
             .finally(() => window.clearInterval(ticker));
         if (seq !== previewSeq) return;     // l'utente è già andato altrove
 
@@ -1784,7 +1785,7 @@ async function runPreview(
 
         state.packaging = result;
         state.packagingKey = key;
-        renderPreviewResult(result);
+        renderPreviewResult(targetView(result));
     } catch (err) {
         window.clearInterval(ticker);
         if (seq !== previewSeq) return;
@@ -1989,8 +1990,9 @@ function checkRowHtml(label: string, v: VerificationResult, expectedEntries: num
  * Non rifa' nulla: legge il risultato gia' in `state.packaging`.
  */
 function renderVerifyStep(): void {
-    const r = state.packaging;
-    if (!r) { navigateTo('preview'); return; }
+    const multi = state.packaging;
+    if (!multi) { navigateTo('preview'); return; }
+    const r = targetView(multi);
     renderBreadcrumb();
 
     const pkg = r.managed.source;
@@ -2210,7 +2212,6 @@ async function saveArtifactSet(): Promise<void> {
     try {
         const written = await writeArtifactSet(folder, {
             result: r,
-            suffix: state.suffix,
             options: state.options,
             sourceEnvironmentUrl: state.connectionName,
             user: state.connectionName,
@@ -2228,29 +2229,10 @@ async function saveArtifactSet(): Promise<void> {
             }),
         });
 
-        const pkg = r.managed.source;
-        const record: PackagingRecord = {
-            id: written.set.folderName,
-            timestamp: new Date().toISOString(),
-            user: state.connectionName,
-            sourceEnvironmentUrl: state.connectionName,
-            solutionUniqueName: pkg.uniqueName,
-            version: pkg.version,
-            managed: true,
-            suffix: state.suffix,
-            agents: agentOutcomes(pkg, r.plan),
-            options: { ...state.options },
-            versionChange: r.versionChange,
-            artifactSetPath: written.set.folderPath,
-            files: written.set.files.map(f => ({ fileName: f.fileName, role: f.role, sha256: f.sha256 })),
-            verification: { managed: r.managed.verification, unmanaged: r.unmanaged.verification },
-            exportMode: r.exportMode,
-            exportSeconds: r.exportSeconds,
-            fingerprint: pkg.fingerprint,
-            drift: pkg.drift,
-            confirmations: state.confirmations,
-            status: written.complete ? 'ok' : 'failed',
-        };
+        const record = buildHistoryRecord({
+            written, result: r, options: state.options, user: state.connectionName,
+            sourceEnvironmentUrl: state.connectionName, confirmations: state.confirmations,
+        });
         await addRecord(record);
         state.lastSet = written.set;
         // DEV e' stato alzato: la prossima operazione riparte dal numero nuovo (FR-073b)

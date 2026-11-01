@@ -6,19 +6,22 @@
  * l'artefatto è patchato — cosa che il pipelines host proibisce esplicitamente — e che quindi
  * accanto restano gli export originali, intatti (FR-083, FR-078).
  *
- *   testAgentTool_1.0.0.2_UAT_20261015-143022/
- *   ├── manifest.json
- *   ├── testAgentTool_1_0_0_2_managed_UAT.zip      role: deploy   ← l'unico da importare
- *   ├── testAgentTool_1_0_0_2_unmanaged_UAT.zip    role: source   ← mai a valle
- *   ├── source_managed.zip                         role: restore
+ *   testAgentTool 1.0.0.2 [UAT, PROD] - 2026-11-01 15-30/
+ *   ├── manifest.json                              formato v2: un elenco `targets[]`
+ *   ├── testAgentTool_1_0_0_2_managed_UAT.zip      role: deploy   ← l'unico da importare in UAT
+ *   ├── testAgentTool_1_0_0_2_managed_PROD.zip     role: deploy   ← l'unico da importare in PROD
+ *   ├── testAgentTool_1_0_0_2_unmanaged_UAT.zip    role: source   ← mai a valle (solo con le copie extra)
+ *   ├── source_managed.zip                         role: restore  ← una volta sola, comune ai Target
  *   └── source_unmanaged.zip                       role: restore
+ *
+ * Un giro con piu' Target e' una sola cartella e un solo manifest (spec 016).
  */
 
 import { ensureDirectory, pathExists, warnAboutDialogs, writeBinary, writeText } from './files';
 import { log } from './log';
 import { agentOutcomes } from './patch';
-import type { ArtifactFile, ArtifactSet, PackagingOptions } from '../types';
-import type { PackagingResult } from './packaging';
+import type { ArtifactFile, ArtifactSet, PackagingOptions, PackagingRecord } from '../types';
+import type { MultiPackagingResult } from './packaging';
 
 /** SHA-256 in esadecimale. È ciò che distingue due artefatti con la stessa `<Version>`. */
 export async function sha256(bytes: Uint8Array): Promise<string> {
@@ -57,8 +60,7 @@ function joinPath(base: string, name: string): string {
 }
 
 export interface ManifestInput {
-    result: PackagingResult;
-    suffix: string;
+    result: MultiPackagingResult;
     options: PackagingOptions;
     sourceEnvironmentUrl: string;
     user: string;
@@ -87,6 +89,12 @@ export class OverwriteDeclined extends Error {
     }
 }
 
+/** Le etichette dei Target nel nome della cartella: fino a tre, oltre si conta (percorsi Windows, spec 016). */
+function targetsTag(names: readonly string[]): string {
+    if (names.length > 3) return ` [${names.length} targets]`;
+    return ` [${names.map(n => safeForPath(n) || 'no suffix').join(', ')}]`;
+}
+
 /**
  * Scrive l'artifact set e il suo manifest.
  *
@@ -97,21 +105,17 @@ export async function writeArtifactSet(
     baseFolder: string,
     input: ManifestInput,
 ): Promise<WrittenArtifactSet> {
-    const { result, suffix, options } = input;
-    const pkg = result.managed.source;
+    const { result, options } = input;
+    const pkg = result.targets[0]!.managed.source;
     const now = new Date();
-    // I nomi dei file restano quelli di FR-074: `{UniqueName}_{Version}_managed_{SUFFISSO}.zip`.
-    const suffixTag = suffix.trim() || 'nosuffix';
 
-    // La cartella invece e' per l'occhio: `testAgentTool 1.0.0.2 [UAT] - 2026-10-15 21-38`.
+    // La cartella e' per l'occhio: `testAgentTool 1.0.0.2 [UAT, PROD] - 2026-11-01 15-30`.
     // La solution resta in testa, cosi' in Esplora file le operazioni si raggruppano per solution.
-    const clean = safeForPath(suffix);
-    const tag = clean ? ` [${clean}]` : ' [no suffix]';
-    const folderName = `${safeForPath(pkg.uniqueName)} ${pkg.version}${tag} - ${stamp(now)}`;
+    const folderName = `${safeForPath(pkg.uniqueName)} ${pkg.version}${targetsTag(result.targets.map(t => t.target.name))} - ${stamp(now)}`;
     const folderPath = joinPath(baseFolder, folderName);
 
     // La marca temporale si ferma al minuto, quindi due operazioni sulla stessa solution,
-    // versione e suffisso entro lo stesso minuto ricadono qui (FR-074).
+    // versione e Target entro lo stesso minuto ricadono qui (FR-074).
     if (await pathExists(folderPath)) {
         const ok = input.confirmOverwrite ? await input.confirmOverwrite(folderName) : false;
         if (!ok) throw new OverwriteDeclined(folderName);
@@ -119,38 +123,45 @@ export async function writeArtifactSet(
 
     await ensureDirectory(folderPath);
 
+    // I nomi dei file restano quelli di FR-074: `{UniqueName}_{Version}_managed_{SUFFISSO}.zip`, uno per Target.
     const base = `${pkg.uniqueName}_${flat(pkg.version)}`;
     const planned: {
         fileName: string; role: ArtifactFile['role']; managed: boolean;
         patched: boolean; bytes: Uint8Array; entryCount: number;
-        verification: ArtifactFile['verification'];
-    }[] = [
-        {
+        verification: ArtifactFile['verification']; target?: string;
+    }[] = [];
+    for (const tr of result.targets) {
+        const suffixTag = tr.target.name.trim() || 'nosuffix';
+        planned.push({
             fileName: `${base}_managed_${suffixTag}.zip`, role: 'deploy', managed: true,
-            patched: true, bytes: result.managed.bytes,
-            entryCount: result.managed.source.entries.length,
-            verification: result.managed.verification,
-        },
-    ];
-    // Scrivere un archivio costa un dialog di salvataggio, perche' PPTB non espone una
-    // scrittura binaria: il minimo indispensabile e' un file solo.
+            patched: true, bytes: tr.managed.bytes,
+            entryCount: tr.managed.source.entries.length,
+            verification: tr.managed.verification, target: tr.target.name,
+        });
+        // Scrivere un archivio costa un dialog di salvataggio, perche' PPTB non espone una
+        // scrittura binaria: il minimo indispensabile e' un file per Target.
+        if (options.keepSourceArtifacts) {
+            planned.push({
+                fileName: `${base}_unmanaged_${suffixTag}.zip`, role: 'source', managed: false,
+                patched: true, bytes: tr.unmanaged.bytes,
+                entryCount: tr.unmanaged.source.entries.length,
+                verification: tr.unmanaged.verification, target: tr.target.name,
+            });
+        }
+    }
+    // Gli export originali sono gli stessi per tutti i Target: una copia sola
     if (options.keepSourceArtifacts) {
+        const first = result.targets[0]!;
         planned.push(
             {
-                fileName: `${base}_unmanaged_${suffixTag}.zip`, role: 'source', managed: false,
-                patched: true, bytes: result.unmanaged.bytes,
-                entryCount: result.unmanaged.source.entries.length,
-                verification: result.unmanaged.verification,
-            },
-            {
                 fileName: 'source_managed.zip', role: 'restore', managed: true, patched: false,
-                bytes: result.managed.source.bytes,
-                entryCount: result.managed.source.entries.length, verification: null,
+                bytes: first.managed.source.bytes,
+                entryCount: first.managed.source.entries.length, verification: null,
             },
             {
                 fileName: 'source_unmanaged.zip', role: 'restore', managed: false, patched: false,
-                bytes: result.unmanaged.source.bytes,
-                entryCount: result.unmanaged.source.entries.length, verification: null,
+                bytes: first.unmanaged.source.bytes,
+                entryCount: first.unmanaged.source.entries.length, verification: null,
             },
         );
     }
@@ -175,6 +186,7 @@ export async function writeArtifactSet(
             entryCount: f.entryCount,
             sha256: await sha256(f.bytes),
             verification: f.verification,
+            ...(f.target !== undefined ? { target: f.target } : {}),
         });
     }
 
@@ -194,9 +206,29 @@ export async function writeArtifactSet(
     return { set, manifest, complete };
 }
 
+/** Come un file compare nel manifest. */
+function fileEntry(f: ArtifactFile): Record<string, unknown> {
+    return {
+        fileName: f.fileName,
+        role: f.role,
+        managed: f.managed,
+        patched: f.patched,
+        bytes: f.bytes,
+        entryCount: f.entryCount,
+        sha256: f.sha256,
+        verification: f.verification,
+        ...(f.role === 'source'
+            ? { warning: 'Patched unmanaged: do not import into UAT/PROD, it would create an unmanaged solution.' }
+            : {}),
+    };
+}
+
 /**
  * Il manifest è ciò che permette, mesi dopo, di dire **quale file è stato importato dove**.
  * Porta con sé anche la dichiarazione di FR-102: chi lo apre deve sapere cosa ha in mano.
+ *
+ * Formato v2 (spec 016, `contracts/manifest-v2.md`): sempre, anche con un solo Target. Le cose
+ * comuni a tutti i Target stanno in alto, quelle di ciascun Target dentro `targets[]`.
  */
 function buildManifest(
     input: ManifestInput,
@@ -204,9 +236,10 @@ function buildManifest(
     files: ArtifactFile[],
     now: Date,
 ): Record<string, unknown> {
-    const { result, suffix, options } = input;
-    const pkg = result.managed.source;
+    const { result, options } = input;
+    const pkg = result.targets[0]!.managed.source;
     return {
+        manifestVersion: 2,
         operationId,
         timestamp: now.toISOString(),
         user: input.user,
@@ -220,28 +253,84 @@ function buildManifest(
             version: pkg.version,
             publisher: { uniqueName: pkg.publisherUniqueName, prefix: pkg.publisherPrefix },
         },
-        suffix,
         export: { mode: result.exportMode, seconds: Number(result.exportSeconds.toFixed(1)) },
-        options,
+        options: { newVersion: options.newVersion, keepSourceArtifacts: options.keepSourceArtifacts },
         // La versione alzata in DEV prima dell'export (FR-073c): da qui si capisce che DEV e artefatto coincidono
         versionChange: result.versionChange,
-        agents: agentOutcomes(pkg, result.plan),
         fingerprint: pkg.fingerprint,
         drift: pkg.drift,
         nameOccurrences: pkg.nameOccurrences,
         confirmations: input.confirmations,
-        files: files.map(f => ({
-            fileName: f.fileName,
-            role: f.role,
-            managed: f.managed,
-            patched: f.patched,
-            bytes: f.bytes,
-            entryCount: f.entryCount,
-            sha256: f.sha256,
-            verification: f.verification,
-            ...(f.role === 'source'
-                ? { warning: 'Patched unmanaged: do not import into UAT/PROD, it would create an unmanaged solution.' }
-                : {}),
+        sharedFiles: files.filter(f => f.target === undefined).map(fileEntry),
+        targets: result.targets.map((tr, order) => ({
+            name: tr.target.name,
+            suffix: tr.target.name.trim(),
+            order,
+            options: {
+                publishOnImport: tr.target.publishOnImport,
+                publishByAgent: options.publishByAgent ?? {},
+            },
+            agents: agentOutcomes(pkg, tr.plan),
+            files: files.filter(f => f.target === tr.target.name).map(fileEntry),
+            comparison: tr.comparison
+                ? {
+                    against: tr.comparison.against,
+                    differing: tr.comparison.differing,
+                    identicalEntries: tr.comparison.identicalEntries,
+                }
+                : null,
         })),
+    };
+}
+
+/**
+ * Il record di storico di un'operazione (FR-014): **uno**, anche con piu' Target. I campi di sempre
+ * (`suffix`, `agents`, `verification`) sono quelli del primo Target, cosi' i record nuovi si leggono
+ * come i vecchi; `targets` porta il dettaglio di ognuno.
+ */
+export function buildHistoryRecord(input: {
+    written: WrittenArtifactSet;
+    result: MultiPackagingResult;
+    options: PackagingOptions;
+    user: string;
+    sourceEnvironmentUrl: string;
+    confirmations: { what: string; confirmedAt: string }[];
+    now?: Date;
+}): PackagingRecord {
+    const { written, result, options } = input;
+    const first = result.targets[0]!;
+    const pkg = first.managed.source;
+    const names = result.targets.map(t => t.target.name);
+    return {
+        id: written.set.folderName,
+        timestamp: (input.now ?? new Date()).toISOString(),
+        user: input.user,
+        sourceEnvironmentUrl: input.sourceEnvironmentUrl,
+        solutionUniqueName: pkg.uniqueName,
+        version: pkg.version,
+        managed: true,
+        // Un Target solo: il suffisso com'e'. Piu' Target: i nomi uniti, uno vuoto si legge "no suffix".
+        suffix: names.length === 1 ? names[0]! : names.map(n => n.trim() || 'no suffix').join(' + '),
+        agents: agentOutcomes(pkg, first.plan),
+        options: { ...options, publishOnImport: first.target.publishOnImport },
+        versionChange: result.versionChange,
+        artifactSetPath: written.set.folderPath,
+        targets: result.targets.map(tr => ({
+            name: tr.target.name,
+            publishOnImport: tr.target.publishOnImport,
+            files: written.set.files
+                .filter(f => f.target === tr.target.name)
+                .map(f => ({ fileName: f.fileName, role: f.role, sha256: f.sha256 })),
+            verification: { managed: tr.managed.verification, unmanaged: tr.unmanaged.verification },
+            valid: tr.valid,
+        })),
+        files: written.set.files.map(f => ({ fileName: f.fileName, role: f.role, sha256: f.sha256 })),
+        verification: { managed: first.managed.verification, unmanaged: first.unmanaged.verification },
+        exportMode: result.exportMode,
+        exportSeconds: result.exportSeconds,
+        fingerprint: pkg.fingerprint,
+        drift: pkg.drift,
+        confirmations: input.confirmations,
+        status: written.complete ? 'ok' : 'failed',
     };
 }

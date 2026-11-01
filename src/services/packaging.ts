@@ -212,6 +212,24 @@ export async function runPackagingTargets(
 }
 
 /**
+ * Un Target visto con la forma di sempre (`PackagingResult`): le schermate di anteprima e di verifica
+ * leggono questa. `valid` e' quello dell'**intero** giro, perche' e' lui a decidere se si salva.
+ */
+export function targetView(r: MultiPackagingResult, index = 0): PackagingResult {
+    const t = r.targets[index];
+    if (!t) throw new Error(`No target at position ${index}.`);
+    return {
+        plan: t.plan,
+        managed: t.managed,
+        unmanaged: t.unmanaged,
+        exportMode: r.exportMode,
+        exportSeconds: r.exportSeconds,
+        valid: r.valid,
+        versionChange: r.versionChange,
+    };
+}
+
+/**
  * Un solo suffisso, come prima della spec 016: involucro sottile del motore a piu' Target, che
  * restituisce la forma di sempre. Un Target solo deve dare lo stesso risultato di allora (FR-006).
  */
@@ -225,14 +243,5 @@ export async function runPackaging(
     const r = await runPackagingTargets(
         solutionUniqueName, [{ name: suffix, publishOnImport: options.publishOnImport }],
         selectedAgents, options, onProgress);
-    const only = r.targets[0]!;
-    return {
-        plan: only.plan,
-        managed: only.managed,
-        unmanaged: only.unmanaged,
-        exportMode: r.exportMode,
-        exportSeconds: r.exportSeconds,
-        valid: r.valid,
-        versionChange: r.versionChange,
-    };
+    return targetView(r, 0);
 }

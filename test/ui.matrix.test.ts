@@ -263,10 +263,20 @@ async function walk(n: number, seed: number, steps: number, e2e: boolean): Promi
     // ── che cosa e' stato scritto
     const { manifest, zips } = ui.written();
     expect(manifest, `${where()}: manifest`).not.toBeNull();
-    const mf = manifest as { suffix: string; versionChange: { from: string; to: string; changed: boolean } | null;
-        options: { newVersion: string | null; publishByAgent?: Record<string, PublishMode> };
-        agents: { schemaName: string; before: string; after: string; excluded: boolean }[]; confirmations: unknown[] };
-    expect(mf.suffix, where()).toBe(m.suffix);
+    // Manifest v2 (spec 016): un solo Target, con le cose sue dentro `targets[0]`
+    const mf = manifest as { manifestVersion: number; versionChange: { from: string; to: string; changed: boolean } | null;
+        options: { newVersion: string | null; keepSourceArtifacts: boolean };
+        targets: { name: string; suffix: string; order: number; comparison: unknown;
+            options: { publishOnImport: PublishMode; publishByAgent?: Record<string, PublishMode> };
+            agents: { schemaName: string; before: string; after: string; excluded: boolean }[] }[];
+        confirmations: unknown[] };
+    expect(mf.manifestVersion, `${where()}: versione del formato`).toBe(2);
+    expect(mf.targets.length, `${where()}: un solo Target`).toBe(1);
+    const t0 = mf.targets[0]!;
+    expect(t0.name, where()).toBe(m.suffix);
+    expect(t0.suffix, where()).toBe(m.suffix.trim());
+    expect(t0.order, where()).toBe(0);
+    expect(t0.comparison, `${where()}: il primo Target e' il riferimento`).toBeNull();
     expect(mf.options.newVersion, `${where()}: versione nelle opzioni del manifest`).toBe(m.newVersion());
     expect(mf.versionChange, `${where()}: versionChange nel manifest`)
         .toEqual(m.newVersion() ? { from: START, to: m.newVersion(), changed: true } : null);
@@ -277,11 +287,11 @@ async function walk(n: number, seed: number, steps: number, e2e: boolean): Promi
     const exportAt = ui.dev.events.findIndex(e => e.startsWith('export'));
     const writeAt = ui.dev.events.findIndex(e => e.startsWith('write'));
     if (m.newVersion()) expect(writeAt, `${where()}: scrittura prima dell'export (${ui.dev.events.join(', ')})`).toBeLessThan(exportAt);
-    expect(mf.agents, `${where()}: agenti nel manifest`).toEqual(m.bySchema().map(a => ({
+    expect(t0.agents, `${where()}: agenti nel manifest`).toEqual(m.bySchema().map(a => ({
         schemaName: a.schema, before: a.name, after: m.after(a), excluded: !m.selected(a),
     })));
     const explicit = Object.fromEntries(m.agents.filter(a => m.modes.has(a.name)).map(a => [a.schema, m.modes.get(a.name)!]));
-    expect(mf.options.publishByAgent ?? {}, `${where()}: publishByAgent nel manifest`).toEqual(explicit);
+    expect(t0.options.publishByAgent ?? {}, `${where()}: publishByAgent nel manifest`).toEqual(explicit);
     expect(mf.confirmations.length, `${where()}: conferme nel manifest`).toBe(m.mixed() ? 1 : 0);
 
     const managed = Object.entries(zips).filter(([p]) => p.includes('_managed_'));
@@ -295,11 +305,16 @@ async function walk(n: number, seed: number, steps: number, e2e: boolean): Promi
     const solutionXml = strFromU8(unzipSync(managed[0]![1])['solution.xml']!);
     expect(solutionXml.includes(`<Version>${finalVersion}</Version>`), `${where()}: versione nello zip`).toBe(true);
 
-    const history = ui.history() as { agents: unknown[]; suffix: string; versionChange: unknown }[];
+    const history = ui.history() as { agents: unknown[]; suffix: string; versionChange: unknown;
+        targets?: { name: string; publishOnImport: string; files: { fileName: string }[]; valid: boolean }[] }[];
     expect(history.length, `${where()}: voci di storico`).toBe(1);
     expect(history[0]!.suffix, where()).toBe(m.suffix);
     expect(history[0]!.versionChange, `${where()}: versionChange nello storico`).toEqual(mf.versionChange);
-    expect(history[0]!.agents, `${where()}: agenti nello storico`).toEqual(mf.agents);
+    expect(history[0]!.agents, `${where()}: agenti nello storico`).toEqual(t0.agents);
+    // Un'operazione, un record, con il suo Target (spec 016, FR-014)
+    expect(history[0]!.targets?.map(t => t.name), `${where()}: Target nello storico`).toEqual([m.suffix]);
+    expect(history[0]!.targets![0]!.valid, where()).toBe(true);
+    expect(history[0]!.targets![0]!.files.some(f => f.fileName.includes('_managed_')), `${where()}: file del Target`).toBe(true);
 }
 
 describe('schermata: percorsi casuali contro il modello', () => {

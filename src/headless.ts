@@ -16,7 +16,7 @@
 import { writeArtifactSet } from './services/artifacts';
 import { describeError } from './services/dataverse';
 import { log } from './services/log';
-import { runPackaging } from './services/packaging';
+import { runPackagingTargets } from './services/packaging';
 import { readPackage } from './services/package';
 import { buildPatchPlan } from './services/patch';
 import { exportSolution } from './services/export';
@@ -190,7 +190,8 @@ async function packageSolution(input: Json): Promise<Json> {
             + extra.map(c => `${c.kind} x${c.count}`).join('; '));
     }
 
-    const result = await runPackaging(name, suffix, selected, options);
+    const result = await runPackagingTargets(
+        name, [{ name: suffix, publishOnImport: options.publishOnImport }], selected, options);
     if (!result.valid) {
         return fail(ERRORS.PACKAGE_VERIFICATION_FAILED,
             'verification failed on at least one of the two archives');
@@ -202,7 +203,6 @@ async function packageSolution(input: Json): Promise<Json> {
     ];
     const written = await writeArtifactSet(outputDirectory, {
         result,
-        suffix,
         options,
         sourceEnvironmentUrl: String(input.sourceEnvironmentUrl ?? ''),
         user: String(input.user ?? 'headless'),
@@ -218,7 +218,7 @@ async function packageSolution(input: Json): Promise<Json> {
             export: { mode: result.exportMode, seconds: Number(result.exportSeconds.toFixed(1)) },
             files: written.set.files,
         },
-        changes: result.plan.map(c => ({ file: c.file, before: c.before, after: c.after })),
+        changes: result.targets[0]!.plan.map(c => ({ file: c.file, before: c.before, after: c.after })),
     };
 }
 

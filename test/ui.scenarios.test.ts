@@ -263,8 +263,8 @@ describe('salvataggio', () => {
         await ui.toVerify();
         expect(ui.verifyText()).toContain('with 0 entries changed');
         await ui.save();
-        const mf = ui.written().manifest as { agents: { before: string; after: string; excluded: boolean }[] };
-        expect(mf.agents.every(a => a.before === a.after && !a.excluded)).toBe(true);
+        const mf = ui.written().manifest as { targets: { agents: { before: string; after: string; excluded: boolean }[] }[] };
+        expect(mf.targets[0]!.agents.every(a => a.before === a.after && !a.excluded)).toBe(true);
     });
 
     it('solution senza suffisso di partenza: aggiunge, non sostituisce', async () => {

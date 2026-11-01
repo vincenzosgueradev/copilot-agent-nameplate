@@ -284,6 +284,8 @@ export interface ArtifactFile {
     entryCount: number;
     /** Ciò che distingue due artefatti con la stessa `<Version>` (FR-086). */
     sha256: string;
+    /** Il Target a cui il file appartiene (spec 016); assente per gli export originali, comuni a tutti. */
+    target?: string;
     /** `null` per gli originali, che non vengono patchati. */
     verification: VerificationResult | null;
 }
@@ -316,6 +318,15 @@ export type TargetSelection = Record<string, string[]>;
 /** Pin delle solution (spec 012): nomi univoci fissati, per ambiente. */
 export type PinMap = Record<string, string[]>;
 
+/** Un Target dentro un record di storico (spec 016). */
+export interface PackagingRecordTarget {
+    name: string;
+    publishOnImport: PublishMode;
+    files: { fileName: string; role: ArtifactFile['role']; sha256: string }[];
+    verification: { managed: VerificationResult; unmanaged: VerificationResult };
+    valid: boolean;
+}
+
 /**
  * Voce di History. Sostituisce `BackupRecord`: non essendoci scritture su Dataverse non
  * c'è nulla da annullare, l'artefatto di ripristino è il package originale (FR-078).
@@ -334,6 +345,12 @@ export interface PackagingRecord {
     agents: AgentOutcome[];
     options: PackagingOptions;
     artifactSetPath: string;
+    /**
+     * Un'operazione con piu' Target e' **un** record (spec 016, FR-014). `suffix`, `agents` e
+     * `verification` restano per leggere i record vecchi: nei nuovi sono quelli del primo Target.
+     * Assente nei record precedenti alla 1.2.0.
+     */
+    targets?: PackagingRecordTarget[];
     /** Copia ridotta del manifest, per cercare in History senza riaprire i file. */
     files: { fileName: string; role: ArtifactFile['role']; sha256: string }[];
     /** Esito **per archivio** (FR-085). */

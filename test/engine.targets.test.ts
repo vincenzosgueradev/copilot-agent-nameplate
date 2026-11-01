@@ -35,7 +35,7 @@ vi.mock('../src/services/compare', async importOriginal => {
     };
 });
 
-import { runPackaging, runPackagingTargets } from '../src/services/packaging';
+import { runPackaging, runPackagingTargets, targetView } from '../src/services/packaging';
 import { readPackage } from '../src/services/package';
 import { makePackage, packageFiles, readEntries, type AgentSpec, type PackageSpec } from './helpers/fixture';
 import { installFakeDev, makeDev, type FakeDev } from './helpers/fake-dev';
@@ -296,5 +296,51 @@ describe('negativi', () => {
         // e ogni zip porta quella versione
         const r = await runPackagingTargets('testSolution', targets, all, opts);
         for (const t of r.targets) expect(readPackage(t.managed.bytes).version).toBe(NEW_VERSION);
+    });
+});
+
+describe('targetView: un Target visto con la forma di sempre', () => {
+    const three: Target[] = ['UAT', 'PROD', 'HOTFIX'].map((name, i) => ({ name, publishOnImport: (['keep', 'force-true', 'force-false'] as PublishMode[])[i]! }));
+    const opts: PackagingOptions = { ...DEFAULT_OPTIONS, newVersion: NEW_VERSION };
+
+    it('porta il piano e gli archivi del Target scelto, e i dati comuni del giro', async () => {
+        const dev = newDev();
+        installSource(dev);
+        const multi = await runPackagingTargets('testSolution', three, AGENTS.map((_, i) => schemaOf(i)), opts);
+        for (const i of [0, 1, 2]) {
+            const v = targetView(multi, i);
+            expect(v.plan).toBe(multi.targets[i]!.plan);
+            expect(v.managed).toBe(multi.targets[i]!.managed);
+            expect(v.unmanaged).toBe(multi.targets[i]!.unmanaged);
+            expect(v.exportMode).toBe(multi.exportMode);
+            expect(v.exportSeconds).toBe(multi.exportSeconds);
+            expect(v.versionChange).toBe(multi.versionChange);
+        }
+        // piani diversi per Target: il publish e' diverso
+        expect(targetView(multi, 1).plan).not.toEqual(targetView(multi, 2).plan);
+    });
+
+    it('il Target di default e\' il primo', async () => {
+        const dev = newDev();
+        installSource(dev);
+        const multi = await runPackagingTargets('testSolution', three, AGENTS.map((_, i) => schemaOf(i)), opts);
+        expect(targetView(multi).plan).toBe(multi.targets[0]!.plan);
+    });
+
+    it('valid e\' quello dell\'intero giro: un Target non valido lo rende non valido per tutte le viste', async () => {
+        const dev = newDev();
+        installSource(dev);
+        forced.byTarget.set('UAT', { unexpected: ['solution.xml'] });
+        const multi = await runPackagingTargets('testSolution', three, AGENTS.map((_, i) => schemaOf(i)), opts);
+        expect(multi.valid).toBe(false);
+        for (const i of [0, 1, 2]) expect(targetView(multi, i).valid).toBe(false);
+    });
+
+    it('una posizione che non esiste: errore chiaro', async () => {
+        const dev = newDev();
+        installSource(dev);
+        const multi = await runPackagingTargets('testSolution', three, AGENTS.map((_, i) => schemaOf(i)), opts);
+        expect(() => targetView(multi, 3)).toThrow(/No target at position 3/);
+        expect(() => targetView(multi, -1)).toThrow(/No target at position -1/);
     });
 });
