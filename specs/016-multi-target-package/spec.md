@@ -1,6 +1,6 @@
 # Specifica 016 — Targets: le destinazioni del rilascio, un solo giro
 
-**Stato**: **Proposta, non implementata.** Decisioni prese (D1–D7); plan, research, data-model, contratto del manifest, quickstart, tasks e checklist scritti. Tutte le assunzioni confermate (D7 chiude P1).
+**Stato**: **Implementata (fasi 1–5); in corso la revisione D8 (agent e publish per Target).** Decisioni prese (D1–D8); plan, research, data-model, contratto del manifest, quickstart, tasks e checklist scritti. Tutte le assunzioni confermate (D7 chiude P1).
 **Estende**: 002 (suffisso unico per la solution), 004 (versione alzata in DEV), artifact set (001 FR-078/FR-083), 012 (impostazioni per ambiente, come i pin). **Nasce da**: la domanda su come si arriva in PROD (vedi 015) e dall'idea dell'utente: una lista di destinazioni che ognuno compone e che il tool ricorda.
 
 ## Il problema
@@ -19,8 +19,9 @@ Chi promuove una solution da DEV ha una **lista di Targets** sua (per esempio UA
 - **D2 — Cosa si ricorda**: per ogni destinazione, **etichetta/suffisso, ordine e publish on import**.
 - **D3 — Spunte al giro dopo**: quelle **usate l'ultima volta per quella solution**; una solution nuova parte senza spunte.
 - **D4 — Nome**: **Targets**. Si evita «Pipeline» perché il README dichiara il tool non compatibile con le Power Platform Pipelines native.
-- **D5 — Agent esclusi**: **uguali per tutti i Target** del giro. Si sceglie una volta quali agent rinominare; i Target cambiano solo il suffisso (e il publish on import).
-- **D7 — Eccezione di publish per agent**: vale la regola **più specifica**. L'eccezione dell'agent batte il default del Target, ed è la **stessa in tutti i Target** (come gli agent esclusi).
+- ~~**D5 — Agent esclusi uguali per tutti i Target**~~ — **sostituita da D8** (2026-11-01).
+- **D7 — Eccezione di publish per agent**: vale la regola **più specifica**: l'eccezione dell'agent batte il default del Target. ~~Ed è la stessa in tutti i Target~~ — **da D8 è per Target**.
+- **D8 — Agent e publish per Target** (dopo la prova a mano del 2026-11-01): sotto **ogni Target spuntato** compare la sua tabella di agent, con la **casella** (rinominare o lasciare com'è) e il **publish per agent** di quel Target. Le scelte sono **indipendenti fra Target** (togliere un agent da UAT non lo toglie da PROD). Ogni tabella parte con tutti gli agent spuntati e con il default di publish del Target. Le scelte per agent **non si ricordano** fra un giro e l'altro (come prima); si ricorda solo la lista dei Target e le spunte (D3). Motivo: il selettore `[UAT] | [PROD]` sopra una tabella sola non faceva capire a quale Target appartenessero le scelte.
 - **D6 — Manifest**: **sempre il formato nuovo** (`targets[]`), anche con un solo Target. Un solo formato da mantenere; si rilascia come MINOR con una nota nelle Upgrade notes (chi legge il manifest con uno script deve adattarsi).
 
 ## Che cosa NON promette
@@ -35,7 +36,7 @@ Non è «lo stesso artefatto in ogni ambiente» (il principio delle Pipelines): 
 - **FR-005**: Due Target NON DEVONO avere lo stesso nome (senza distinguere maiuscole).
 
 ### Il giro
-- **FR-006**: Il passo Suffix DEVE mostrare la lista e lasciare **spuntare da uno a N Target**. Con un solo Target spuntato il comportamento DEVE restare quello di oggi, tranne il formato del manifest (FR-012, D6). Gli agent esclusi valgono per **tutti** i Target (D5).
+- **FR-006**: Il passo Suffix DEVE mostrare la lista e lasciare **spuntare da uno a N Target**. Con un solo Target spuntato il comportamento DEVE restare quello di oggi, tranne il formato del manifest (FR-012, D6). Gli agent rinominati e il publish per agent si scelgono **per Target** (D8); l'intestazione della lista dice cosa è ogni colonna.
 - **FR-007**: All'apertura di una solution, le spunte DEVONO essere quelle dell'ultimo giro **per quella solution** (D3); i Target tolti dalla lista nel frattempo non compaiono.
 - **FR-008**: L'export di DEV (managed + unmanaged) DEVE avvenire **una volta sola**; ogni Target parte dagli **stessi byte**.
 - **FR-009**: La versione DEVE essere alzata **una sola volta** in DEV (con la conferma di oggi, 014) e valere per tutti gli zip.
@@ -52,7 +53,7 @@ Non è «lo stesso artefatto in ogni ambiente» (il principio delle Pipelines): 
 Dimensioni: numero di Target spuntati (1, 2, 3) × presenza di un Target con suffisso vuoto × publish on import per Target (uguale / diverso) × agent esclusi (nessuno / uno). Oracolo scritto dalla spec: numero di zip, un solo export, una sola scrittura di versione, differenze del manifest limitate ai nomi e al publish. Test negativi: nome duplicato, lista illeggibile, salvataggio fallito, Target tolto che era spuntato.
 
 ## Domande aperte
-Nessuna: tutte decise (D1–D7).
+Nessuna: tutte decise (D1–D8). Un'idea per dopo, fuori dalla 016: collegare ogni Target all'URL dell'ambiente di destinazione, per avvisare se si importa lo zip sbagliato (oggi la corrispondenza nome-ambiente è responsabilità di chi importa).
 
 ## Da ricordare al rilascio
 Cambia il formato del manifest e come si leggono i dati salvati (nuova lista di Target nelle impostazioni): è un **MINOR con Upgrade notes**, o un MAJOR se si decide che rompe gli script esistenti. Prima di rilasciare: avvisare dell'impatto (CLAUDE.md) e leggere `../PPTB-PUBLISHING-RULES.md`.
