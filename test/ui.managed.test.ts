@@ -77,7 +77,7 @@ describe('nota sopra l\'elenco: mondo × filtro (FR-003, FR-004)', () => {
         const ui = await view('only-managed', 'managed', 'UAT');
         const t = noteText(ui);
         expect(t).toContain('UAT holds only managed solutions');
-        expect(t).toContain('switch the active connection');
+        expect(t).toContain('open the tool on a connection to');
         expect(t).toContain('usually DEV');
     });
 
@@ -90,7 +90,7 @@ describe('nota sopra l\'elenco: mondo × filtro (FR-003, FR-004)', () => {
     it('con unmanaged presenti, la nota del filtro Managed rimanda al filtro Unmanaged e non parla di DEV', async () => {
         const ui = await view('mixed', 'managed');
         expect(noteText(ui)).toContain('cannot be the source of a package');
-        expect(noteText(ui)).not.toContain('switch the active connection');
+        expect(noteText(ui)).not.toContain('open the tool on a connection to');
     });
 
     it('cambiando filtro la nota sparisce e ricompare', async () => {
@@ -142,7 +142,7 @@ describe('banner nella solution managed (FR-001)', () => {
         expect(t).toContain('cannot be exported');
         expect(t).toContain('in UAT');
         expect(t).toContain('is what an import leaves behind');
-        expect(t).toContain('switch the active connection');
+        expect(t).toContain('open the tool on a connection to');
         expect(t).toContain('M1');
         expect(t).toContain('unmanaged');
         expect(t).toContain('import the package here');

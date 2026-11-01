@@ -393,8 +393,8 @@ function renderListNotice(filter: SolutionFilter, counts: Record<SolutionFilter,
     host.innerHTML = kind === 'downstream'
         ? `${env} holds only <strong>managed</strong> solutions, which is what you expect in UAT or
             PROD: a managed solution is what an import leaves behind, and Microsoft does not allow
-            exporting it. To build a package, switch the active connection to the environment where
-            these solutions are <strong>unmanaged</strong> — usually DEV — and run the tool there.`
+            exporting it. To build a package, open the tool on a connection to the environment where
+            these solutions are <strong>unmanaged</strong> — usually DEV, in another tool tab — and build it there.`
         : `Managed solutions cannot be exported, so they cannot be the source of a package.
             The solutions you can build from are under <strong>Unmanaged</strong>.`;
     host.hidden = false;
@@ -806,9 +806,9 @@ function notExportableBannerHtml(sol: Solution): string {
             <strong>This solution is managed and cannot be exported.</strong>
             A managed solution${env} is what an import leaves behind, so it is normal downstream,
             but Microsoft does not allow exporting it and it cannot be the source of a package.
-            To build one, switch the active connection to the environment where
-            <code>${escapeHtml(sol.uniqueName)}</code> is <strong>unmanaged</strong> — usually DEV —
-            and run the tool there; then import the package here.
+            To build one, open the tool on a connection to the environment where
+            <code>${escapeHtml(sol.uniqueName)}</code> is <strong>unmanaged</strong> — usually DEV, in another tool tab — and build the package there;
+            then import the package here.
         </div>`;
 }
 
