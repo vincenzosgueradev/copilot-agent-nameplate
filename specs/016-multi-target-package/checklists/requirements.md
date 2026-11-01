@@ -11,6 +11,6 @@
 - [x] Nessuna chiamata di rete in più; nessun dato personale: la lista sta nelle impostazioni locali
 - [x] Rischi e cosa i test non coprono dichiarati (`plan.md`, `quickstart.md`)
 - [x] Plan, research, data model, quickstart e tasks con tracciabilità presenti
-- [ ] **Assunzione P1 da confermare**: l'eccezione di publish per agent è uguale per tutti i Target e prevale sul default del Target (`research.md` §6)
+- [x] P1 confermata (D7): l'eccezione di publish per agent è uguale per tutti i Target e prevale sul default del Target (`research.md` §6)
 - [ ] Implementazione, mutazioni e prova a mano (T001–T023)
 - [ ] Al rilascio: Upgrade notes sul manifest (T024)

@@ -1,6 +1,6 @@
 # Specifica 016 — Targets: le destinazioni del rilascio, un solo giro
 
-**Stato**: **Proposta, non implementata.** Decisioni prese (D1–D6); plan, research, data-model, contratto del manifest, quickstart, tasks e checklist scritti. Resta da confermare l'assunzione P1 (vedi `research.md` §6).
+**Stato**: **Proposta, non implementata.** Decisioni prese (D1–D7); plan, research, data-model, contratto del manifest, quickstart, tasks e checklist scritti. Tutte le assunzioni confermate (D7 chiude P1).
 **Estende**: 002 (suffisso unico per la solution), 004 (versione alzata in DEV), artifact set (001 FR-078/FR-083), 012 (impostazioni per ambiente, come i pin). **Nasce da**: la domanda su come si arriva in PROD (vedi 015) e dall'idea dell'utente: una lista di destinazioni che ognuno compone e che il tool ricorda.
 
 ## Il problema
@@ -20,6 +20,7 @@ Chi promuove una solution da DEV ha una **lista di Targets** sua (per esempio UA
 - **D3 — Spunte al giro dopo**: quelle **usate l'ultima volta per quella solution**; una solution nuova parte senza spunte.
 - **D4 — Nome**: **Targets**. Si evita «Pipeline» perché il README dichiara il tool non compatibile con le Power Platform Pipelines native.
 - **D5 — Agent esclusi**: **uguali per tutti i Target** del giro. Si sceglie una volta quali agent rinominare; i Target cambiano solo il suffisso (e il publish on import).
+- **D7 — Eccezione di publish per agent**: vale la regola **più specifica**. L'eccezione dell'agent batte il default del Target, ed è la **stessa in tutti i Target** (come gli agent esclusi).
 - **D6 — Manifest**: **sempre il formato nuovo** (`targets[]`), anche con un solo Target. Un solo formato da mantenere; si rilascia come MINOR con una nota nelle Upgrade notes (chi legge il manifest con uno script deve adattarsi).
 
 ## Che cosa NON promette
@@ -51,7 +52,7 @@ Non è «lo stesso artefatto in ogni ambiente» (il principio delle Pipelines): 
 Dimensioni: numero di Target spuntati (1, 2, 3) × presenza di un Target con suffisso vuoto × publish on import per Target (uguale / diverso) × agent esclusi (nessuno / uno). Oracolo scritto dalla spec: numero di zip, un solo export, una sola scrittura di versione, differenze del manifest limitate ai nomi e al publish. Test negativi: nome duplicato, lista illeggibile, salvataggio fallito, Target tolto che era spuntato.
 
 ## Domande aperte
-Nessuna sulle decisioni (D1–D6). Un'assunzione del piano da confermare: l'eccezione di publish per agent è uguale per tutti i Target e prevale sul default del Target (`research.md` §6, checklist P1).
+Nessuna: tutte decise (D1–D7).
 
 ## Da ricordare al rilascio
 Cambia il formato del manifest e come si leggono i dati salvati (nuova lista di Target nelle impostazioni): è un **MINOR con Upgrade notes**, o un MAJOR se si decide che rompe gli script esistenti. Prima di rilasciare: avvisare dell'impatto (CLAUDE.md) e leggere `../PPTB-PUBLISHING-RULES.md`.
