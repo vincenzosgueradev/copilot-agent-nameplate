@@ -224,6 +224,25 @@ const MUTATIONS = [
     ['targets', 'src/services/targets.ts', '{ name: name.trim(), publishOnImport }]', '{ name, publishOnImport }]', 'targets: il nome aggiunto non viene ripulito'],
     ['targets', 'src/services/targets.ts', "map[environment] = list.map(t => ({ name: t.name, publishOnImport: t.publishOnImport }));", "map['*'] = list.map(t => ({ name: t.name, publishOnImport: t.publishOnImport }));", 'targets: la lista vale per ogni ambiente'],
     ['targets', 'src/services/targets.ts', 'names.map(n => (n === from ? to : n))', 'names.map(n => (n === from ? n : n))', 'targets: la rinomina non cambia le spunte'],
+    // ── spec 016: motore a piu' Target e confronto fra archivi
+    ['confronto', 'src/services/compare.ts', 'if (x && y && kind && allowed.has(path)) differing.push', 'if (x && y && kind) differing.push', 'confronto: una differenza non scritta da nessuna patch risulta attesa'],
+    ['confronto', 'src/services/compare.ts', 'if (x && y && kind && allowed.has(path)) differing.push', 'if (x && y && allowed.has(path)) differing.push', 'confronto: un file che la patch non scrive mai risulta atteso'],
+    ['confronto', 'src/services/compare.ts', 'if (x && y && sameBytes(x, y)) { identicalEntries++; continue; }', 'if (x && y) { identicalEntries++; continue; }', 'confronto: ogni entry risulta identica'],
+    ['confronto', 'src/services/compare.ts', String.raw`/^bots\/[^/]+\/bot\.xml$/`, String.raw`/^bots\/[^/]+\/bot\.xml/`, 'confronto: bot.xml.bak vale come bot.xml'],
+    ['confronto', 'src/services/compare.ts', String.raw`/^bots\/[^/]+\/configuration\.json$/`, String.raw`/^bots\/.+\/configuration\.json$/`, 'confronto: un percorso annidato vale come configuration.json'],
+    ['confronto', 'src/services/compare.ts', 'new Set([...reference.patchedPaths, ...other.patchedPaths])', 'new Set([...other.patchedPaths])', 'confronto: conta solo la patch del secondo Target'],
+    ['confronto', 'src/services/compare.ts', 'differing.sort((p, q) => p.path.localeCompare(q.path));', '', 'confronto: le differenze non sono in ordine'],
+    ['confronto', 'src/services/compare.ts', 'return { against, differing, identicalEntries, unexpected };', "return { against: '', differing, identicalEntries, unexpected };", 'confronto: il Target di riferimento non e\' nominato'],
+    ['motore', 'src/services/packaging.ts', "if (!targets.length) throw new Error('At least one target is needed.');", 'if (false) throw new Error();', 'motore: nessun Target viene accettato'],
+    ['motore', 'src/services/packaging.ts', 'if (seen.has(key)) throw', 'if (false) throw', 'motore: due Target con lo stesso nome vengono accettati'],
+    ['motore', 'src/services/packaging.ts', 'const key = t.name.trim().toLowerCase();', 'const key = t.name;', 'motore: i nomi doppi con altre maiuscole o spazi passano'],
+    ['motore', 'src/services/packaging.ts', '{ ...options, publishOnImport: target.publishOnImport }', '{ ...options }', 'motore: il publish del Target viene ignorato'],
+    ['motore', 'src/services/packaging.ts', 'compareArchives(first.managed, managed, first.target.name)', 'compareArchives(first.managed, first.managed, first.target.name)', 'motore: il confronto e\' del primo Target con se stesso'],
+    ['motore', 'src/services/packaging.ts', 'const first = results[0];', 'const first = results[results.length - 1];', 'motore: il riferimento e\' l\'ultimo Target invece del primo'],
+    ['motore', 'src/services/packaging.ts', '            && !(comparison?.unexpected.length);', '            && true;', 'motore: una differenza inattesa non rende non valido il Target'],
+    ['motore', 'src/services/packaging.ts', 'const valid = results.every(r => r.valid);', 'const valid = results.some(r => r.valid);', 'motore: basta un Target valido per dire valido il giro'],
+    ['motore', 'src/services/packaging.ts', "[{ name: suffix, publishOnImport: options.publishOnImport }]", "[{ name: suffix, publishOnImport: 'keep' }]", 'motore: runPackaging ignora il publish di partenza'],
+    ['motore', 'src/services/packaging.ts', "        valid,\n        versionChange,\n    };\n}\n\n/**\n * Un solo suffisso", "        valid: true,\n        versionChange,\n    };\n}\n\n/**\n * Un solo suffisso", 'motore: il giro risulta sempre valido'],
 ];
 
 const only = process.argv[2];

@@ -9,9 +9,9 @@ Regole del progetto (CLAUDE.md): a ogni modifica `npx tsc --noEmit`, `npm run bu
 - [x] T004 Test: `test/targets.service.test.ts` (85 test: matrice operazioni × stato, negativi, mutazioni gruppo `targets:`)
 
 ## Fase 2 — Motore
-- [ ] T005 `services/compare.ts`: confronto per entry e classificazione (FR-013)
-- [ ] T006 `runPackagingTargets` in `packaging.ts`; `runPackaging` come involucro (FR-008, FR-009, FR-010)
-- [ ] T007 Test: `test/engine.targets.test.ts` (matrice 24 combinazioni, un export, una scrittura di versione, regressione a un Target)
+- [x] T005 `services/compare.ts`: confronto per entry e classificazione (FR-013); una differenza e' attesa solo in `bots/<schema>/bot.xml` e `configuration.json` e solo dove una patch ha scritto
+- [x] T006 `runPackagingTargets` in `packaging.ts` (rifiuta lista vuota e nomi doppi prima di toccare DEV); `runPackaging` come involucro (FR-008, FR-009, FR-010)
+- [x] T007 Test: `test/engine.targets.test.ts` (matrice di 48 casi: un export, una scrittura di versione, contenuto di ogni zip, confronto; un Target = `runPackaging`) e `test/compare.test.ts` (26 test); 18 mutazioni (`confronto:` e `motore:`)
 
 ## Fase 3 — Artifact set, manifest, storico
 - [ ] T008 `writeArtifactSet` multi-Target e nome della cartella (FR-012)
@@ -39,7 +39,7 @@ Regole del progetto (CLAUDE.md): a ogni modifica `npx tsc --noEmit`, `npm run bu
 ## Matrici e negativi previsti (oracolo = spec, non codice)
 | Test | Dimensioni | Oracolo |
 |---|---|---|
-| Motore | Target spuntati (1, 2, 3) × un Target con suffisso vuoto (sì/no) × publish (uguale/diverso fra Target) × agent esclusi (nessuno/uno) = 24 | numero di zip = N; `exportPair` chiamato **1** volta; versione scritta **1** volta; ogni Target verificato; il confronto elenca solo nomi e `publishOnImport`; un Target = byte identici al risultato di `runPackaging` di oggi |
+| Motore | Target spuntati (1, 2, 3) × un Target con suffisso vuoto (sì/no) × publish (uguale/diverso fra Target) × agent esclusi (nessuno/uno) × eccezione di publish per agent (nessuna/una, D7) = 48 | numero di zip = N; `exportPair` chiamato **1** volta; versione scritta **1** volta; ogni Target verificato; il confronto elenca solo nomi e `publishOnImport`; un Target = byte identici al risultato di `runPackaging` di oggi |
 | Lista | stato (mai configurata / vuota / piena / illeggibile) × operazione (crea, rinomina, rimuovi, su, giù) | preset alla prima apertura; vuota resta vuota; illeggibile = mai configurata e se ne avvisa; nessun duplicato |
 | Schermata | Target spuntati (0, 1, 2) × Target singolo con selettore nascosto × agent escluso | Next spento con 0; selettore assente con 1; nome «dopo» corretto per il Target scelto; l'esclusione vale per tutti |
 

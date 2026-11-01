@@ -13,11 +13,12 @@
 import { exportPair, type ExportProgress } from './export';
 import { raiseSolutionVersion, type VersionChange } from './solutionVersion';
 import { relevantDrift } from './compat';
+import { compareArchives, type TargetComparison } from './compare';
 import { readPackage } from './package';
 import { applyPatch, buildPatchPlan } from './patch';
 import { buildZip, verifyZip, verificationPassed, type ExpectedValues } from './rezip';
 import { log } from './log';
-import type { PackageContents, PackagingOptions, PatchChange, VerificationResult } from '../types';
+import type { PackageContents, PackagingOptions, PatchChange, Target, VerificationResult } from '../types';
 
 export interface BuiltArchive {
     bytes: Uint8Array;
@@ -37,6 +38,28 @@ export interface PackagingResult {
     /** `true` solo se **entrambi** gli archivi hanno superato la verifica (FR-085). */
     valid: boolean;
     /** La versione scritta in DEV prima dell'export, o `null` se non e' stata toccata (FR-073c). */
+    versionChange: VersionChange | null;
+}
+
+/** Il risultato di un Target: il suo piano, i suoi due archivi e il confronto col primo (spec 016). */
+export interface TargetResult {
+    target: Target;
+    plan: PatchChange[];
+    managed: BuiltArchive;
+    unmanaged: BuiltArchive;
+    /** Entrambi gli archivi verificati e, dal secondo Target in poi, nessuna differenza inattesa col primo. */
+    valid: boolean;
+    /** `null` per il primo Target: e' il riferimento. */
+    comparison: TargetComparison | null;
+}
+
+/** Il risultato di un giro con uno o piu' Target: un solo export, una sola versione (FR-008, FR-009). */
+export interface MultiPackagingResult {
+    targets: TargetResult[];
+    exportMode: 'sync' | 'async';
+    exportSeconds: number;
+    /** `true` solo se **ogni** Target e' valido (FR-085). */
+    valid: boolean;
     versionChange: VersionChange | null;
 }
 
@@ -83,13 +106,21 @@ const pause = (listener: unknown): Promise<void> =>
  * in `solution.xml` (verificato, research.md §10), quindi i percorsi del piano valgono per
  * entrambi — e se un domani non fosse più vero, la verifica indipendente se ne accorge.
  */
-export async function runPackaging(
+export async function runPackagingTargets(
     solutionUniqueName: string,
-    suffix: string,
+    targets: readonly Target[],
     selectedAgents: string[],
     options: PackagingOptions,
     onProgress?: ExportProgress,
-): Promise<PackagingResult> {
+): Promise<MultiPackagingResult> {
+    if (!targets.length) throw new Error('At least one target is needed.');
+    const seen = new Set<string>();
+    for (const t of targets) {
+        const key = t.name.trim().toLowerCase();
+        if (seen.has(key)) throw new Error(`Two targets have the same name: "${t.name.trim()}".`);
+        seen.add(key);
+    }
+
     let versionChange: VersionChange | null = null;
     if (options.newVersion) {
         onProgress?.('raising the version in DEV…');
@@ -124,40 +155,84 @@ export async function runPackaging(
     unmanagedPkg.exportMode = pair.unmanaged.mode;
     unmanagedPkg.exportSeconds = pair.unmanaged.seconds;
 
-    const plan = buildPatchPlan(managedPkg, suffix, selectedAgents, options);
-
-    log(`Patch Plan: ${plan.length} modifiche `
-        + `(${plan.filter(c => c.state !== 'no-change').length} effettive).`);
-
     onProgress?.('patch and verify…');
     await pause(onProgress);
-    const managed = build(managedPkg, plan, options);
-    const unmanaged = build(unmanagedPkg, plan, options);
-    for (const [label, a] of [['managed', managed], ['unmanaged', unmanaged]] as const) {
-        log(`Verify ${label}: `
-            + `${a.verification.byteIdenticalEntries}/${a.expectedIdenticalEntries} `
-            + `byte-identical unpatched entries, patched values ${a.verification.patchedValuesConfirmed ? 'confirmed' : 'NOT confirmed'}.`,
-            a.verification.patchedValuesConfirmed ? 'info' : 'error');
+
+    const results: TargetResult[] = [];
+    for (const target of targets) {
+        // Il default del Target vale per ogni agent senza eccezione; l'eccezione per agent prevale (D7)
+        const targetOptions: PackagingOptions = { ...options, publishOnImport: target.publishOnImport };
+        const plan = buildPatchPlan(managedPkg, target.name, selectedAgents, targetOptions);
+        const label = target.name.trim() ? `[${target.name.trim()}]` : '(no suffix)';
+        log(`Patch Plan ${label}: ${plan.length} modifiche `
+            + `(${plan.filter(c => c.state !== 'no-change').length} effettive).`);
+
+        const managed = build(managedPkg, plan, targetOptions);
+        const unmanaged = build(unmanagedPkg, plan, targetOptions);
+        for (const [kind, a] of [['managed', managed], ['unmanaged', unmanaged]] as const) {
+            log(`Verify ${label} ${kind}: `
+                + `${a.verification.byteIdenticalEntries}/${a.expectedIdenticalEntries} `
+                + `byte-identical unpatched entries, patched values ${a.verification.patchedValuesConfirmed ? 'confirmed' : 'NOT confirmed'}.`,
+                a.verification.patchedValuesConfirmed ? 'info' : 'error');
+        }
+
+        // Dal secondo Target in poi: confronto col primo, che deve differire solo dove la patch scrive (FR-013)
+        const first = results[0];
+        const comparison = first
+            ? compareArchives(first.managed, managed, first.target.name)
+            : null;
+        if (comparison?.unexpected.length) {
+            log(`${label} differs from the first target in ${comparison.unexpected.length} `
+                + `unexpected entr${comparison.unexpected.length === 1 ? 'y' : 'ies'}: `
+                + comparison.unexpected.join('; '), 'error');
+        }
+
+        const valid = verificationPassed(managed.verification, managed.expectedIdenticalEntries)
+            && verificationPassed(unmanaged.verification, unmanaged.expectedIdenticalEntries)
+            && !(comparison?.unexpected.length);
+        results.push({ target, plan, managed, unmanaged, valid, comparison });
     }
 
-    const valid = verificationPassed(managed.verification, managed.expectedIdenticalEntries)
-        && verificationPassed(unmanaged.verification, unmanaged.expectedIdenticalEntries);
-
+    const valid = results.every(r => r.valid);
     if (valid) {
-        log(`Package pronti: managed ${managed.bytes.length} byte, `
-            + `unmanaged ${unmanaged.bytes.length} byte.`, 'success');
+        const bytes = results.map(r => r.managed.bytes.length).reduce((n, b) => n + b, 0);
+        log(`Package pronti: ${results.length} target, managed ${bytes} byte in totale.`, 'success');
     } else {
-        log('Verification failed on at least one of the two archives: the artifact is '
+        log('Verification failed on at least one archive: the artifact is '
             + 'unusable. The original exports remain importable.', 'error');
     }
 
     return {
-        plan,
-        managed,
-        unmanaged,
+        targets: results,
         exportMode: pair.managed.mode === 'async' || pair.unmanaged.mode === 'async' ? 'async' : 'sync',
         exportSeconds: pair.managed.seconds + pair.unmanaged.seconds,
         valid,
         versionChange,
+    };
+}
+
+/**
+ * Un solo suffisso, come prima della spec 016: involucro sottile del motore a piu' Target, che
+ * restituisce la forma di sempre. Un Target solo deve dare lo stesso risultato di allora (FR-006).
+ */
+export async function runPackaging(
+    solutionUniqueName: string,
+    suffix: string,
+    selectedAgents: string[],
+    options: PackagingOptions,
+    onProgress?: ExportProgress,
+): Promise<PackagingResult> {
+    const r = await runPackagingTargets(
+        solutionUniqueName, [{ name: suffix, publishOnImport: options.publishOnImport }],
+        selectedAgents, options, onProgress);
+    const only = r.targets[0]!;
+    return {
+        plan: only.plan,
+        managed: only.managed,
+        unmanaged: only.unmanaged,
+        exportMode: r.exportMode,
+        exportSeconds: r.exportSeconds,
+        valid: r.valid,
+        versionChange: r.versionChange,
     };
 }
