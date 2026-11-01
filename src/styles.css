@@ -2014,3 +2014,24 @@ select option {
 :root[data-theme="light"] .overlay { background: rgba(0, 0, 0, 0.35); }
 :root[data-theme="light"] .dialog { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2); }
 :root[data-theme="light"] .switch-thumb { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
+
+/* ── Targets: la lista delle destinazioni del rilascio (spec 016) ── */
+.target-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.target-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 12px;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+.target-row.is-on { border-color: var(--color-primary); }
+.target-row.is-dragging { opacity: 0.5; }
+.target-handle { cursor: grab; color: var(--color-text-muted); letter-spacing: -2px; user-select: none; padding: 0 4px; }
+.target-name { flex: 1 1 160px; max-width: 260px; }
+.target-publish { flex: 0 0 auto; width: auto; max-width: 170px; }
+.target-actions { margin-left: auto; display: inline-flex; gap: 4px; }
+.target-add { margin-top: 12px; }
+.target-switch { margin-left: auto; }
+.handoff--many .handoff-line { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.hint[hidden], .btn[hidden] { display: none; }
+#target-notice:empty { display: none; }

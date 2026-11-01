@@ -52,7 +52,8 @@ describe('stato tra solution (FR-044)', () => {
         await ui.crumb('Solutions');
         await ui.openSolution('S1');
         await ui.startRename();
-        expect(ui.suffixInput(), 'ritorno da un\'altra solution: azzerato').toBe('');
+        // Le spunte dei Target si ricordano per solution (spec 016, D3); esclusioni e publish per agent no
+        expect(ui.suffixInput(), 'ritorno da un\'altra solution: le spunte si ricordano').toBe('UAT');
         expect(ui.suffixRows().every(r => r.checked && r.publish === 'keep')).toBe(true);
     });
 
@@ -87,24 +88,24 @@ describe('stato tra solution (FR-044)', () => {
     });
 });
 
-describe('campo del suffisso', () => {
-    it('il preset attivo segue il valore; digitare altro lo spegne; Clear si abilita solo con un valore', async () => {
+describe('scegliere il suffisso con i Target', () => {
+    it('un preset si spunta da solo; scriverne un altro lo crea e sposta la spunta; il vuoto e\' il Target "no suffix"', async () => {
         const ui = await boot(WORLD);
         await ui.openSolution('S1');
-        await ui.startRename();
-        const clear = () => (ui.doc.getElementById('clear-suffix-btn') as HTMLButtonElement).disabled;
-        const active = () => Array.from(ui.doc.querySelectorAll('.chip-btn.is-active')).map(b => b.textContent?.trim());
-        expect(clear()).toBe(true);
-        expect(active()).toEqual([]);
+        await ui.startRenameBare();
+        expect(ui.ticked()).toEqual([]);
+        expect(ui.nextDisabled(), 'senza Target spuntati non si va avanti').toBe(true);
         await ui.preset('UAT');
         expect(ui.suffixInput()).toBe('UAT');
-        expect(active()).toEqual(['UAT']);
-        expect(clear()).toBe(false);
+        expect(ui.ticked()).toEqual(['UAT']);
+        expect(ui.nextDisabled()).toBe(false);
         await ui.typeSuffix('UAT2');
-        expect(active()).toEqual([]);
+        expect(ui.targetNames()).toContain('UAT2');
+        expect(ui.ticked()).toEqual(['UAT2']);
         await ui.clearSuffix();
+        expect(ui.ticked()).toEqual(['']);
         expect(ui.suffixInput()).toBe('');
-        expect(clear()).toBe(true);
+        expect(ui.nextDisabled()).toBe(false);
     });
 
     it('un suffisso vuoto toglie quello esistente e lo dice', async () => {
@@ -741,13 +742,30 @@ describe('contenuto non fidato: nessun HTML eseguibile', () => {
         const zip = Object.values(ui.written().zips)[0]!;
         expect(readProduced(zip).ava_a1!.name).toBe('<img src=x onerror=alert(1)> & "q" [UAT]');
     });
-    it('un suffisso con HTML non diventa HTML', async () => {
+    it('un nome di Target con HTML viene rifiutato: nessun Target creato, il messaggio e\' testo', async () => {
+        const ui = await boot(world);
+        await ui.openSolution('S1');
+        await ui.startRenameBare();
+        const before = ui.targetNames();
+        await ui.addTarget('<b>X</b>');
+        expect(ui.targetNames(), 'nessun Target creato').toEqual(before);
+        expect(ui.targetNotice()).toContain('not allowed');
+        expect(ui.doc.querySelector('#step-suffix b')).toBeNull();
+    });
+    it('un suffisso con caratteri speciali ma ammessi resta testo, in ogni schermata e nello zip', async () => {
+        const tricky = 'A&amp;B';
         const ui = await boot(world);
         await ui.openSolution('S1');
         await ui.startRename();
-        await ui.typeSuffix('<b>X</b>');
-        expect(ui.doc.querySelector('#step-suffix b')).toBeNull();
+        await ui.typeSuffix(tricky);
+        expect(ui.suffixInput()).toBe(tricky);
+        expect(ui.doc.querySelector('#step-suffix b, #step-suffix img:not([src="./logo-color.svg"])')).toBeNull();
         await ui.next();
-        expect(ui.doc.querySelector('#step-review b')).toBeNull();
+        expect(ui.reviewRows()[0]!.resulting).toBe(`<img src=x onerror=alert(1)> & "q" [${tricky}]`);
+        await ui.buildPackage();
+        await ui.toVerify();
+        await ui.save();
+        const zip = Object.values(ui.written().zips)[0]!;
+        expect(readProduced(zip).ava_a1!.name).toBe(`<img src=x onerror=alert(1)> & "q" [${tricky}]`);
     });
 });

@@ -16,7 +16,11 @@ import { askConfirm } from './services/ui';
 import { loadAgentCards } from './services/agentCards';
 import { MAX_PINS, pinFirst, readPins, setPinned } from './services/pins';
 import { runPackagingTargets, targetView, type MultiPackagingResult, type PackagingResult } from './services/packaging';
-import { agentOutcomes, buildName, publishModeFor } from './services/patch';
+import {
+    addTarget, moveTarget, readSelection, readTargets, removeTarget, renameTarget,
+    saveSelection, saveTargets, setTargetPublish, validateTargetName,
+} from './services/targets';
+import { agentOutcomes, buildName } from './services/patch';
 import { nextVersion, versionProblem } from './services/solutionVersion';
 import { relevantDrift } from './services/compat';
 import { splitSuffix } from './services/package';
@@ -35,6 +39,7 @@ import {
     type PatchChange,
     type PublishMode,
     type Solution,
+    type Target,
     type VerificationResult,
 } from './types';
 
@@ -61,8 +66,18 @@ const state = {
     isLoading: false,
     currentStep: 'welcome' as AppStep,
     // Packaging
-    /** Suffisso scelto, senza parentesi quadre. Vuoto = rimuove il suffisso esistente. */
-    suffix: '',
+    /** I Target dell'ambiente (spec 016): la lista che l'utente compone e il tool ricorda. */
+    targets: [] as Target[],
+    /** `true` quando la lista di questa connessione e' stata letta. */
+    targetsReady: false,
+    /** Nomi dei Target spuntati per la solution aperta (D3). Il nome e' il suffisso: vuoto = nessun suffisso. */
+    selectedTargets: [] as string[],
+    /** Il Target di cui le schermate mostrano i nomi: uno dei spuntati. */
+    activeTargetName: '',
+    /** `uniqueName` della solution a cui si riferiscono le spunte lette. */
+    selectionFor: '',
+    /** Perche' l'ultima modifica alla lista non e' valida o non e' stata salvata. */
+    targetNotice: '',
     options: { ...DEFAULT_OPTIONS } as PackagingOptions,
     /**
      * Versione della solution in DEV all'inizio dell'operazione. Resta fissa per tutta l'operazione:
@@ -674,7 +689,9 @@ function suffixesAfter(names: { name: string; selected: boolean }[], suffix: str
 
 /** Gli agent esclusi che restano con un suffisso diverso da quello nuovo: la causa dei nomi misti. */
 function clashingAgents(): AgentListItem[] {
-    const target = state.suffix.trim();
+    const active = activeTarget();
+    if (!active) return [];
+    const target = active.name.trim();
     return solutionAgents().filter(a =>
         state.excludedAgents.has(a.id) && (splitSuffix(a.name).currentSuffix ?? '') !== target);
 }
@@ -707,7 +724,9 @@ function selectSolution(solutionId: string, highlightAgentId = ''): void {
         state.excludedAgents.clear();
         state.options.publishByAgent = {};
         resetVersionPlan();
-        state.suffix = '';
+        state.selectedTargets = [];
+        state.selectionFor = '';
+        state.activeTargetName = '';
         state.packaging = null;
     }
     state.browsingSolutionId = solutionId;
@@ -869,7 +888,7 @@ function resetVersionPlan(): void {
     state.options.newVersion = null;
 }
 
-function startRename(): void {
+async function startRename(): Promise<void> {
     const sol = state.activeSolution;
     const agents = solutionAgents();
     if (!sol || !agents.length) return;
@@ -883,6 +902,7 @@ function startRename(): void {
     // un package preparato o un numero digitato a mano non si buttano tornando alla solution.
     if (!state.versionFrom || (!state.packaging && !state.versionTouched)) state.versionFrom = sol.version;
     syncVersionOption();
+    await ensureTargets(sol);
     navigateTo('suffix');
     log(`Rename in ${sol.friendlyName || sol.uniqueName}: ${agents.length} agent(s)`);
 }
@@ -1041,7 +1061,112 @@ function navigateTo(step: AppStep): void {
 
 // ── Step: suffisso e opzioni ──────────────────────────────────────────────────
 
-const SUFFIX_PRESETS = ['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'];
+// ── Targets (spec 016) ────────────────────────────────────────────────────────
+
+/** I Target spuntati, nell'ordine della lista. */
+function selectedTargetList(): Target[] {
+    return state.targets.filter(t => state.selectedTargets.includes(t.name));
+}
+
+/** Il Target di cui le schermate mostrano i nomi: quello scelto nel selettore se e' spuntato, altrimenti il primo spuntato. */
+function activeTarget(): Target | null {
+    const list = selectedTargetList();
+    return list.find(t => t.name === state.activeTargetName) ?? list[0] ?? null;
+}
+
+/** Il suffisso del Target mostrato; vuoto se nessun Target e' spuntato. */
+const activeSuffix = (): string => activeTarget()?.name ?? '';
+
+/** L'etichetta di un Target nei testi: `[UAT]`, o «no suffix». */
+const targetLabel = (name: string): string => (name.trim() ? `[${name.trim()}]` : 'no suffix');
+
+/** Il publish on import di un agent per il Target mostrato: la sua eccezione batte il default del Target (D7). */
+function agentPublishMode(schemaName: string): PublishMode {
+    return state.options.publishByAgent?.[schemaName] ?? activeTarget()?.publishOnImport ?? 'keep';
+}
+
+/** Legge la lista dell'ambiente (una volta per connessione) e le spunte della solution aperta. */
+async function ensureTargets(sol: Solution): Promise<void> {
+    if (!state.targetsReady) {
+        state.targets = await readTargets(state.connectionName);
+        state.targetsReady = true;
+    }
+    if (state.selectionFor !== sol.uniqueName) {
+        state.selectedTargets = await readSelection(state.connectionName, sol.uniqueName, state.targets);
+        state.selectionFor = sol.uniqueName;
+    }
+}
+
+/** Salva la lista. Un errore non blocca il lavoro: si dice che la lista dura fino alla chiusura (FR-004). */
+function persistTargets(renamed?: { from: string; to: string }): void {
+    saveTargets(state.connectionName, state.targets, renamed).catch(err => {
+        state.targetNotice = `Not saved, the list lasts only until you close the tool: ${describeError(err)}`;
+        log(`Targets not saved: ${describeError(err)}`, 'warning');
+        renderTargetNotice();
+    });
+}
+
+function persistSelection(): void {
+    const sol = state.activeSolution;
+    if (!sol) return;
+    saveSelection(state.connectionName, sol.uniqueName, selectedTargetList().map(t => t.name)).catch(err =>
+        log(`The selected targets were not saved: ${describeError(err)}`, 'warning'));
+}
+
+function renderTargetNotice(): void {
+    const el = document.getElementById('target-notice');
+    if (el) el.textContent = state.targetNotice;
+}
+
+/** I nomi dei Target per i file dell'elenco: senza nessuno spuntato si mostra il caso del suffisso vuoto. */
+const artifactTargetNames = (): string[] => {
+    const names = selectedTargetList().map(t => t.name);
+    return names.length ? names : [''];
+};
+
+/** Quanti archivi finiranno su disco: uno per Target e, con le copie extra, anche l'unmanaged di ciascuno e i due originali. */
+function archiveCount(): number {
+    const n = Math.max(1, selectedTargetList().length);
+    return state.options.keepSourceArtifacts ? n * 2 + 2 : n;
+}
+
+/** Un selettore dei Target spuntati, quando sono piu' di uno: dice di quale si vedono i nomi. */
+function targetSwitchHtml(): string {
+    const list = selectedTargetList();
+    if (list.length < 2) return '';
+    const active = activeTarget();
+    return `<div class="segmented target-switch" role="group" aria-label="Show the names for">${list.map(t => `
+        <button type="button" class="segment${t === active ? ' active' : ''}" aria-pressed="${t === active}"
+            data-target-view="${escapeHtml(t.name)}">${escapeHtml(targetLabel(t.name))}</button>`).join('')}</div>`;
+}
+
+/** Il clic sul selettore: sceglie il Target mostrato e lascia a chi chiama il ridisegno. */
+function bindTargetSwitch(host: Element | null, onChange: () => void): void {
+    host?.addEventListener('click', ev => {
+        const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-target-view]');
+        if (!btn) return;
+        state.activeTargetName = btn.dataset.targetView ?? '';
+        onChange();
+    });
+}
+
+/** La posizione del Target mostrato nel risultato del giro (stesso ordine dei Target spuntati). */
+function activeIndex(multi: MultiPackagingResult): number {
+    const name = activeTarget()?.name;
+    return Math.max(0, multi.targets.findIndex(t => t.target.name === name));
+}
+
+/** Il riepilogo dei Target spuntati: con uno solo, il suffisso come prima. */
+function targetsSummaryHtml(): string {
+    const list = selectedTargetList();
+    if (list.length < 2) {
+        const s = activeSuffix();
+        return s ? `<strong>[${escapeHtml(s)}]</strong>` : '<span class="cell-muted">none — removes the existing one</span>';
+    }
+    return list.map(t => t.name.trim()
+        ? `<strong>[${escapeHtml(t.name.trim())}]</strong>` : '<span class="cell-muted">no suffix</span>').join(' ');
+}
+
 
 function stepperHtml(active: 1 | 2 | 3 | 4 | 5): string {
     const steps = ['Suffix', 'Review', 'Preview', 'Checks', 'Result'];
@@ -1108,17 +1233,23 @@ function versionHintHtml(from: string, to: string | null): string {
         <span class="vline"><em>Update</em> and <em>Stage for upgrade</em> keep them.</span>`;
 }
 
-function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): string {
+function artifactListHtml(sol: Solution, targetNames: string[], keepExtras: boolean): string {
     // Il file porta la versione che avra' il package: quella nuova se si alza, altrimenti quella di DEV
     const base = `${sol.uniqueName}_${(state.options.newVersion ?? state.versionFrom ?? sol.version).replace(/\./g, '_')}`;
-    const tag = suffix.trim() || 'nosuffix';
-    const rows: Array<[boolean, string, string]> = [
-        [true, `${base}_managed_${tag}.zip`,
-            'The only one to import into UAT or PROD. Being managed, it creates no '
-            + 'unmanaged layer in the target environment.'],
-        [keepExtras, `${base}_unmanaged_${tag}.zip`,
-            'The same patch, unmanaged, for source control or a development environment. '
-            + 'Never import it downstream.'],
+    const many = targetNames.length > 1;
+    const rows: Array<[boolean, string, string]> = [];
+    for (const name of targetNames) {
+        const tag = name.trim() || 'nosuffix';
+        rows.push(
+            [true, `${base}_managed_${tag}.zip`,
+                'The only one to import into UAT or PROD. Being managed, it creates no '
+                + 'unmanaged layer in the target environment.'],
+            [keepExtras, `${base}_unmanaged_${tag}.zip`,
+                'The same patch, unmanaged, for source control or a development environment. '
+                + 'Never import it downstream.'],
+        );
+    }
+    rows.push(
         [keepExtras, 'source_managed.zip',
             'The original managed export, unpatched. Re-import it to go back; beside the '
             + 'patched one it proves a single element was touched.'],
@@ -1128,7 +1259,7 @@ function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): s
         [true, 'manifest.json',
             'Who, when, from where, the suffix applied and every file hash. It tells apart '
             + 'two artifacts of the same version built for different environments.'],
-    ];
+    );
     const n = rows.filter(([on, f]) => on && f.endsWith('.zip')).length;
     return `
         <ul class="art-list">${rows.map(([on, file, desc]) => `
@@ -1143,7 +1274,7 @@ function artifactListHtml(sol: Solution, suffix: string, keepExtras: boolean): s
             </li>`).join('')}</ul>
         <p class="hint">${n === 1
             ? 'One archive: <strong>a single save</strong>.'
-            : `${n} archives: <strong>${n} saves</strong>, one per file.`}</p>`;
+            : `${n} archives: <strong>${n} saves</strong>, one per file.`}${many ? ' Each target gets its own archives.' : ''}</p>`;
 }
 
 const PUBLISH_LABELS: Record<PublishMode, string> = {
@@ -1159,7 +1290,7 @@ function setPublishMode(schemaName: string, mode: PublishMode): void {
 
 /** Il toggle di un agent: stessa grammatica del resto dell'interfaccia, il valore attivo evidenziato. */
 function publishToggleHtml(schemaName: string): string {
-    const current = publishModeFor(state.options, schemaName);
+    const current = agentPublishMode(schemaName);
     return `<div class="toggle-group toggle-group--sm" role="group"
             aria-label="Publish on import">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
         <button class="toggle-btn${current === m ? ' is-active' : ''}" data-publish="${escapeHtml(schemaName)}"
@@ -1172,8 +1303,8 @@ function publishToggleHtml(schemaName: string): string {
  */
 function bulkToggleHtml(): string {
     const chosen = selectedAgents();
-    const first = chosen[0] ? publishModeFor(state.options, chosen[0].schemaName) : null;
-    const common = first && chosen.every(a => publishModeFor(state.options, a.schemaName) === first) ? first : null;
+    const first = chosen[0] ? agentPublishMode(chosen[0].schemaName) : null;
+    const common = first && chosen.every(a => agentPublishMode(a.schemaName) === first) ? first : null;
     return `<div class="toggle-group toggle-group--sm" role="group" aria-label="Publish on import for all ticked agents">${
         (Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
         <button class="toggle-btn${common === m ? ' is-active' : ''}" data-publish-all="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}</div>`;
@@ -1248,7 +1379,9 @@ function checkHtml(attr: string, label: string, on: boolean): string {
 function agentRowsHtml(): string {
     const agents = solutionAgents();
     const names = agents.map(a => ({ name: a.name, selected: !state.excludedAgents.has(a.id) }));
-    const mixed = suffixesAfter(names, state.suffix);
+    const active = activeTarget();
+    const suffix = active?.name ?? '';
+    const mixed = active ? suffixesAfter(names, suffix) : [];
     return `
         <table class="data-table data-table--fill">
             <colgroup><col style="width:68px"><col style="width:28%"><col style="width:96px"><col style="width:28%"><col></colgroup>
@@ -1256,9 +1389,9 @@ function agentRowsHtml(): string {
                 agents.every(a => !state.excludedAgents.has(a.id)))}</th><th>Agent</th><th>Agent type</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
             <tbody>${agents.map(a => {
                 const on = !state.excludedAgents.has(a.id);
-                const next = buildName(a.name, state.suffix);
+                const next = buildName(a.name, suffix);
                 const kept = splitSuffix(a.name).currentSuffix ?? '';
-                const clash = !on && kept !== state.suffix.trim();   // un agent lasciato com'e' dice sempre che suffisso tiene
+                const clash = !on && !!active && kept !== suffix.trim();   // un agent lasciato com'e' dice sempre che suffisso tiene
                 const offText = clash
                     ? `left as it is <span class="cell-warn">— keeps ${kept ? `[${escapeHtml(kept)}]` : 'no suffix'}</span>`
                     : 'left as it is';
@@ -1268,7 +1401,7 @@ function agentRowsHtml(): string {
                     <td class="cell-strong" title="${escapeHtml(a.name)}">${agentCellHtml(a)}</td>
                     <td class="cell-type">${agentKindHtml(a.id)}</td>
                     <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap" title="${escapeHtml(next)}">${on
-                        ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '')
+                        ? (active ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '') : '<span class="cell-muted">—</span>')
                         : offText}</td>
                     <td>${on ? publishToggleHtml(a.schemaName) : '<span class="cell-muted">—</span>'}</td>
                 </tr>`;
@@ -1295,13 +1428,41 @@ function agentRowsHtml(): string {
         ${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}`;
 }
 
+/** Le righe della lista dei Target: casella, nome, publish on import, ordine e rimozione. */
+function targetRowsHtml(): string {
+    if (!state.targets.length) return '<li class="hint">No targets yet: add one below.</li>';
+    return state.targets.map((t, i) => {
+        const on = state.selectedTargets.includes(t.name);
+        const label = targetLabel(t.name);
+        return `
+        <li class="target-row${on ? ' is-on' : ''}" data-target-index="${i}">
+            <span class="target-handle" draggable="true" title="Drag to reorder" aria-hidden="true">&#8942;&#8942;</span>
+            ${checkHtml('data-target-pick', `Build for ${label}`, on)}
+            <input class="text-input target-name" type="text" data-target-name maxlength="${SUFFIX_MAX}"
+                autocomplete="off" placeholder="(no suffix)" aria-label="Target name"
+                value="${escapeHtml(t.name)}">
+            <select class="text-input target-publish" data-target-publish
+                aria-label="Publish on import for ${escapeHtml(label)}">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
+                <option value="${m}"${t.publishOnImport === m ? ' selected' : ''}>${PUBLISH_LABELS[m]}</option>`).join('')}
+            </select>
+            <span class="target-actions">
+                <button type="button" class="btn btn--secondary btn--sm" data-target-act="up"
+                    aria-label="Move ${escapeHtml(label)} up"${i === 0 ? ' disabled' : ''}>${icon('chevron-up', 'icon--sm')}</button>
+                <button type="button" class="btn btn--secondary btn--sm" data-target-act="down"
+                    aria-label="Move ${escapeHtml(label)} down"${i === state.targets.length - 1 ? ' disabled' : ''}>${icon('chevron-down', 'icon--sm')}</button>
+                <button type="button" class="btn btn--secondary btn--sm" data-target-act="remove"
+                    aria-label="Remove ${escapeHtml(label)}">${icon('close', 'icon--sm')}</button>
+            </span>
+        </li>`;
+    }).join('');
+}
+
 function renderSuffixStep(): void {
     const sol = state.activeSolution;
     const agents = solutionAgents();
     if (!sol || !agents.length) { navigateTo('welcome'); return; }
     renderBreadcrumb();
 
-    const draft = state.suffix;
     els.stepSuffix.innerHTML = `
         <div class="step-header step-header-row">
             <div class="step-id">${icon('tag')}<h2 class="step-title">Suffix for the target environment</h2></div>
@@ -1309,29 +1470,29 @@ function renderSuffixStep(): void {
         </div>
 
         <div class="stack">
-                <section class="panel">
+                <section class="panel" id="targets-panel">
                     <div class="panel-head">
-                        <h3 class="panel-heading">${icon('tag', 'icon--head')}Suffix</h3>
-                        <span class="panel-sub">added in square brackets after the name</span>
+                        <h3 class="panel-heading">${icon('tag', 'icon--head')}Targets</h3>
+                        <span class="panel-sub">tick the environments to build for; each one gets its own suffix</span>
                     </div>
                     <div class="panel-body">
-                        <div class="suffix-row">
+                        <ul class="target-list" id="target-list">${targetRowsHtml()}</ul>
+                        <p class="hint hint--warn" id="target-none"${selectedTargetList().length ? ' hidden' : ''}>
+                            Tick at least one target to continue.</p>
+                        <div class="target-add">
                             <div class="input-row">
-                                <input id="suffix-input" class="text-input" type="text"
+                                <input id="target-new" class="text-input" type="text"
                                     maxlength="${SUFFIX_MAX}" autocomplete="off"
-                                    placeholder="e.g. UAT" value="${escapeHtml(draft)}">
-                                <button id="clear-suffix-btn" class="btn btn--secondary btn--sm"
-                                    ${draft ? '' : 'disabled'}>Clear</button>
+                                    placeholder="Add a target, e.g. HOTFIX">
+                                <button type="button" id="target-add-btn" class="btn btn--secondary btn--sm">Add</button>
+                                <button type="button" id="target-add-empty-btn" class="btn btn--secondary btn--sm"
+                                    ${state.targets.some(t => t.name === '') ? 'hidden' : ''}>Add "no suffix"</button>
                             </div>
-                            <span class="suffix-or">or</span>
-                            <div class="chip-row">
-                                ${SUFFIX_PRESETS.map(p => `
-                                    <button class="chip-btn ${p === draft ? 'is-active' : ''}"
-                                        data-preset="${p}">${p}</button>`).join('')}
-                            </div>
+                            <p class="hint hint--warn" id="target-notice" role="alert">${escapeHtml(state.targetNotice)}</p>
                         </div>
                         <p class="hint" style="margin-top:8px">
-                            Leave it empty to <strong>remove</strong> the existing suffix.
+                            A target without a suffix <strong>removes</strong> the existing one.
+                            Drag the handle or use the arrows to reorder. The list is remembered for this environment.
                         </p>
                     </div>
                 </section>
@@ -1340,6 +1501,7 @@ function renderSuffixStep(): void {
                     <div class="panel-head">
                         <h3 class="panel-heading">${icon('bot', 'icon--head')}Agents</h3>
                         <span class="panel-sub">all renamed with the same suffix; untick to leave one as it is</span>
+                        <div id="target-switch-host">${targetSwitchHtml()}</div>
                     </div>
                     <div class="panel-body" id="agent-list">${agentRowsHtml()}</div>
                 </section>
@@ -1384,7 +1546,7 @@ function renderSuffixStep(): void {
                         </label>
                     </div>
                     <div class="panel-body" id="artifact-list">
-                        ${artifactListHtml(sol, draft, state.options.keepSourceArtifacts)}
+                        ${artifactListHtml(sol, artifactTargetNames(), state.options.keepSourceArtifacts)}
                     </div>
                 </section>
         </div>
@@ -1394,21 +1556,22 @@ function renderSuffixStep(): void {
             <button class="btn btn--primary" id="next-btn">Review ${icon('arrow-right', 'icon--sm')}</button>
         </div>`;
 
-    const input = document.getElementById('suffix-input') as HTMLInputElement;
-    const clearBtn = document.getElementById('clear-suffix-btn') as HTMLButtonElement;
-
     const refreshArtifacts = () => {
         const host = els.stepSuffix.querySelector('#artifact-list');
         if (host) {
-            host.innerHTML = artifactListHtml(sol, state.suffix, state.options.keepSourceArtifacts);
+            host.innerHTML = artifactListHtml(sol, artifactTargetNames(), state.options.keepSourceArtifacts);
         }
     };
 
     const nextBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#next-btn')!;
-    const refreshNext = () => { nextBtn.disabled = selectedAgents().length === 0 || versionIssue() !== null; };
+    const refreshNext = () => {
+        nextBtn.disabled = selectedTargetList().length === 0 || selectedAgents().length === 0 || versionIssue() !== null;
+    };
     const refreshAgents = () => {
         const host = els.stepSuffix.querySelector('#agent-list');
         if (host) host.innerHTML = agentRowsHtml();
+        const sw = els.stepSuffix.querySelector('#target-switch-host');
+        if (sw) sw.innerHTML = targetSwitchHtml();
         syncSelectAll();
         refreshNext();
     };
@@ -1455,22 +1618,122 @@ function renderSuffixStep(): void {
 
     syncSelectAll();
 
-    const sync = () => {
-        state.suffix = input.value;
-        clearBtn.disabled = !input.value;
-        document.querySelectorAll<HTMLElement>('.chip-btn').forEach(b => {
-            b.classList.toggle('is-active', b.dataset.preset === input.value);
-        });
+    // ── Targets: lista, spunte, nomi e ordine (spec 016)
+    const listEl = els.stepSuffix.querySelector<HTMLElement>('#target-list')!;
+    const newInput = els.stepSuffix.querySelector<HTMLInputElement>('#target-new')!;
+    const addBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#target-add-btn')!;
+    const addEmptyBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#target-add-empty-btn')!;
+    const refreshTargets = () => {
+        listEl.innerHTML = targetRowsHtml();
+        addEmptyBtn.hidden = state.targets.some(t => t.name === '');
+        const none = els.stepSuffix.querySelector<HTMLElement>('#target-none');
+        if (none) none.hidden = selectedTargetList().length > 0;
+        renderTargetNotice();
         refreshArtifacts();
         refreshAgents();
     };
+    const complain = (message: string) => { state.targetNotice = message; renderTargetNotice(); };
+    const add = (name: string) => {
+        const problem = validateTargetName(name, state.targets);
+        if (problem) { complain(problem); return; }
+        state.targetNotice = '';
+        state.targets = addTarget(state.targets, name);
+        state.selectedTargets = [...state.selectedTargets, name.trim()];
+        persistTargets();
+        persistSelection();
+        newInput.value = '';
+        refreshTargets();
+    };
+    addBtn.addEventListener('click', () => {
+        if (!newInput.value.trim()) { complain('Type a name for the target.'); return; }
+        add(newInput.value);
+    });
+    newInput.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') { ev.preventDefault(); addBtn.click(); }
+    });
+    addEmptyBtn.addEventListener('click', () => add(''));
+
+    listEl.addEventListener('change', ev => {
+        const el = ev.target as HTMLInputElement | HTMLSelectElement;
+        const i = Number(el.closest<HTMLElement>('[data-target-index]')?.dataset.targetIndex);
+        const target = state.targets[i];
+        if (!target) return;
+        if (el.matches('[data-target-pick]')) {
+            const on = (el as HTMLInputElement).checked;
+            state.selectedTargets = on
+                ? [...state.selectedTargets, target.name]
+                : state.selectedTargets.filter(n => n !== target.name);
+            persistSelection();
+        } else if (el.matches('[data-target-publish]')) {
+            state.targets = setTargetPublish(state.targets, i, el.value as PublishMode);
+            persistTargets();
+        } else if (el.matches('[data-target-name]')) {
+            const problem = validateTargetName(el.value, state.targets, i);
+            if (problem) { complain(problem); el.value = target.name; return; }
+            const from = target.name;
+            const to = el.value.trim();
+            state.targetNotice = '';
+            state.targets = renameTarget(state.targets, i, to);
+            state.selectedTargets = state.selectedTargets.map(n => (n === from ? to : n));
+            if (state.activeTargetName === from) state.activeTargetName = to;
+            persistTargets({ from, to });
+            persistSelection();
+        } else {
+            return;
+        }
+        refreshTargets();
+    });
+    listEl.addEventListener('click', ev => {
+        const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-target-act]');
+        if (!btn) return;
+        const i = Number(btn.closest<HTMLElement>('[data-target-index]')?.dataset.targetIndex);
+        const act = btn.dataset.targetAct;
+        if (act === 'up') state.targets = moveTarget(state.targets, i, i - 1);
+        else if (act === 'down') state.targets = moveTarget(state.targets, i, i + 1);
+        else if (act === 'remove') {
+            const gone = state.targets[i]?.name;
+            state.targets = removeTarget(state.targets, i);
+            state.selectedTargets = state.selectedTargets.filter(n => n !== gone);
+            persistSelection();
+        } else {
+            return;
+        }
+        state.targetNotice = '';
+        persistTargets();
+        refreshTargets();
+    });
+    // Il trascinamento chiama la stessa funzione dei pulsanti: i test coprono quella
+    let dragFrom = -1;
+    listEl.addEventListener('dragstart', ev => {
+        const row = (ev.target as HTMLElement).closest<HTMLElement>('[data-target-index]');
+        if (!row) return;
+        dragFrom = Number(row.dataset.targetIndex);
+        ev.dataTransfer?.setData('text/plain', String(dragFrom));
+        if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
+        row.classList.add('is-dragging');
+    });
+    listEl.addEventListener('dragover', ev => { if (dragFrom >= 0) ev.preventDefault(); });
+    listEl.addEventListener('drop', ev => {
+        const row = (ev.target as HTMLElement).closest<HTMLElement>('[data-target-index]');
+        if (!row || dragFrom < 0) return;
+        ev.preventDefault();
+        const from = dragFrom;
+        dragFrom = -1;
+        const to = Number(row.dataset.targetIndex);
+        if (from !== to) {
+            state.targets = moveTarget(state.targets, from, to);
+            state.targetNotice = '';
+            persistTargets();
+        }
+        refreshTargets();
+    });
+    listEl.addEventListener('dragend', () => {
+        dragFrom = -1;
+        listEl.querySelectorAll('.is-dragging').forEach(r => r.classList.remove('is-dragging'));
+    });
+    bindTargetSwitch(els.stepSuffix.querySelector('#target-switch-host'), refreshAgents);
     refreshAgents();
 
-    input.addEventListener('input', sync);
-    clearBtn.addEventListener('click', () => { input.value = ''; sync(); input.focus(); });
-    document.querySelectorAll<HTMLElement>('.chip-btn').forEach(b => {
-        b.addEventListener('click', () => { input.value = b.dataset.preset!; sync(); });
-    });
     const refreshVersion = () => {
         syncVersionOption();
         const hint = els.stepSuffix.querySelector('#version-hint');
@@ -1497,7 +1760,8 @@ function renderSuffixStep(): void {
 
     els.stepSuffix.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('solution'));
     els.stepSuffix.querySelector('#next-btn')!.addEventListener('click', async () => {
-        if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;
+        if (selectedTargetList().some(t => t.name.trim() === '') && !(await confirmNoSuffix())) return;
+        persistSelection();
         navigateTo('review');
     });
 }
@@ -1517,12 +1781,12 @@ function renderReviewStep(): void {
     if (!sol || !chosen.length) { navigateTo('welcome'); return; }
     renderBreadcrumb();
 
-    const rows = chosen.map(a => ({ agent: a, next: buildName(a.name, state.suffix) }));
+    const rows = chosen.map(a => ({ agent: a, next: buildName(a.name, activeSuffix()) }));
     const tooLong = rows.some(r => r.next.length > TEAMS_NAME_LIMIT);
     const unchanged = rows.every(r => r.next === r.agent.name);
     const mixed = suffixesAfter(
         solutionAgents().map(a => ({ name: a.name, selected: !state.excludedAgents.has(a.id) })),
-        state.suffix);
+        activeSuffix());
 
     els.stepReview.innerHTML = `
         <div class="step-header step-header-row">
@@ -1535,15 +1799,14 @@ function renderReviewStep(): void {
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('pencil', 'icon--head')}Rename</h3>
                     <span class="panel-sub">what you are about to change</span>
+                    <div id="target-switch-host">${targetSwitchHtml()}</div>
                 </div>
                 <div class="panel-body">
                     <div class="kv"><span class="kv-key">Solution</span>
                         <span class="kv-val">${escapeHtml(sol.friendlyName || sol.uniqueName)}
                         <span class="cell-muted">${escapeHtml(sol.version)}</span></span></div>
-                    <div class="kv"><span class="kv-key">Suffix</span>
-                        <span class="kv-val">${state.suffix
-                            ? `<strong>[${escapeHtml(state.suffix)}]</strong>`
-                            : '<span class="cell-muted">none — removes the existing one</span>'}</span></div>
+                    <div class="kv"><span class="kv-key">${selectedTargetList().length > 1 ? 'Targets' : 'Suffix'}</span>
+                        <span class="kv-val">${targetsSummaryHtml()}</span></div>
                     <table class="data-table" style="margin-top:12px">
                         <thead><tr><th>Agent</th><th>Resulting name</th><th>Publish on import</th>
                             <th class="col-num">Length</th></tr></thead>
@@ -1552,7 +1815,7 @@ function renderReviewStep(): void {
                                 <td class="cell-muted">${agentIconHtml(r.agent.id, 20)} ${escapeHtml(r.agent.name)}
                                     <code>${escapeHtml(r.agent.schemaName)}</code></td>
                                 <td class="cell-strong cell-nowrap">${escapeHtml(r.next)}</td>
-                                <td class="cell-nowrap">${PUBLISH_LABELS[publishModeFor(state.options, r.agent.schemaName)]}</td>
+                                <td class="cell-nowrap">${PUBLISH_LABELS[agentPublishMode(r.agent.schemaName)]}</td>
                                 <td class="col-num ${r.next.length > TEAMS_NAME_LIMIT ? 'kv-val--warn' : ''}">${r.next.length} / ${TEAMS_NAME_LIMIT}</td>
                             </tr>`).join('')}</tbody>
                     </table>
@@ -1585,9 +1848,13 @@ function renderReviewStep(): void {
                     <div class="kv"><span class="kv-key">Version</span>
                         <span class="kv-val" id="review-version">${versionHintNow()}</span></div>
                     <div class="kv"><span class="kv-key">Artifacts produced</span>
-                        <span class="kv-val">${state.options.keepSourceArtifacts
-                            ? `4 archives <span class="cell-muted">— managed, unmanaged and the two originals</span>`
-                            : `1 archive <span class="cell-muted">— only the managed one to import</span>`}
+                        <span class="kv-val">${selectedTargetList().length > 1
+                            ? (state.options.keepSourceArtifacts
+                                ? `${archiveCount()} archives <span class="cell-muted">— managed and unmanaged for each target, and the two originals</span>`
+                                : `${archiveCount()} archives <span class="cell-muted">— only the managed ones to import, one per target</span>`)
+                            : (state.options.keepSourceArtifacts
+                                ? `4 archives <span class="cell-muted">— managed, unmanaged and the two originals</span>`
+                                : `1 archive <span class="cell-muted">— only the managed one to import</span>`)}
                         + manifest</span></div>
 
                     <h4 class="section-title">What happens next</h4>
@@ -1596,7 +1863,9 @@ function renderReviewStep(): void {
                             <span><strong>Two exports</strong> of the solution, managed and
                             unmanaged, both patched: they also verify each other.</span></li>
                         <li>${icon('archive', 'icon--archive icon--sm')}
-                            <span>On disk ${state.options.keepSourceArtifacts
+                            <span>On disk ${selectedTargetList().length > 1
+                                ? `<strong>${archiveCount()} archives</strong> and the manifest, from one export and one version.`
+                                : state.options.keepSourceArtifacts
                                 ? `<strong>4 archives</strong> and the manifest.`
                                 : `<strong>only the managed one</strong>, the only one you will
                                    import, and the manifest.`}</span></li>
@@ -1621,6 +1890,7 @@ function renderReviewStep(): void {
                 ${icon('package', 'icon--sm')} Build the package</button>
         </div>`;
 
+    bindTargetSwitch(els.stepReview.querySelector('#target-switch-host'), renderReviewStep);
     els.stepReview.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('suffix'));
     els.stepReview.querySelector('#next-btn')!.addEventListener('click', async () => {
         if (state.options.newVersion && !(await confirmVersionWrite(sol))) return;
@@ -1682,7 +1952,7 @@ function renderPreviewStep(): void {
     // dell'environment di riferimento la coppia costa 111 secondi (research.md §13).
     const key = packagingKey(sol, chosen);
     if (state.packaging && state.packagingKey === key) {
-        renderPreviewResult(targetView(state.packaging));
+        renderPreviewResult(targetView(state.packaging, activeIndex(state.packaging)));
         return;
     }
     state.packaging = null;
@@ -1691,7 +1961,8 @@ function renderPreviewStep(): void {
 
 /** Tutto ciò che, cambiando, rende obsoleto il package già preparato. */
 function packagingKey(sol: Solution, schemaNames: string[]): string {
-    return JSON.stringify([sol.uniqueName, [...schemaNames].sort(), state.suffix, state.options]);
+    return JSON.stringify([sol.uniqueName, [...schemaNames].sort(),
+        selectedTargetList().map(t => [t.name, t.publishOnImport]), state.options]);
 }
 
 /** Le fasi del packaging, nell'ordine in cui il servizio le attraversa. */
@@ -1768,9 +2039,9 @@ async function runPreview(
         paint();
     };
     try {
-        // Per ora un Target solo: quello del suffisso scelto (le schermate dei Target arrivano con la fase 4)
+        // Un solo export e una sola versione per tutti i Target spuntati, nell'ordine della lista
         const result = await runPackagingTargets(
-            sol.uniqueName, [{ name: state.suffix, publishOnImport: state.options.publishOnImport }],
+            sol.uniqueName, selectedTargetList().map(t => ({ name: t.name, publishOnImport: t.publishOnImport })),
             schemaNames, state.options, setProgress)
             .finally(() => window.clearInterval(ticker));
         if (seq !== previewSeq) return;     // l'utente è già andato altrove
@@ -1785,7 +2056,7 @@ async function runPreview(
 
         state.packaging = result;
         state.packagingKey = key;
-        renderPreviewResult(targetView(result));
+        renderPreviewResult(targetView(result, activeIndex(result)));
     } catch (err) {
         window.clearInterval(ticker);
         if (seq !== previewSeq) return;
@@ -1902,6 +2173,7 @@ function renderPreviewResult(r: PackagingResult): void {
     const panels = document.getElementById('preview-panels');
     if (panels) {
         panels.innerHTML = `
+            <div id="preview-switch-host">${targetSwitchHtml()}</div>
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('pencil', 'icon--head')}What gets changed</h3>
@@ -1944,6 +2216,10 @@ function renderPreviewResult(r: PackagingResult): void {
             </section>`;
     }
 
+    bindTargetSwitch(document.getElementById('preview-switch-host'), () => {
+        if (state.packaging) renderPreviewResult(targetView(state.packaging, activeIndex(state.packaging)));
+    });
+
     const footer = document.getElementById('preview-footer');
     if (footer) {
         footer.innerHTML = `
@@ -1982,6 +2258,40 @@ function checkRowHtml(label: string, v: VerificationResult, expectedEntries: num
         </tr>`;
 }
 
+/** Con piu' Target: l'esito di ciascuno e quanto differisce dal primo (spec 016, FR-013). */
+function targetsMatrixHtml(multi: MultiPackagingResult): string {
+    if (multi.targets.length < 2) return '';
+    const total = multi.targets[0]!.managed.source.entries.length;
+    return `
+        <section class="panel">
+            <div class="panel-head">
+                <h3 class="panel-heading">${icon('layers', 'icon--head')}Targets</h3>
+                <span class="panel-sub">each one compared with ${escapeHtml(targetLabel(multi.targets[0]!.target.name))}, the first</span>
+            </div>
+            <div class="panel-body">
+                <table class="data-table" id="targets-matrix">
+                    <thead><tr><th>Target</th><th>Checks</th><th>Names changed</th><th>Publish changed</th>
+                        <th class="col-num">Identical entries</th></tr></thead>
+                    <tbody>${multi.targets.map(tr => {
+                        const c = tr.comparison;
+                        return `
+                        <tr>
+                            <td class="cell-strong">${escapeHtml(targetLabel(tr.target.name))}</td>
+                            <td>${dotHtml(tr.valid ? 'ok' : 'ko', tr.valid ? 'passed' : 'failed')}</td>
+                            <td>${c ? c.differing.filter(d => d.kind === 'agent-name').length : '—'}</td>
+                            <td>${c ? c.differing.filter(d => d.kind === 'publish-on-import').length : '—'}</td>
+                            <td class="col-num">${c ? `${c.identicalEntries} of ${total}` : 'reference'}</td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>
+                <p class="hint" style="margin-top:12px">
+                    Every archive starts from the same export: they may differ only in the agent names
+                    and in publish on import. Anything else fails the checks.
+                </p>
+            </div>
+        </section>`;
+}
+
 /**
  * Step 3: i controlli che dicono se l'artefatto e' utilizzabile.
  *
@@ -1992,7 +2302,7 @@ function checkRowHtml(label: string, v: VerificationResult, expectedEntries: num
 function renderVerifyStep(): void {
     const multi = state.packaging;
     if (!multi) { navigateTo('preview'); return; }
-    const r = targetView(multi);
+    const r = targetView(multi, activeIndex(multi));
     renderBreadcrumb();
 
     const pkg = r.managed.source;
@@ -2046,6 +2356,7 @@ function renderVerifyStep(): void {
             <div class="panel-head">
                 <h3 class="panel-heading">${icon('shield', 'icon--head')}Checks</h3>
                 <span class="panel-sub">managed and unmanaged side by side</span>
+                <div id="target-switch-host">${targetSwitchHtml()}</div>
             </div>
             <div class="panel-body">
                 <table class="data-table check-matrix">
@@ -2089,6 +2400,8 @@ function renderVerifyStep(): void {
             </div>
         </section>
 
+        ${targetsMatrixHtml(multi)}
+
         <div class="result-banner result-banner--${r.valid ? 'success' : 'error'}">
             ${r.valid
                 ? `Packages ready and verified: managed and unmanaged, with ${changedEntries} ${changedEntries === 1 ? 'entry' : 'entries'} changed.`
@@ -2101,13 +2414,17 @@ function renderVerifyStep(): void {
                 ${icon('download', 'icon--sm')} Save the artifact set</button>
         </div>`;
 
+    bindTargetSwitch(els.stepVerify.querySelector('#target-switch-host'), renderVerifyStep);
     els.stepVerify.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('preview'));
     const saveBtn = els.stepVerify.querySelector('#save-btn');
-    // Suffissi che gli agent avranno DOPO la patch, esclusi compresi (FR-023a)
-    const mixed = suffixesAfter(pkg.agents.map(a => ({
-        name: a.name,
-        selected: r.plan.some(c => c.element === 'name' && c.file === a.file),
-    })), state.suffix);
+    // Suffissi che gli agent avranno DOPO la patch, esclusi compresi (FR-023a), per ogni Target
+    const mixed = multi.targets.flatMap(tr => {
+        const labels = suffixesAfter(pkg.agents.map(a => ({
+            name: a.name,
+            selected: tr.plan.some(c => c.element === 'name' && c.file === a.file),
+        })), tr.target.name);
+        return labels.length > 1 ? [{ target: tr.target.name, labels }] : [];
+    });
     if (saveBtn) saveBtn.addEventListener('click', () => void confirmThenSave(unexpected, extra, mixed));
 }
 /**
@@ -2120,24 +2437,28 @@ function renderVerifyStep(): void {
 async function confirmThenSave(
     unexpected: NameOccurrence[],
     extra: PackageComponent[],
-    mixed: string[],
+    mixed: { target: string; labels: string[] }[],
 ): Promise<void> {
-    if (mixed.length > 1) {
-        const labels = mixed.map(s => s ? `[${s}]` : 'no suffix');
+    if (mixed.length) {
+        const describe = (labels: string[]) => labels.map(s => s ? `[${s}]` : 'no suffix').join(', ');
+        const several = (state.packaging?.targets.length ?? 1) > 1;
+        const labelsText = several
+            ? mixed.map(m => `${targetLabel(m.target)}: ${describe(m.labels)}`).join('; ')
+            : describe(mixed[0]!.labels);
         const ok = await askConfirm({
             title: 'The agents would have different suffixes',
             okLabel: 'Continue anyway',
             danger: true,
             bodyHtml: `
                 <p>After the rename the agents of this solution carry
-                <strong>${labels.map(escapeHtml).join(', ')}</strong>: different suffixes in the
+                <strong>${escapeHtml(labelsText)}</strong>: different suffixes in the
                 same environment.</p>
                 <p class="hint">This usually means an agent was left out by mistake. Go back and
                 tick it, or continue if it is intended.</p>`,
         });
         if (!ok) { log('Save cancelled: mixed suffixes not confirmed.', 'warning'); return; }
         state.confirmations.push({
-            what: `mixed suffixes after the rename: ${labels.join(', ')}`,
+            what: `mixed suffixes after the rename: ${labelsText}`,
             confirmedAt: new Date().toISOString(),
         });
     }
@@ -2272,13 +2593,27 @@ function renderResultStep(): void {
     renderBreadcrumb();
     if (!set || !r) { navigateTo('welcome'); return; }
 
-    const deploy = set.files.find(f => f.role === 'deploy');
+    const deploys = set.files.filter(f => f.role === 'deploy');
+    const deploy = deploys[0];
     els.stepResult.innerHTML = `
         <div class="step-header step-header-row">
             <div class="step-id">${icon('archive')}<h2 class="step-title">Artifact set ready</h2></div>
             ${stepperHtml(5)}
         </div>
 
+        ${deploys.length > 1 ? `
+        <div class="handoff handoff--many">
+            <span class="handoff-mark">${icon('check')}</span>
+            <div class="handoff-text">
+                <div class="handoff-label">To import, one managed archive per environment</div>
+                ${deploys.map(f => `
+                <div class="handoff-line">
+                    <code class="handoff-file">${icon('archive', 'icon--archive')} ${escapeHtml(f.fileName)}</code>
+                    <span class="chip chip--muted">${escapeHtml(targetLabel(f.target ?? ''))}</span>
+                </div>`).join('')}
+            </div>
+            <span class="chip chip--success">managed</span>
+        </div>` : `
         <div class="handoff">
             <span class="handoff-mark">${icon('check')}</span>
             <div class="handoff-text">
@@ -2287,7 +2622,7 @@ function renderResultStep(): void {
                     ${escapeHtml(deploy?.fileName ?? '—')}</code>
             </div>
             <span class="chip chip--success">managed</span>
-        </div>
+        </div>`}
 
         <section class="panel">
             <div class="panel-head">
@@ -2314,9 +2649,9 @@ function renderResultStep(): void {
                     would create an unmanaged solution, the very problem this flow removes.
                 </div>
                 <div class="note">
-                    The package carries the version <strong>DEV now has</strong>. To build the same
-                    version for another environment (UAT, then PROD), turn off
-                    <em>Raise the version in DEV</em> the second time: DEV is already there. Artifacts
+                    The package carries the version <strong>DEV now has</strong>. Tick several targets
+                    together to build them from one export and one version. To build another one later, turn off
+                    <em>Raise the version in DEV</em>: DEV is already there. Artifacts
                     of the same version are told apart by the suffix in the name and by the
                     <strong>hash</strong> in the manifest.
                 </div>
@@ -2591,7 +2926,11 @@ toolbox.events.on((_event: unknown, payload: { event: string }) => {
         state.highlightAgentId = '';
         state.activeSolution = null;
         state.browsingSolutionId = null;
-        state.suffix = '';
+        state.targets = [];
+        state.targetsReady = false;
+        state.selectedTargets = [];
+        state.selectionFor = '';
+        state.activeTargetName = '';
         state.packaging = null;
         state.solutionFilter = null;   // the new environment may hold the other kind of solution
         state.connectionName = '';   // keeps the silent refresh idle until the new connection is confirmed

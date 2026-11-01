@@ -21,16 +21,16 @@ Regole del progetto (CLAUDE.md): a ogni modifica `npx tsc --noEmit`, `npm run bu
 - [x] T012 `headless.ts` usa il motore con un Target; l'app, per ora, anche (un Target, adattatore `targetView`)
 
 ## Fase 4 — Schermata
-- [ ] T013 Passo Targets: lista, aggiunta, rinomina, rimozione, su/giù, trascinamento, publish per Target (FR-001…FR-005, FR-011)
-- [ ] T014 `state.suffix` → `state.targets` / `state.activeTarget`: i 19 punti di lettura uno a uno, senza cambiare il comportamento con un Target
-- [ ] T015 Spunte per solution, ripristinate all'apertura (FR-006, FR-007)
-- [ ] T016 Selettore dei Target in tabella agent, Review, Preview, Verify, Result; nascosto con un Target (FR-006)
-- [ ] T017 Avviso col numero dei salvataggi prima di scrivere (ricerca §3)
-- [ ] T018 CSS (tema chiaro e scuro) e testi in inglese
-- [ ] T019 Test della schermata: `test/ui.targets.test.ts`
+- [x] T013 Passo Targets: lista con casella, nome modificabile, publish per Target, su/giù, trascinamento, rimozione, «Add» e «Add "no suffix"»; messaggio sotto il campo; salvataggio a ogni modifica (FR-001…FR-005, FR-011)
+- [x] T014 `state.suffix` sostituito da `state.targets`, `selectedTargets`, `activeTargetName`: i 19 punti di lettura spostati uno a uno; con un Target il comportamento e' quello di sempre
+- [x] T015 Spunte per solution, lette all'apertura del passo (`ensureTargets`) e salvate a ogni modifica e a «Review» (FR-006, FR-007)
+- [x] T016 Selettore dei Target in tabella agent, Review, Preview e Verify (nascosto con un Target); tabella dei Target nei controlli; risultato con un archivio per Target (FR-006, FR-013)
+- [x] T017 Il numero dei salvataggi e' dichiarato prima di scrivere: elenco dei file nel passo Suffix («N archives: N saves») e conteggio in Review; `warnAboutDialogs` al momento di scrivere (ricerca §3)
+- [x] T018 CSS (`.target-*`, `.handoff--many`) con le variabili del tema; testi in inglese
+- [x] T019 Test della schermata: `test/ui.targets.test.ts` (47 test); banco di prova esteso (`startRenameBare`, comandi dei Target, `failSettings`); test dei vecchi percorsi adattati ai Target
 
 ## Fase 5 — Chiusura
-- [ ] T020 Mutazioni `targets:` in `scripts/mutation-check.mjs`, tutte scoperte
+- [x] T020 Mutazioni in `scripts/mutation-check.mjs` (gruppi `targets:`, `confronto:`, `motore:`, `artefatti:`, `schermata:`), tutte scoperte
 - [ ] T021 `npm run test:full` e `npm run test:mutation` interi
 - [ ] T022 `/custom-types` e `/custom-dedup` (refactoring ampio, nuovi servizi)
 - [ ] T023 Prova a mano del `quickstart.md` su un DEV vero

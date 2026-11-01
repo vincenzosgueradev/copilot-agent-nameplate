@@ -1,0 +1,545 @@
+// @vitest-environment jsdom
+/**
+ * Spec 016 (Fase 4) — la schermata dei Target: lista, spunte, nomi, ordine, publish, selettore, giro con piu' Target.
+ * Oracolo scritto dalla spec (FR-001...FR-015, D1...D7), non dal codice.
+ */
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { boot, readProduced, type Driver, type UiWorld } from './helpers/ui-harness';
+import type { PublishMode } from '../src/types';
+
+afterEach(() => { vi.useRealTimers(); });
+
+const PRESETS = ['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'];
+
+const WORLD: UiWorld = {
+    solutions: [{ unique: 'S1' }, { unique: 'S2' }],
+    agents: [
+        { name: 'agent1 [DEV]', schema: 'ava_a1', solution: 'S1', publish: null },
+        { name: 'agent2', schema: 'ava_a2', solution: 'S1', publish: false },
+        { name: 'other [DEV]', schema: 'ava_o1', solution: 'S2', publish: null },
+    ],
+};
+
+/** Per il giro con piu' Target: agent1 pubblica gia' (true), agent2 no: con force-true cambia solo agent2. */
+const MULTI: UiWorld = {
+    solutions: [{ unique: 'S1' }],
+    agents: [
+        { name: 'agent1 [DEV]', schema: 'ava_a1', solution: 'S1', publish: true },
+        { name: 'agent2', schema: 'ava_a2', solution: 'S1', publish: false },
+    ],
+};
+
+type SavedTargets = Record<string, { name: string; publishOnImport: PublishMode }[]>;
+const savedList = (ui: Driver) => ui.fs.settings.get('releaseTargets') as SavedTargets | undefined;
+const savedSel = (ui: Driver) => ui.fs.settings.get('targetSelection') as Record<string, Record<string, string[]>> | undefined;
+
+async function bare(world: UiWorld = WORLD, settings?: Record<string, unknown>, unique = 'S1') {
+    const ui = await boot(world, settings);
+    await ui.openSolution(unique);
+    await ui.startRenameBare();
+    return ui;
+}
+
+describe('la lista di partenza (FR-002)', () => {
+    it('sei preset in ordine, nessuno spuntato; senza Target spuntati non si va avanti e si dice perche\'', async () => {
+        const ui = await bare();
+        expect(ui.targetNames()).toEqual(PRESETS);
+        expect(ui.ticked()).toEqual([]);
+        expect(ui.nextDisabled()).toBe(true);
+        expect(ui.text('suffix')).toContain('Tick at least one target to continue');
+        expect(ui.suffixRows().map(r => r.nameAfter), 'senza Target non c\'e\' un nome "dopo"').toEqual(['—', '—']);
+        expect(ui.doc.getElementById('target-none')!.hidden).toBe(false);
+    });
+
+    it('con un Target spuntato si va avanti, il messaggio sparisce e i nomi si vedono', async () => {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        expect(ui.nextDisabled()).toBe(false);
+        expect(ui.doc.getElementById('target-none')!.hidden).toBe(true);
+        expect(ui.suffixRows().map(r => r.nameAfter)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
+    });
+
+    it('togliere la spunta dell\'ultimo Target riporta il blocco', async () => {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        await ui.tickTarget('UAT', false);
+        expect(ui.nextDisabled()).toBe(true);
+        expect(ui.doc.getElementById('target-none')!.hidden).toBe(false);
+    });
+});
+
+describe('aggiungere un Target (FR-003, FR-005)', () => {
+    it('lo crea in fondo, lo spunta, ripulisce il campo e salva lista e spunte', async () => {
+        const ui = await bare();
+        await ui.addTarget('  HOTFIX ');
+        expect(ui.targetNames()).toEqual([...PRESETS, 'HOTFIX']);
+        expect(ui.ticked()).toEqual(['HOTFIX']);
+        expect((ui.doc.getElementById('target-new') as HTMLInputElement).value).toBe('');
+        expect(savedList(ui)!.DEV!.at(-1)).toEqual({ name: 'HOTFIX', publishOnImport: 'keep' });
+        expect(savedSel(ui)!.DEV!.S1).toEqual(['HOTFIX']);
+        expect(ui.targetNotice()).toBe('');
+    });
+
+    it('Invio nel campo fa lo stesso del pulsante Add', async () => {
+        const ui = await bare();
+        const input = ui.doc.getElementById('target-new') as HTMLInputElement;
+        input.value = 'QA';
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(ui.targetNames()).toContain('QA'));
+    });
+
+    const REFUSED: [string, string, RegExp][] = [
+        ['un nome che c\'e\' gia\'', 'UAT', /already a target/],
+        ['lo stesso con altre maiuscole', 'uat', /already a target/],
+        ['lo stesso con spazi ai lati', '  UAT ', /already a target/],
+        ['21 caratteri', 'a'.repeat(21), /At most 20/],
+        ['una parentesi quadra', 'A[B', /not allowed/],
+        ['una barra', 'A/B', /not allowed/],
+        ['HTML', '<b>x</b>', /not allowed/],
+        ['solo spazi (e\' il campo vuoto)', '   ', /Type a name/],
+        ['il campo vuoto', '', /Type a name/],
+    ];
+    for (const [label, name, notice] of REFUSED) {
+        it(`rifiuta ${label}: nessun Target in piu', nulla salvato, il messaggio dice perche'`, async () => {
+            const ui = await bare();
+            const input = ui.doc.getElementById('target-new') as HTMLInputElement;
+            input.value = name;
+            await ui.clickSelector('#target-add-btn');
+            expect(ui.targetNames()).toEqual(PRESETS);
+            expect(ui.ticked()).toEqual([]);
+            expect(ui.targetNotice()).toMatch(notice);
+            expect(savedList(ui)).toBeUndefined();
+            expect(ui.doc.querySelector('#step-suffix b')).toBeNull();
+        });
+    }
+
+    it('il messaggio sparisce al primo Target aggiunto bene', async () => {
+        const ui = await bare();
+        await ui.addTarget('UAT');
+        expect(ui.targetNotice()).not.toBe('');
+        await ui.addTarget('QA');
+        expect(ui.targetNotice()).toBe('');
+    });
+
+    it('"no suffix": si aggiunge una volta sola e il pulsante sparisce', async () => {
+        const ui = await bare();
+        const btn = () => ui.doc.getElementById('target-add-empty-btn') as HTMLButtonElement;
+        expect(btn().hidden).toBe(false);
+        await ui.addTarget('');
+        expect(ui.targetNames()).toEqual([...PRESETS, '']);
+        expect(ui.ticked()).toEqual(['']);
+        expect(btn().hidden).toBe(true);
+        // il campo senza nome nella riga si legge "(no suffix)"
+        const row = ui.doc.querySelector('#target-list .target-row:last-child input[data-target-name]') as HTMLInputElement;
+        expect(row.placeholder).toBe('(no suffix)');
+        // tolto, il pulsante torna
+        await ui.removeTarget('');
+        expect(btn().hidden).toBe(false);
+    });
+});
+
+describe('rinominare, rimuovere, riordinare (FR-003)', () => {
+    it('rinominare un Target spuntato: la spunta lo segue, salva lista e spunte, e i nomi si aggiornano', async () => {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        await ui.renameTarget('UAT', 'QA');
+        expect(ui.targetNames()).toEqual(['DEV', 'TEST', 'QA', 'STAGING', 'PREPROD', 'PROD']);
+        expect(ui.ticked()).toEqual(['QA']);
+        expect(ui.suffixRows().map(r => r.nameAfter)).toEqual(['agent1 [QA]', 'agent2 [QA]']);
+        expect(savedList(ui)!.DEV!.map(t => t.name)).toContain('QA');
+        expect(savedSel(ui)!.DEV!.S1).toEqual(['QA']);
+    });
+
+    it('rinominare porta con se\' le spunte salvate delle altre solution', async () => {
+        const ui = await boot(WORLD, {
+            targetSelection: { DEV: { S1: ['UAT'], S2: ['UAT', 'PROD'] } },
+        });
+        await ui.openSolution('S1');
+        await ui.startRenameBare();
+        await ui.renameTarget('UAT', 'QA');
+        expect(savedSel(ui)!.DEV!.S1).toEqual(['QA']);
+        expect(savedSel(ui)!.DEV!.S2).toEqual(['QA', 'PROD']);
+    });
+
+    it('rinominare in un nome che c\'e\' gia\': rifiutato, il campo torna com\'era, nulla salvato', async () => {
+        const ui = await bare();
+        await ui.renameTarget('UAT', 'PROD');
+        expect(ui.targetNames()).toEqual(PRESETS);
+        expect(ui.targetNotice()).toMatch(/already a target/);
+        expect(savedList(ui)).toBeUndefined();
+    });
+
+    it('rinominare in un nome con carattere vietato: rifiutato', async () => {
+        const ui = await bare();
+        await ui.renameTarget('UAT', 'U:A');
+        expect(ui.targetNames()).toEqual(PRESETS);
+        expect(ui.targetNotice()).toMatch(/not allowed/);
+    });
+
+    it('rinominare solo le maiuscole di se stesso e\' lecito', async () => {
+        const ui = await bare();
+        await ui.renameTarget('UAT', 'Uat');
+        expect(ui.targetNames()[2]).toBe('Uat');
+        expect(ui.targetNotice()).toBe('');
+    });
+
+    it('rimuovere un Target spuntato lo toglie dalla lista e dalle spunte e salva', async () => {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        await ui.tickTarget('PROD', true);
+        await ui.removeTarget('UAT');
+        expect(ui.targetNames()).toEqual(['DEV', 'TEST', 'STAGING', 'PREPROD', 'PROD']);
+        expect(ui.ticked()).toEqual(['PROD']);
+        expect(savedList(ui)!.DEV!.map(t => t.name)).not.toContain('UAT');
+        expect(savedSel(ui)!.DEV!.S1).toEqual(['PROD']);
+    });
+
+    it('un Target rimosso non lascia la spunta a un altro che prende lo stesso nome', async () => {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        await ui.removeTarget('UAT');
+        await ui.renameTarget('TEST', 'UAT');
+        expect(ui.ticked()).toEqual([]);
+    });
+
+    it('rimuovere tutti i Target lascia una lista vuota e il blocco; resta vuota alla riapertura', async () => {
+        const ui = await bare();
+        for (const n of PRESETS) await ui.removeTarget(n);
+        expect(ui.targetNames()).toEqual([]);
+        expect(ui.text('suffix')).toContain('No targets yet');
+        expect(ui.nextDisabled()).toBe(true);
+        expect(savedList(ui)!.DEV).toEqual([]);
+        // una nuova sessione con quel salvataggio: lista vuota, non i preset
+        const again = await bare(WORLD, { releaseTargets: savedList(ui) });
+        expect(again.targetNames()).toEqual([]);
+    });
+
+    it('su e giu\' spostano un Target e si salva; ai bordi i pulsanti sono spenti', async () => {
+        const ui = await bare();
+        await ui.moveTarget('PROD', 'up');
+        expect(ui.targetNames()).toEqual(['DEV', 'TEST', 'UAT', 'STAGING', 'PROD', 'PREPROD']);
+        await ui.moveTarget('DEV', 'down');
+        expect(ui.targetNames()).toEqual(['TEST', 'DEV', 'UAT', 'STAGING', 'PROD', 'PREPROD']);
+        expect(savedList(ui)!.DEV!.map(t => t.name)).toEqual(['TEST', 'DEV', 'UAT', 'STAGING', 'PROD', 'PREPROD']);
+        const rows = Array.from(ui.doc.querySelectorAll('#target-list .target-row'));
+        expect((rows[0]!.querySelector('[data-target-act="up"]') as HTMLButtonElement).disabled).toBe(true);
+        expect((rows.at(-1)!.querySelector('[data-target-act="down"]') as HTMLButtonElement).disabled).toBe(true);
+        expect((rows[1]!.querySelector('[data-target-act="up"]') as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('trascinare una riga su un\'altra la sposta come i pulsanti; trascinarla su se stessa non cambia nulla', async () => {
+        const ui = await bare();
+        await ui.dragTarget('PROD', 'DEV');
+        expect(ui.targetNames()).toEqual(['PROD', 'DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD']);
+        expect(savedList(ui)!.DEV!.map(t => t.name)).toEqual(['PROD', 'DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD']);
+        await ui.dragTarget('TEST', 'TEST');
+        expect(ui.targetNames()).toEqual(['PROD', 'DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD']);
+    });
+
+    it('l\'ordine della lista e\' quello dei Target spuntati nel giro', async () => {
+        const ui = await bare();
+        await ui.tickTarget('PROD', true);
+        await ui.tickTarget('UAT', true);
+        expect(ui.switchTabs().map(t => t.label)).toEqual(['[UAT]', '[PROD]']);   // lista: UAT prima di PROD
+        for (let i = 0; i < 4; i++) await ui.moveTarget('PROD', 'up');   // da posizione 5 a 1: prima di UAT (2)
+        expect(ui.targetNames().slice(0, 3)).toEqual(['DEV', 'PROD', 'TEST']);
+        expect(ui.switchTabs().map(t => t.label)).toEqual(['[PROD]', '[UAT]']);
+    });
+});
+
+describe('publish on import per Target e per agent (FR-011, D2, D7)', () => {
+    it('il valore del Target si salva e vale per tutti gli agent; l\'eccezione dell\'agent lo batte', async () => {
+        const ui = await bare();
+        await ui.setTargetPublish('PROD', 'force-true');
+        expect(savedList(ui)!.DEV!.find(t => t.name === 'PROD')!.publishOnImport).toBe('force-true');
+        expect(ui.targetPublish('PROD')).toBe('force-true');
+        await ui.tickTarget('PROD', true);
+        expect(ui.suffixRows().map(r => r.publish)).toEqual(['force-true', 'force-true']);   // il default del Target
+        await ui.setPublish('agent1 [DEV]', 'keep');                                           // eccezione esplicita
+        expect(ui.suffixRows().map(r => r.publish)).toEqual(['keep', 'force-true']);
+        // nel package: agent1 resta com'era (nessun publishOnImport), agent2 passa a true
+        await ui.next();
+        await ui.buildPackage();
+        await ui.toVerify();
+        await ui.save();
+        const zip = Object.values(ui.written().zips)[0]!;
+        expect(readProduced(zip)).toEqual({
+            ava_a1: { name: 'agent1 [PROD]', publish: null },
+            ava_a2: { name: 'agent2 [PROD]', publish: true },
+        });
+    });
+
+    it('cambiare il publish di un Target non tocca gli altri', async () => {
+        const ui = await bare();
+        await ui.setTargetPublish('UAT', 'force-false');
+        expect(ui.targetPublish('UAT')).toBe('force-false');
+        for (const n of PRESETS.filter(x => x !== 'UAT')) expect(ui.targetPublish(n), n).toBe('keep');
+    });
+});
+
+describe('quello che si ricorda (D1, D3)', () => {
+    it('una lista salvata si ritrova, con ordine, nomi e publish; le spunte sono quelle dell\'ultimo giro', async () => {
+        const ui = await bare(WORLD, {
+            releaseTargets: { DEV: [
+                { name: 'PROD', publishOnImport: 'force-true' }, { name: 'UAT', publishOnImport: 'keep' }, { name: 'HOTFIX', publishOnImport: 'force-false' },
+            ] },
+            targetSelection: { DEV: { S1: ['UAT', 'GONE', 'PROD'] } },
+        });
+        expect(ui.targetNames()).toEqual(['PROD', 'UAT', 'HOTFIX']);
+        expect(ui.targetPublish('PROD')).toBe('force-true');
+        expect(ui.targetPublish('HOTFIX')).toBe('force-false');
+        expect(ui.ticked(), 'un Target che non c\'e\' piu\' sparisce dalle spunte, l\'ordine e\' quello della lista').toEqual(['PROD', 'UAT']);
+    });
+
+    it('la lista e\' per connessione: un\'altra connessione non la vede', async () => {
+        const ui = await bare(WORLD, { releaseTargets: { ALTRA: [{ name: 'X', publishOnImport: 'keep' }] } });
+        expect(ui.targetNames()).toEqual(PRESETS);
+    });
+
+    it('una lista salvata illeggibile vale "mai configurata": i preset, senza errori', async () => {
+        for (const bad of ['rotto', 5, [1, 2], { DEV: 'x' }, { DEV: [null, 3] }]) {
+            const ui = await bare(WORLD, { releaseTargets: bad });
+            expect(ui.targetNames(), JSON.stringify(bad)).toEqual(
+                (bad as { DEV?: unknown[] }).DEV?.length === 2 ? [] : PRESETS);
+        }
+    });
+
+    it('le spunte si ricordano per solution: un\'altra solution parte da zero, tornando si ritrovano', async () => {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        await ui.tickTarget('PROD', true);
+        await ui.crumb('Solutions');
+        await ui.openSolution('S2');
+        await ui.startRenameBare();
+        expect(ui.ticked(), 'altra solution: nessuna spunta').toEqual([]);
+        await ui.tickTarget('DEV', true);
+        await ui.crumb('Solutions');
+        await ui.openSolution('S1');
+        await ui.startRenameBare();
+        expect(ui.ticked()).toEqual(['UAT', 'PROD']);
+        expect(savedSel(ui)!.DEV).toEqual({ S1: ['UAT', 'PROD'], S2: ['DEV'] });
+    });
+
+    it('le spunte si salvano anche procedendo a Review', async () => {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        await ui.next();
+        expect(savedSel(ui)!.DEV!.S1).toEqual(['UAT']);
+    });
+
+    it('se il salvataggio fallisce lo dice, e si puo\' lavorare lo stesso', async () => {
+        const ui = await bare();
+        ui.fs.failSettings = true;
+        await ui.addTarget('HOTFIX');
+        expect(ui.targetNames()).toContain('HOTFIX');
+        expect(ui.ticked()).toEqual(['HOTFIX']);
+        expect(ui.targetNotice()).toContain('Not saved');
+        expect(ui.nextDisabled()).toBe(false);
+        await ui.next();
+        expect(ui.step()).toBe('review');
+    });
+});
+
+describe('piu\' Target nello stesso giro (FR-006, FR-008, FR-009, FR-012, FR-013, FR-014)', () => {
+    async function twoTargets() {
+        const ui = await bare(MULTI);
+        await ui.setTargetPublish('PROD', 'force-true');
+        await ui.tickTarget('UAT', true);
+        await ui.tickTarget('PROD', true);
+        return ui;
+    }
+
+    it('con un solo Target non compare nessun selettore; con due si', async () => {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        expect(ui.switchTabs()).toEqual([]);
+        await ui.tickTarget('PROD', true);
+        expect(ui.switchTabs()).toEqual([{ label: '[UAT]', active: true }, { label: '[PROD]', active: false }]);
+    });
+
+    it('il selettore cambia i nomi "dopo" e il publish mostrati; gli agent esclusi restano uguali per tutti (D5)', async () => {
+        const ui = await twoTargets();
+        expect(ui.suffixRows().map(r => r.nameAfter)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
+        await ui.switchTo('[PROD]');
+        expect(ui.suffixRows().map(r => r.nameAfter)).toEqual(['agent1 [PROD]', 'agent2 [PROD]']);
+        expect(ui.suffixRows().map(r => r.publish), 'il default di PROD').toEqual(['force-true', 'force-true']);
+        expect(ui.switchTabs().map(t => t.active)).toEqual([false, true]);
+        await ui.toggleAgent('agent2');
+        await ui.switchTo('[UAT]');
+        expect(ui.suffixRows().map(r => r.checked), 'l\'esclusione vale per entrambi').toEqual([true, false]);
+    });
+
+    it('tolta la spunta del Target mostrato, il selettore ripiega sul primo rimasto', async () => {
+        const ui = await twoTargets();
+        await ui.switchTo('[PROD]');
+        await ui.tickTarget('PROD', false);
+        expect(ui.switchTabs()).toEqual([]);
+        expect(ui.suffixRows().map(r => r.nameAfter)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
+    });
+
+    it('la revisione nomina i Target e conta gli archivi', async () => {
+        const ui = await twoTargets();
+        await ui.next();
+        const t = ui.text('review');
+        expect(t).toContain('Targets');
+        expect(t).toContain('[UAT]');
+        expect(t).toContain('[PROD]');
+        expect(t).toContain('2 archives');
+        expect(ui.reviewRows().map(r => r.resulting)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
+        await ui.switchTo('[PROD]');
+        expect(ui.reviewRows().map(r => r.resulting)).toEqual(['agent1 [PROD]', 'agent2 [PROD]']);
+    });
+
+    it('con le copie extra gli archivi diventano 2 per Target piu\' 2', async () => {
+        const ui = await twoTargets();
+        await ui.setKeepCopies(true);
+        await ui.next();
+        expect(ui.text('review')).toContain('6 archives');
+    });
+
+    it('un solo export e una sola versione scritta per tutti i Target, e uno zip per Target', async () => {
+        const ui = await twoTargets();
+        await ui.next();
+        await ui.buildPackage();
+        expect(ui.dev.events.filter(e => e.startsWith('export')).length, 'un solo export').toBe(1);
+        expect(ui.dev.writes.length, 'una sola scrittura di versione').toBe(1);
+        // l'anteprima e i controlli hanno il selettore
+        expect(ui.switchTabs().map(t => t.label)).toEqual(['[UAT]', '[PROD]']);
+        await ui.toVerify();
+        expect(ui.step()).toBe('verify');
+        const matrix = ui.doc.getElementById('targets-matrix')!;
+        const rows = Array.from(matrix.querySelectorAll('tbody tr')).map(tr =>
+            Array.from(tr.querySelectorAll('td')).map(td => td.textContent!.replace(/\s+/g, ' ').trim()));
+        expect(rows[0]![0]).toBe('[UAT]');
+        expect(rows[0]![4]).toBe('reference');
+        expect(rows[1]![0]).toBe('[PROD]');
+        expect(rows[1]![2], 'nomi cambiati rispetto al primo').toBe('2');
+        // keep contro force-true: agent1 era gia' true, cambia solo agent2
+        expect(rows[1]![3], 'publish cambiato rispetto al primo').toBe('1');
+        expect(rows[1]![4]).toMatch(/^\d+ of \d+$/);
+        await ui.save();
+        expect(ui.step()).toBe('result');
+
+        const { manifest, zips } = ui.written();
+        const names = Object.keys(zips).map(p => p.split(/[\\/]/).pop()!).sort();
+        expect(names).toEqual(['S1_1_0_0_3_managed_PROD.zip', 'S1_1_0_0_3_managed_UAT.zip']);
+        const mf = manifest as { manifestVersion: number; targets: { name: string; order: number; options: { publishOnImport: string };
+            comparison: { against: string } | null; files: { fileName: string }[] }[] };
+        expect(mf.manifestVersion).toBe(2);
+        expect(mf.targets.map(x => x.name)).toEqual(['UAT', 'PROD']);
+        expect(mf.targets.map(x => x.options.publishOnImport)).toEqual(['keep', 'force-true']);
+        expect(mf.targets[0]!.comparison).toBeNull();
+        expect(mf.targets[1]!.comparison!.against).toBe('UAT');
+        // il contenuto di ciascuno zip
+        const byName = (n: string) => readProduced(Object.entries(zips).find(([p]) => p.endsWith(n))![1]);
+        expect(byName('_managed_UAT.zip')).toEqual({ ava_a1: { name: 'agent1 [UAT]', publish: true }, ava_a2: { name: 'agent2 [UAT]', publish: false } });
+        expect(byName('_managed_PROD.zip')).toEqual({ ava_a1: { name: 'agent1 [PROD]', publish: true }, ava_a2: { name: 'agent2 [PROD]', publish: true } });
+        // un solo record di storico, con i due Target
+        const history = ui.history() as { suffix: string; targets: { name: string }[] }[];
+        expect(history.length).toBe(1);
+        expect(history[0]!.suffix).toBe('UAT + PROD');
+        expect(history[0]!.targets.map(x => x.name)).toEqual(['UAT', 'PROD']);
+    });
+
+    it('nell\'anteprima il selettore cambia il Target mostrato; nei controlli ricorda la scelta', async () => {
+        const ui = await twoTargets();
+        await ui.next();
+        await ui.buildPackage();
+        const heads = () => Array.from(ui.doc.querySelectorAll('#step-preview .change-head')).map(h => h.textContent!.replace(/\s+/g, ' ').trim());
+        expect(heads()[0]).toContain('agent1 [UAT]');
+        await ui.switchTo('[PROD]');
+        expect(heads()[0]).toContain('agent1 [PROD]');
+        expect(ui.switchTabs().map(t => t.active)).toEqual([false, true]);
+        await ui.toVerify();
+        expect(ui.switchTabs().map(t => t.active), 'i controlli mostrano ancora PROD').toEqual([false, true]);
+        await ui.switchTo('[UAT]');
+        expect(ui.switchTabs().map(t => t.active)).toEqual([true, false]);
+        // tornando all'anteprima si vede UAT
+        await ui.back();
+        expect(heads()[0]).toContain('agent1 [UAT]');
+    });
+
+    it('il risultato elenca un archivio da importare per ogni Target', async () => {
+        const ui = await twoTargets();
+        await ui.next();
+        await ui.buildPackage();
+        await ui.toVerify();
+        await ui.save();
+        const t = ui.text('result');
+        expect(t).toContain('one managed archive per environment');
+        expect(t).toContain('S1_1_0_0_3_managed_UAT.zip');
+        expect(t).toContain('S1_1_0_0_3_managed_PROD.zip');
+        expect(ui.doc.querySelectorAll('#step-result .handoff-line').length).toBe(2);
+    });
+
+    it('con un Target solo il risultato e\' quello di sempre: un archivio, nessun elenco', async () => {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        await ui.next();
+        await ui.buildPackage();
+        await ui.toVerify();
+        await ui.save();
+        expect(ui.text('result')).toContain('To import into UAT or PROD');
+        expect(ui.doc.querySelectorAll('#step-result .handoff-line').length).toBe(0);
+    });
+
+    it('cambiare i Target dopo l\'anteprima rifa\' l\'export; non cambiare nulla no', async () => {
+        const ui = await twoTargets();
+        await ui.setRaise(false);
+        await ui.next();
+        await ui.buildPackage();
+        const exports = () => ui.dev.events.filter(e => e.startsWith('export')).length;
+        expect(exports()).toBe(1);
+        // indietro e di nuovo avanti senza toccare nulla: nessun nuovo export
+        await ui.back();
+        await ui.back();
+        await ui.next();
+        await ui.buildPackage();
+        expect(exports()).toBe(1);
+        // togliere un Target: il package preparato non vale piu'
+        await ui.back();
+        await ui.back();
+        await ui.tickTarget('PROD', false);
+        await ui.next();
+        await ui.buildPackage();
+        expect(exports()).toBe(2);
+        await ui.toVerify();
+        await ui.save();
+        expect(Object.keys(ui.written().zips).length).toBe(1);
+    });
+
+    it('un agent escluso con un suffisso diverso: la conferma dice in quali Target i nomi sarebbero misti', async () => {
+        const world: UiWorld = {
+            solutions: [{ unique: 'S1' }],
+            agents: [
+                { name: 'a1 [DEV]', schema: 'ava_a1', solution: 'S1', publish: null },
+                { name: 'a2 [DEV]', schema: 'ava_a2', solution: 'S1', publish: null },
+            ],
+        };
+        const ui = await bare(world);
+        await ui.tickTarget('UAT', true);
+        await ui.tickTarget('PROD', true);
+        await ui.toggleAgent('a2 [DEV]');     // escluso: resta [DEV] mentre gli altri diventano [UAT] / [PROD]
+        await ui.next();
+        await ui.buildPackage();
+        await ui.toVerify();
+        const saved = await ui.save();
+        expect(saved.confirmations).toEqual(['The agents would have different suffixes']);
+        const mf = ui.written().manifest as { confirmations: { what: string }[] };
+        expect(mf.confirmations[0]!.what).toContain('[UAT]: [UAT], [DEV]');
+        expect(mf.confirmations[0]!.what).toContain('[PROD]: [PROD], [DEV]');
+    });
+
+    it('con un Target senza suffisso spuntato compare l\'avviso del suffisso vuoto; senza no', async () => {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        await ui.addTarget('');            // lo spunta anche
+        await ui.nextRaw();
+        expect(ui.doc.getElementById('confirm-overlay')!.style.display).toBe('flex');
+        expect(ui.step()).toBe('suffix');
+        const clean = await bare();
+        await clean.tickTarget('UAT', true);
+        await clean.nextRaw();
+        expect(clean.step()).toBe('review');
+    });
+});

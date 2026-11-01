@@ -86,6 +86,8 @@ export interface FakeFs {
     files: Map<string, string | Uint8Array>;
     dirs: Set<string>;
     settings: Map<string, unknown>;
+    /** Se `true`, scrivere le impostazioni fallisce (disco pieno, store non disponibile). */
+    failSettings?: boolean;
 }
 
 export interface Driver {
@@ -102,7 +104,14 @@ export interface Driver {
     kindOf(name: string): { kind: string; label: string; title: string; hasLogo: boolean; hasMask: boolean; text: string } | null;
     // ── navigazione
     openSolution(unique: string): Promise<void>;
+    /**
+     * Apre il passo Suffix. Prima della spec 016 il suffisso partiva vuoto: con i Target lo stesso stato
+     * e' il Target "no suffix" spuntato, quindi se non c'e' nulla di spuntato (una solution mai vista)
+     * lo si spunta. Per partire davvero da zero: `startRenameBare`.
+     */
     startRename(): Promise<void>;
+    /** Apre il passo Suffix senza toccare le spunte. */
+    startRenameBare(): Promise<void>;
     next(): Promise<void>;
     /** Come next, ma senza rispondere agli avvisi: serve a provare il dialogo stesso. */
     nextRaw(): Promise<void>;
@@ -128,6 +137,26 @@ export interface Driver {
     setKeepCopies(on: boolean): Promise<void>;
     suffixRows(): SuffixRow[];
     suffixInput(): string;
+    // ── Targets (spec 016)
+    /** I nomi dei Target nella lista, nell'ordine in cui compaiono. */
+    targetNames(): string[];
+    /** I nomi dei Target spuntati. */
+    ticked(): string[];
+    tickTarget(name: string, on: boolean): Promise<void>;
+    /** Aggiunge un Target scrivendo nel campo e premendo Add (o il pulsante "no suffix" se il nome e' vuoto). */
+    addTarget(name: string): Promise<void>;
+    renameTarget(from: string, to: string): Promise<void>;
+    removeTarget(name: string): Promise<void>;
+    moveTarget(name: string, dir: 'up' | 'down'): Promise<void>;
+    /** Trascina la riga `from` sulla riga `to`, con gli eventi veri del trascinamento. */
+    dragTarget(from: string, to: string): Promise<void>;
+    setTargetPublish(name: string, mode: PublishMode): Promise<void>;
+    targetPublish(name: string): PublishMode | null;
+    /** Il messaggio sotto il campo Add (vuoto se non c'e'). */
+    targetNotice(): string;
+    /** I pulsanti del selettore dei Target mostrati: etichette, e quale e' attivo. */
+    switchTabs(): { label: string; active: boolean }[];
+    switchTo(label: string): Promise<void>;
     /** Il valore acceso nel toggle "per tutti", o `null` se nessuno lo e'. */
     allActive(): PublishMode | null;
     nextDisabled(): boolean;
@@ -186,7 +215,10 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
         utils: { showNotification: () => {}, copyToClipboard: async () => {}, getCurrentTheme: async () => (g.__theme as string | undefined) ?? 'dark' },
         settings: {
             get: async (k: string) => fs.settings.get(k),
-            set: async (k: string, v: unknown) => { fs.settings.set(k, v); },
+            set: async (k: string, v: unknown) => {
+                if (fs.failSettings) throw new Error('settings not writable');
+                fs.settings.set(k, v);
+            },
         },
         fileSystem: {
             createDirectory: async (p: string) => { fs.dirs.add(p); },
@@ -257,6 +289,34 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
         (el as HTMLElement).click();
         await flush();
     };
+    // ── la lista dei Target nel passo Suffix (spec 016)
+    const targetRows = () => Array.from(doc.querySelectorAll<HTMLElement>('#target-list .target-row'));
+    const rowName = (row: HTMLElement) => row.querySelector<HTMLInputElement>('[data-target-name]')?.value ?? '';
+    const rowPick = (row: HTMLElement) => row.querySelector<HTMLInputElement>('[data-target-pick]')!;
+    const selectedNames = () => targetRows().filter(r => rowPick(r).checked).map(rowName);
+    async function addTargetUi(name: string) {
+        if (name === '') {
+            await click($('#target-add-empty-btn'), 'add "no suffix"');
+        } else {
+            $<HTMLInputElement>('#target-new')!.value = name;
+            await click($('#target-add-btn'), 'add target');
+        }
+    }
+    /** Spunta solo i Target dati (per nome), nell'ordine della lista. */
+    async function setTicked(names: string[]) {
+        const count = targetRows().length;
+        for (let i = 0; i < count; i++) {
+            const row = targetRows()[i]!;          // la lista si ridisegna a ogni clic
+            const want = names.includes(rowName(row));
+            if (rowPick(row).checked !== want) await click(rowPick(row), `target ${rowName(row)}`);
+        }
+    }
+    /** Come "scrivere un suffisso": lo crea se manca e spunta solo quello. */
+    async function selectOnly(value: string) {
+        const name = value.trim();
+        if (!targetRows().some(r => rowName(r) === name)) await addTargetUi(name);
+        await setTicked([name]);
+    }
     const visibleStep = (): string =>
         Object.entries(STEP_IDS).find(([, id]) => {
             const el = doc.getElementById(id);
@@ -304,7 +364,11 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
         async openSolution(unique) {
             await click($(`.data-row[data-solution="sol-${unique}"]`), `solution ${unique}`);
         },
-        async startRename() { await click($('#rename-btn'), 'Set the suffix'); },
+        async startRename() {
+            await click($('#rename-btn'), 'Set the suffix');
+            if (selectedNames().length === 0) await selectOnly('');
+        },
+        async startRenameBare() { await click($('#rename-btn'), 'Set the suffix'); },
         // Come farebbe l'utente: se compare l'avviso "nessun suffisso" lo conferma
         async next() {
             await click($('#next-btn', stepEl()), 'Next');
@@ -319,14 +383,70 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
             await click(el ?? null, `crumb ${label}`);
         },
 
-        async typeSuffix(value) {
-            const input = $<HTMLInputElement>('#suffix-input')!;
-            input.value = value;
-            input.dispatchEvent(new Event('input', { bubbles: true }));
+        // Con i Target "scrivere un suffisso" vuol dire: crearlo se non c'e' e spuntare solo quello
+        async typeSuffix(value) { await selectOnly(value); },
+        async clearSuffix() { await selectOnly(''); },
+        async preset(name) { await selectOnly(name); },
+        targetNames: () => targetRows().map(rowName),
+        ticked: () => selectedNames(),
+        async tickTarget(name, on) {
+            const row = targetRows().find(r => rowName(r) === name);
+            if (!row) throw new Error(`Target non trovato: ${name}`);
+            if (rowPick(row).checked !== on) await click(rowPick(row), `target ${name}`);
+        },
+        async addTarget(name) { await addTargetUi(name); },
+        async renameTarget(from, to) {
+            const row = targetRows().find(r => rowName(r) === from);
+            if (!row) throw new Error(`Target non trovato: ${from}`);
+            const input = row.querySelector<HTMLInputElement>('[data-target-name]')!;
+            input.value = to;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
             await flush();
         },
-        async clearSuffix() { await click($('#clear-suffix-btn'), 'Clear'); },
-        async preset(name) { await click($(`.chip-btn[data-preset="${name}"]`), `preset ${name}`); },
+        async removeTarget(name) {
+            const row = targetRows().find(r => rowName(r) === name);
+            await click(row?.querySelector('[data-target-act="remove"]') ?? null, `remove ${name}`);
+        },
+        async moveTarget(name, dir) {
+            const row = targetRows().find(r => rowName(r) === name);
+            await click(row?.querySelector(`[data-target-act="${dir}"]`) ?? null, `move ${name} ${dir}`);
+        },
+        async dragTarget(from, to) {
+            const src = targetRows().find(r => rowName(r) === from);
+            const dst = targetRows().find(r => rowName(r) === to);
+            if (!src || !dst) throw new Error('riga non trovata per il trascinamento');
+            const fire = (el: Element, type: string) => {
+                const ev = new Event(type, { bubbles: true, cancelable: true }) as Event & { dataTransfer?: unknown };
+                ev.dataTransfer = { setData: () => {}, effectAllowed: '' };
+                el.dispatchEvent(ev);
+            };
+            fire(src.querySelector('.target-handle')!, 'dragstart');
+            fire(dst, 'dragover');
+            fire(dst, 'drop');
+            fire(src, 'dragend');
+            await flush();
+        },
+        async setTargetPublish(name, mode) {
+            const row = targetRows().find(r => rowName(r) === name);
+            const sel = row?.querySelector<HTMLSelectElement>('[data-target-publish]');
+            if (!sel) throw new Error(`Target non trovato: ${name}`);
+            sel.value = mode;
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+            await flush();
+        },
+        targetPublish(name) {
+            const row = targetRows().find(r => rowName(r) === name);
+            return (row?.querySelector<HTMLSelectElement>('[data-target-publish]')?.value as PublishMode | undefined) ?? null;
+        },
+        targetNotice: () => norm($('#target-notice')?.textContent),
+        // Ogni passo ha il suo selettore e restano tutti nel documento: si guarda solo quello visibile
+        switchTabs: () => Array.from(stepEl().querySelectorAll<HTMLElement>('[data-target-view]'))
+            .map(b => ({ label: norm(b.textContent), active: b.classList.contains('active') })),
+        async switchTo(label) {
+            const btn = Array.from(stepEl().querySelectorAll<HTMLElement>('[data-target-view]'))
+                .find(b => norm(b.textContent) === label);
+            await click(btn ?? null, `switch ${label}`);
+        },
         async toggleAgent(name) {
             await click($(`#agent-list input[data-agent="bot-${schemaOf(name)}"]`), `checkbox ${name}`);
         },
@@ -360,7 +480,7 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
             const on = $('#agent-list tfoot .toggle-btn.is-active');
             return on ? PUBLISH_BY_LABEL[norm(on.textContent)] ?? null : null;
         },
-        suffixInput: () => $<HTMLInputElement>('#suffix-input')?.value ?? '',
+        suffixInput: () => { const on = selectedNames(); return on.length === 1 ? on[0]! : ''; },
         nextDisabled: () => $<HTMLButtonElement>('#next-btn', stepEl())?.disabled ?? true,
         suffixRows() {
             return Array.from(doc.querySelectorAll('#agent-list tbody tr')).map(tr => {

@@ -23,7 +23,8 @@ afterEach(() => { vi.useRealTimers(); });
 const MODES: PublishMode[] = ['keep', 'force-true', 'force-false'];
 const VARIANTS = ['', ' [DEV]', ' [UAT]', ' [DEV] [X]'];
 const PRESETS = ['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'];
-const TYPED = ['', 'UAT', '  PROD  ', 'A&B <1>', 'DEV', 'x'.repeat(20), 'q'];
+// Un Target e' un suffisso: spazi ai lati ripuliti, e niente `[ ] < > | ...` (spec 016). Il `&` resta, a provare l'escape.
+const TYPED = ['', 'UAT', '  PROD  ', 'A&B (1)', 'DEV', 'x'.repeat(20), 'q'];
 const PUBLISH_START: (boolean | null)[] = [null, true, false];
 
 /** La versione che DEV ha all'inizio, e le cose che l'utente puo' scrivere nel campo. */
@@ -144,7 +145,7 @@ function assertSuffixStep(ui: Driver, m: Model, where: string): void {
 
 type Action = (ui: Driver, m: Model, rand: () => number) => Promise<string>;
 const ACTIONS: Action[] = [
-    async (ui, m, r) => { const v = TYPED[Math.floor(r() * TYPED.length)]!; await ui.typeSuffix(v); m.suffix = v; return `type "${v}"`; },
+    async (ui, m, r) => { const v = TYPED[Math.floor(r() * TYPED.length)]!; await ui.typeSuffix(v); m.suffix = v.trim(); return `type "${v}"`; },
     async (ui, m, r) => { const p = PRESETS[Math.floor(r() * PRESETS.length)]!; await ui.preset(p); m.suffix = p; return `preset ${p}`; },
     async (ui, m) => { await ui.clearSuffix(); m.suffix = ''; return 'clear'; },
     async (ui, m, r) => {
