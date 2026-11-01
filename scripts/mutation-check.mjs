@@ -242,7 +242,7 @@ const MUTATIONS = [
     ['motore', 'src/services/packaging.ts', '            && !(comparison?.unexpected.length);', '            && true;', 'motore: una differenza inattesa non rende non valido il Target'],
     ['motore', 'src/services/packaging.ts', 'const valid = results.every(r => r.valid);', 'const valid = results.some(r => r.valid);', 'motore: basta un Target valido per dire valido il giro'],
     ['motore', 'src/services/packaging.ts', "[{ name: suffix, publishOnImport: options.publishOnImport }]", "[{ name: suffix, publishOnImport: 'keep' }]", 'motore: runPackaging ignora il publish di partenza'],
-    ['motore', 'src/services/packaging.ts', "        valid,\n        versionChange,\n    };\n}\n\n/**\n * Un solo suffisso", "        valid: true,\n        versionChange,\n    };\n}\n\n/**\n * Un solo suffisso", 'motore: il giro risulta sempre valido'],
+    ['motore', 'src/services/packaging.ts', "        valid,\n        versionChange,\n    };\n}\n\n/**\n * Un Target visto", "        valid: true,\n        versionChange,\n    };\n}\n\n/**\n * Un Target visto", 'motore: il giro risulta sempre valido'],
     // ── spec 016: artifact set, manifest v2 e storico
     ['artefatti', 'src/services/artifacts.ts', 'if (names.length > 3) return', 'if (names.length > 4) return', 'artefatti: il conteggio dei Target nel nome della cartella parte tardi'],
     ['artefatti', 'src/services/artifacts.ts', "names.map(n => safeForPath(n) || 'no suffix').join(', ')", "names.map(n => safeForPath(n)).join(', ')", 'artefatti: un Target senza suffisso lascia le parentesi vuote nella cartella'],
