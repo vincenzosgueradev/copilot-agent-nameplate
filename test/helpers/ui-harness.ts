@@ -125,6 +125,12 @@ export interface Driver {
     toggleAgent(name: string, target?: string): Promise<void>;
     setPublish(name: string, mode: PublishMode, target?: string): Promise<void>;
     setAll(mode: PublishMode, target?: string): Promise<void>;
+    /** «Select all» / «Deselect all» della tabella di un Target. */
+    selectAgents(on: boolean, target?: string): Promise<void>;
+    /** La casella dell'intestazione della tabella di un Target. */
+    toggleAllAgents(target?: string): Promise<void>;
+    /** Il testo della tabella degli agent di un Target. */
+    agentsText(target?: string): string;
     /** L'opzione "Raise the version in DEV". */
     setRaise(on: boolean): Promise<void>;
     typeVersion(value: string): Promise<void>;
@@ -463,6 +469,13 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
             await click($(`.toggle-btn[data-publish="${schemaOf(name)}"][data-val="${mode}"]`, agentsOf(target)),
                 `publish ${name} ${mode}`);
         },
+        async selectAgents(on, target) {
+            await click($(`button[data-select="${on ? 'all' : 'none'}"]`, agentsOf(target)), `select ${on ? 'all' : 'none'}`);
+        },
+        async toggleAllAgents(target) {
+            await click($('input[data-agent-all]', agentsOf(target)), 'header checkbox');
+        },
+        agentsText: target => norm(agentsOf(target).textContent),
         async setAll(mode, target) {
             await click($(`.toggle-btn[data-publish-all="${mode}"]`, agentsOf(target)), `all ${mode}`);
         },

@@ -412,6 +412,114 @@ describe('piu\' Target nello stesso giro (FR-006, FR-008, FR-009, FR-012, FR-013
         expect(ui.nextDisabled()).toBe(false);
     });
 
+    it('D8: cambiare gli agent di un Target rifa il package, invece di riusare quello gia\' preparato', async () => {
+        const ui = await twoTargets();
+        await ui.next();
+        await ui.buildPackage();
+        const exports = () => ui.dev.events.filter(e => e.startsWith('export')).length;
+        expect(exports()).toBe(1);
+        await ui.back();
+        await ui.back();
+        expect(ui.step()).toBe('suffix');
+        await ui.toggleAgent('agent2', 'PROD');
+        await ui.next();
+        await ui.buildPackage();
+        expect(exports(), 'una scelta diversa rifa il giro').toBe(2);
+    });
+
+    it('cambiare solo il nome o il publish di un Target rifa il package', async () => {
+        const ui = await twoTargets();
+        await ui.next();
+        await ui.buildPackage();
+        const exports = () => ui.dev.events.filter(e => e.startsWith('export')).length;
+        await ui.back();
+        await ui.back();
+        await ui.setTargetPublish('PROD', 'force-false');
+        await ui.next();
+        await ui.buildPackage();
+        expect(exports(), 'publish del Target cambiato').toBe(2);
+        await ui.back();
+        await ui.back();
+        await ui.renameTarget('PROD', 'LIVE');
+        await ui.next();
+        await ui.buildPackage();
+        expect(exports(), 'nome del Target cambiato').toBe(3);
+    });
+
+    it('D8: un Target tolto e rimesso con lo stesso nome riparte da zero', async () => {
+        const ui = await twoTargets();
+        await ui.toggleAgent('agent2', 'PROD');
+        await ui.setPublish('agent1 [DEV]', 'force-false', 'PROD');
+        await ui.removeTarget('PROD');
+        await ui.addTarget('PROD');
+        expect(ui.suffixRows('PROD').map(r => r.checked), 'tutti gli agent').toEqual([true, true]);
+        expect(ui.suffixRows('PROD').map(r => r.publish), 'il default del Target, non l\'eccezione di prima').toEqual(['keep', 'keep']);
+    });
+
+    it('D8: «Select all», «Deselect all» e la casella dell\'intestazione valgono per la tabella del loro Target', async () => {
+        const ui = await twoTargets();
+        await ui.selectAgents(false, 'PROD');
+        expect(ui.suffixRows('PROD').map(r => r.checked)).toEqual([false, false]);
+        expect(ui.suffixRows('UAT').map(r => r.checked), 'UAT non cambia').toEqual([true, true]);
+        await ui.selectAgents(true, 'PROD');
+        expect(ui.suffixRows('PROD').map(r => r.checked)).toEqual([true, true]);
+        await ui.toggleAllAgents('PROD');          // tutti spuntati: la casella li toglie
+        expect(ui.suffixRows('PROD').map(r => r.checked)).toEqual([false, false]);
+        expect(ui.suffixRows('UAT').map(r => r.checked)).toEqual([true, true]);
+        await ui.toggleAllAgents('PROD');          // nessuno: li mette tutti
+        expect(ui.suffixRows('PROD').map(r => r.checked)).toEqual([true, true]);
+    });
+
+    it('D8: «Set for all ticked agents» agisce sugli agent spuntati di quel Target e non tocca gli altri', async () => {
+        const ui = await twoTargets();
+        await ui.toggleAgent('agent2', 'PROD');
+        await ui.setAll('force-false', 'PROD');
+        expect(ui.suffixRows('PROD').map(r => r.publish)).toEqual(['force-false', null]);
+        expect(ui.suffixRows('UAT').map(r => r.publish), 'UAT non cambia').toEqual(['keep', 'keep']);
+        await ui.toggleAgent('agent2', 'PROD');     // rimesso: non ha preso il valore «per tutti» mentre era escluso
+        expect(ui.suffixRows('PROD').map(r => r.publish)).toEqual(['force-false', 'force-true']);
+    });
+
+    it('D8: l\'avviso dei nomi misti sta nella tabella del Target che li ha e nomina i suoi agent', async () => {
+        const world: UiWorld = {
+            solutions: [{ unique: 'S1' }],
+            agents: [
+                { name: 'a1 [DEV]', schema: 'ava_a1', solution: 'S1', publish: null },
+                { name: 'a2 [DEV]', schema: 'ava_a2', solution: 'S1', publish: null },
+            ],
+        };
+        const ui = await bare(world);
+        await ui.tickTarget('UAT', true);
+        await ui.tickTarget('PROD', true);
+        await ui.toggleAgent('a2 [DEV]', 'PROD');
+        expect(ui.agentsText('UAT')).not.toContain('different suffixes');
+        const prod = ui.agentsText('PROD');
+        expect(prod).toContain('different suffixes');
+        expect(prod).toContain('Excluded and keeping the old suffix: a2 [DEV]');
+    });
+
+    it('D8: l\'avviso del suffisso vuoto parla degli agent del Target senza suffisso', async () => {
+        const world: UiWorld = {
+            solutions: [{ unique: 'S1' }],
+            agents: [
+                { name: 'a1 [DEV]', schema: 'ava_a1', solution: 'S1', publish: null },
+                { name: 'a2', schema: 'ava_a2', solution: 'S1', publish: null },
+            ],
+        };
+        const ui = await bare(world);
+        await ui.tickTarget('UAT', true);
+        await ui.tickTarget('PROD', true);
+        await ui.next();
+        await ui.switchTo('[PROD]');                 // il Target mostrato non e' quello senza suffisso
+        await ui.back();
+        await ui.addTarget('');
+        await ui.toggleAgent('a1 [DEV]', 'PROD');    // escluso solo in PROD: nel Target senza suffisso c'e' ancora
+        await ui.nextRaw();
+        const text = (ui.doc.getElementById('confirm-overlay')!.textContent ?? '').replace(/\s+/g, ' ');
+        expect(text).toContain('a1 [DEV]');
+        expect(text).toContain('removed');
+    });
+
     it('D8: un solo giro, due zip con agent e publish diversi', async () => {
         const ui = await twoTargets();
         await ui.toggleAgent('agent2', 'PROD');            // PROD lascia agent2 com'e'
