@@ -40,6 +40,7 @@ import {
     type PublishMode,
     type Solution,
     type Target,
+    type TargetRun,
     type VerificationResult,
 } from './types';
 
@@ -101,11 +102,14 @@ const state = {
     // Agents
     agents: [] as AgentListItem[],           // ALL agents in the environment
     /**
-     * Agent della solution aperta che l'utente ha escluso dal rename (FR-023, FR-076).
-     * Si tiene l'esclusione, non la selezione: il default e' "tutti", cosi' un agent nuovo
-     * comparso in DEV viene rinominato insieme agli altri invece di restare indietro.
+     * Per Target (chiave = nome del Target), gli agent della solution aperta che l'utente ha escluso
+     * dal rename (FR-023, FR-076, spec 016 D8). Si tiene l'esclusione, non la selezione: il default
+     * e' "tutti", cosi' un agent nuovo comparso in DEV viene rinominato insieme agli altri invece di
+     * restare indietro.
      */
-    excludedAgents: new Set<string>(),
+    excludedByTarget: new Map<string, Set<string>>(),
+    /** Per Target, le eccezioni di publish on import per agent (`schemaName`): battono il default del Target (D7, D8). */
+    publishByTarget: new Map<string, Record<string, PublishMode>>(),
     /** Icona e descrizione gia' lette, per agent (spec 008): solo da mostrare, mai nel package. */
     cards: new Map<string, AgentCard>(),
     /** Agent trovato dalla ricerca: evidenziato nella vista della sua solution (FR-023b). */
@@ -670,9 +674,17 @@ function solutionAgents(): AgentListItem[] {
         ? sortedByName(agentsInSolution(state.browsingSolutionId)) : [];
 }
 
-/** Quelli che il rename tocca davvero: tutti meno gli esclusi. */
-function selectedAgents(): AgentListItem[] {
-    return solutionAgents().filter(a => !state.excludedAgents.has(a.id));
+/** Gli agent esclusi di un Target, da modificare (D8). */
+function excludedOf(target: string): Set<string> {
+    let set = state.excludedByTarget.get(target);
+    if (!set) { set = new Set<string>(); state.excludedByTarget.set(target, set); }
+    return set;
+}
+
+/** Quelli che il rename tocca davvero in un Target: tutti meno gli esclusi. Senza Target, quello mostrato. */
+function selectedAgents(target: string = activeSuffix()): AgentListItem[] {
+    const out = state.excludedByTarget.get(target);
+    return solutionAgents().filter(a => !out?.has(a.id));
 }
 
 /**
@@ -688,17 +700,17 @@ function suffixesAfter(names: { name: string; selected: boolean }[], suffix: str
 }
 
 /** Gli agent esclusi che restano con un suffisso diverso da quello nuovo: la causa dei nomi misti. */
-function clashingAgents(): AgentListItem[] {
-    const active = activeTarget();
-    if (!active) return [];
-    const target = active.name.trim();
+function clashingAgents(name: string | undefined = activeTarget()?.name): AgentListItem[] {
+    if (name === undefined) return [];
+    const target = name.trim();
+    const out = state.excludedByTarget.get(name);
     return solutionAgents().filter(a =>
-        state.excludedAgents.has(a.id) && (splitSuffix(a.name).currentSuffix ?? '') !== target);
+        out?.has(a.id) && (splitSuffix(a.name).currentSuffix ?? '') !== target);
 }
 
-function mixedSuffixHtml(found: string[]): string {
+function mixedSuffixHtml(found: string[], targetName?: string): string {
     const label = found.map(s => s ? `[${escapeHtml(s)}]` : 'no suffix').join(', ');
-    const who = clashingAgents().map(a => `<strong>${escapeHtml(a.name)}</strong>`).join(', ');
+    const who = clashingAgents(targetName).map(a => `<strong>${escapeHtml(a.name)}</strong>`).join(', ');
     return `
         <p class="hint hint--warn" style="margin-top:12px">
             The agents of this solution would end up with <strong>different suffixes</strong>
@@ -721,7 +733,8 @@ function selectSolution(solutionId: string, highlightAgentId = ''): void {
         : state.solutions.find(s => s.solutionId === solutionId) ?? null;
     if (state.browsingSolutionId !== solutionId) {
         // Un'altra solution: bozza, esclusioni e package gia' preparato non valgono piu'
-        state.excludedAgents.clear();
+        state.excludedByTarget.clear();
+        state.publishByTarget.clear();
         state.options.publishByAgent = {};
         resetVersionPlan();
         state.selectedTargets = [];
@@ -1001,7 +1014,7 @@ function scrollToTop(root: HTMLElement): void {
  * avanti si dice, con esempi veri, che cosa succede ai nomi.
  */
 function confirmNoSuffix(): Promise<boolean> {
-    const picked = selectedAgents();
+    const picked = selectedAgents('');
     const changing = picked.filter(a => splitSuffix(a.name).currentSuffix);
     const sample = changing.length ? changing : picked;
     const rows = sample.map(a => `
@@ -1080,9 +1093,10 @@ const activeSuffix = (): string => activeTarget()?.name ?? '';
 /** L'etichetta di un Target nei testi: `[UAT]`, o «no suffix». */
 const targetLabel = (name: string): string => (name.trim() ? `[${name.trim()}]` : 'no suffix');
 
-/** Il publish on import di un agent per il Target mostrato: la sua eccezione batte il default del Target (D7). */
-function agentPublishMode(schemaName: string): PublishMode {
-    return state.options.publishByAgent?.[schemaName] ?? activeTarget()?.publishOnImport ?? 'keep';
+/** Il publish on import di un agent per un Target (di default il mostrato): la sua eccezione batte il default del Target (D7, D8). */
+function agentPublishMode(schemaName: string, target: string = activeSuffix()): PublishMode {
+    return state.publishByTarget.get(target)?.[schemaName]
+        ?? state.targets.find(t => t.name === target)?.publishOnImport ?? 'keep';
 }
 
 /** Legge la lista dell'ambiente (una volta per connessione) e le spunte della solution aperta. */
@@ -1283,14 +1297,14 @@ const PUBLISH_LABELS: Record<PublishMode, string> = {
     'force-false': 'Force no',
 };
 
-/** La scelta di un agent: da qui in poi vince sul valore di partenza (`publishOnImport`). */
-function setPublishMode(schemaName: string, mode: PublishMode): void {
-    state.options.publishByAgent = { ...(state.options.publishByAgent ?? {}), [schemaName]: mode };
+/** La scelta di un agent in un Target: da qui in poi vince sul valore di partenza del Target (D7, D8). */
+function setPublishMode(target: string, schemaName: string, mode: PublishMode): void {
+    state.publishByTarget.set(target, { ...(state.publishByTarget.get(target) ?? {}), [schemaName]: mode });
 }
 
 /** Il toggle di un agent: stessa grammatica del resto dell'interfaccia, il valore attivo evidenziato. */
-function publishToggleHtml(schemaName: string): string {
-    const current = agentPublishMode(schemaName);
+function publishToggleHtml(target: string, schemaName: string): string {
+    const current = agentPublishMode(schemaName, target);
     return `<div class="toggle-group toggle-group--sm" role="group"
             aria-label="Publish on import">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
         <button class="toggle-btn${current === m ? ' is-active' : ''}" data-publish="${escapeHtml(schemaName)}"
@@ -1301,10 +1315,10 @@ function publishToggleHtml(schemaName: string): string {
  * Il toggle "per tutti". Mostra il valore comune quando tutti gli agent spuntati ne hanno uno
  * solo, e nessuno quando sono misti: un pulsante che non resta acceso dopo il clic sembra rotto.
  */
-function bulkToggleHtml(): string {
-    const chosen = selectedAgents();
-    const first = chosen[0] ? agentPublishMode(chosen[0].schemaName) : null;
-    const common = first && chosen.every(a => agentPublishMode(a.schemaName) === first) ? first : null;
+function bulkToggleHtml(target: string): string {
+    const chosen = selectedAgents(target);
+    const first = chosen[0] ? agentPublishMode(chosen[0].schemaName, target) : null;
+    const common = first && chosen.every(a => agentPublishMode(a.schemaName, target) === first) ? first : null;
     return `<div class="toggle-group toggle-group--sm" role="group" aria-label="Publish on import for all ticked agents">${
         (Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
         <button class="toggle-btn${common === m ? ' is-active' : ''}" data-publish-all="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}</div>`;
@@ -1376,41 +1390,42 @@ function checkHtml(attr: string, label: string, on: boolean): string {
     </label>`;
 }
 
-function agentRowsHtml(): string {
+function agentRowsHtml(target: Target): string {
     const agents = solutionAgents();
-    const names = agents.map(a => ({ name: a.name, selected: !state.excludedAgents.has(a.id) }));
-    const active = activeTarget();
-    const suffix = active?.name ?? '';
-    const mixed = active ? suffixesAfter(names, suffix) : [];
+    const out = excludedOf(target.name);
+    const names = agents.map(a => ({ name: a.name, selected: !out.has(a.id) }));
+    const suffix = target.name;
+    const mixed = suffixesAfter(names, suffix);
+    const label = targetLabel(target.name);
     return `
         <table class="data-table data-table--fill">
             <colgroup><col style="width:68px"><col style="width:28%"><col style="width:96px"><col style="width:28%"><col></colgroup>
-            <thead><tr><th class="col-check">${checkHtml('data-agent-all', 'Select or deselect all agents',
-                agents.every(a => !state.excludedAgents.has(a.id)))}</th><th>Agent</th><th>Agent type</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
+            <thead><tr><th class="col-check">${checkHtml('data-agent-all', `Select or deselect all agents for ${label}`,
+                agents.every(a => !out.has(a.id)))}</th><th>Agent</th><th>Agent type</th><th>Name after the rename</th><th>Publish on import</th></tr></thead>
             <tbody>${agents.map(a => {
-                const on = !state.excludedAgents.has(a.id);
+                const on = !out.has(a.id);
                 const next = buildName(a.name, suffix);
                 const kept = splitSuffix(a.name).currentSuffix ?? '';
-                const clash = !on && !!active && kept !== suffix.trim();   // un agent lasciato com'e' dice sempre che suffisso tiene
+                const clash = !on && kept !== suffix.trim();   // un agent lasciato com'e' dice sempre che suffisso tiene
                 const offText = clash
                     ? `left as it is <span class="cell-warn">— keeps ${kept ? `[${escapeHtml(kept)}]` : 'no suffix'}</span>`
                     : 'left as it is';
                 return `
                 <tr${on ? '' : ' class="is-off"'}>
-                    <td class="col-check">${checkHtml(`data-agent="${escapeHtml(a.id)}"`, `Rename ${a.name}`, on)}</td>
+                    <td class="col-check">${checkHtml(`data-agent="${escapeHtml(a.id)}"`, `Rename ${a.name} for ${label}`, on)}</td>
                     <td class="cell-strong" title="${escapeHtml(a.name)}">${agentCellHtml(a)}</td>
                     <td class="cell-type">${agentKindHtml(a.id)}</td>
                     <td class="${on ? 'cell-strong' : 'cell-muted'} cell-nowrap" title="${escapeHtml(next)}">${on
-                        ? (active ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '') : '<span class="cell-muted">—</span>')
+                        ? escapeHtml(next) + (next === a.name ? ' <span class="cell-muted">(unchanged)</span>' : '')
                         : offText}</td>
-                    <td>${on ? publishToggleHtml(a.schemaName) : '<span class="cell-muted">—</span>'}</td>
+                    <td>${on ? publishToggleHtml(target.name, a.schemaName) : '<span class="cell-muted">—</span>'}</td>
                 </tr>`;
             }).join('')}</tbody>
             <tfoot>
                 <tr>
                     <td colspan="4" class="foot-cell">
                         <div class="select-bar">
-                            <span class="select-count"><strong>${agents.length - state.excludedAgents.size}</strong> of ${agents.length} selected</span>
+                            <span class="select-count"><strong>${agents.length - out.size}</strong> of ${agents.length} selected</span>
                             <button type="button" class="chip-btn" data-select="all">Select all</button>
                             <button type="button" class="chip-btn" data-select="none">Deselect all</button>
                         </div>
@@ -1419,13 +1434,13 @@ function agentRowsHtml(): string {
                             <span class="foot-label">Set for all ticked agents</span>
                         </div>
                     </td>
-                    <td>${bulkToggleHtml()}</td>
+                    <td>${bulkToggleHtml(target.name)}</td>
                 </tr>
             </tfoot>
         </table>
-        ${agents.every(a => state.excludedAgents.has(a.id))
+        ${agents.every(a => out.has(a.id))
             ? '<p class="hint hint--warn" style="margin-top:12px"><strong>Nothing to rename.</strong> This tool exists to rename agents: with none ticked the package would be identical to the solution in DEV, so there is nothing to build. To move a solution unchanged between environments, use the native solution export or your ALM pipeline. Tick at least one agent to continue.</p>' : ''}
-        ${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}`;
+        ${mixed.length > 1 ? mixedSuffixHtml(mixed, target.name) : ''}`;
 }
 
 /** Le righe della lista dei Target: casella, nome, publish on import, ordine e rimozione. */
@@ -1435,7 +1450,8 @@ function targetRowsHtml(): string {
         const on = state.selectedTargets.includes(t.name);
         const label = targetLabel(t.name);
         return `
-        <li class="target-row${on ? ' is-on' : ''}" data-target-index="${i}">
+        <li class="target-card${on ? ' is-on' : ''}" data-target-index="${i}">
+        <div class="target-row${on ? ' is-on' : ''}">
             <span class="target-handle" draggable="true" title="Drag to reorder" aria-hidden="true">&#8942;&#8942;</span>
             ${checkHtml('data-target-pick', `Build for ${label}`, on)}
             <input class="text-input target-name" type="text" data-target-name maxlength="${SUFFIX_MAX}"
@@ -1453,6 +1469,8 @@ function targetRowsHtml(): string {
                 <button type="button" class="btn btn--secondary btn--sm" data-target-act="remove"
                     aria-label="Remove ${escapeHtml(label)}">${icon('close', 'icon--sm')}</button>
             </span>
+        </div>
+        ${on ? `<div class="target-agents" data-agents-for="${i}">${agentRowsHtml(t)}</div>` : ''}
         </li>`;
     }).join('');
 }
@@ -1473,9 +1491,14 @@ function renderSuffixStep(): void {
                 <section class="panel" id="targets-panel">
                     <div class="panel-head">
                         <h3 class="panel-heading">${icon('tag', 'icon--head')}Targets</h3>
-                        <span class="panel-sub">tick the environments to build for; each one gets its own suffix</span>
+                        <span class="panel-sub">tick the environments to build for; under each one, choose its agents and publish option</span>
                     </div>
                     <div class="panel-body">
+                        <div class="target-head" aria-hidden="true">
+                            <span class="th-pick">Include</span>
+                            <span class="th-name">Suffix after the agent name</span>
+                            <span class="th-publish">Default publish on import</span>
+                        </div>
                         <ul class="target-list" id="target-list">${targetRowsHtml()}</ul>
                         <p class="hint hint--warn" id="target-none"${selectedTargetList().length ? ' hidden' : ''}>
                             Tick at least one target to continue.</p>
@@ -1495,15 +1518,6 @@ function renderSuffixStep(): void {
                             Drag the handle or use the arrows to reorder. The list is remembered for this environment.
                         </p>
                     </div>
-                </section>
-
-                <section class="panel">
-                    <div class="panel-head">
-                        <h3 class="panel-heading">${icon('bot', 'icon--head')}Agents</h3>
-                        <span class="panel-sub">all renamed with the same suffix; untick to leave one as it is</span>
-                        <div id="target-switch-host">${targetSwitchHtml()}</div>
-                    </div>
-                    <div class="panel-body" id="agent-list">${agentRowsHtml()}</div>
                 </section>
 
                 <section class="panel">
@@ -1564,62 +1578,31 @@ function renderSuffixStep(): void {
     };
 
     const nextBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#next-btn')!;
+    const listEl = els.stepSuffix.querySelector<HTMLElement>('#target-list')!;
     const refreshNext = () => {
-        nextBtn.disabled = selectedTargetList().length === 0 || selectedAgents().length === 0 || versionIssue() !== null;
+        const noAgents = selectedTargetList().some(t => selectedAgents(t.name).length === 0);
+        nextBtn.disabled = selectedTargetList().length === 0 || noAgents || versionIssue() !== null;
     };
-    const refreshAgents = () => {
-        const host = els.stepSuffix.querySelector('#agent-list');
-        if (host) host.innerHTML = agentRowsHtml();
-        const sw = els.stepSuffix.querySelector('#target-switch-host');
-        if (sw) sw.innerHTML = targetSwitchHtml();
-        syncSelectAll();
-        refreshNext();
-    };
-    // "Seleziona tutti" nell'intestazione: spuntato se tutti, a meta' se solo alcuni
+    // "Seleziona tutti" nell'intestazione di ogni tabella: spuntato se tutti, a meta' se solo alcuni
     const syncSelectAll = () => {
-        const all = els.stepSuffix.querySelector<HTMLInputElement>('input[data-agent-all]');
-        if (!all) return;
-        const total = solutionAgents().length;
-        const on = total - state.excludedAgents.size;
-        all.checked = on === total;
-        all.indeterminate = on > 0 && on < total;
+        listEl.querySelectorAll<HTMLInputElement>('input[data-agent-all]').forEach(all => {
+            const t = state.targets[Number(all.closest<HTMLElement>('[data-target-index]')?.dataset.targetIndex)];
+            if (!t) return;
+            const total = solutionAgents().length;
+            const on = selectedAgents(t.name).length;
+            all.checked = on === total;
+            all.indeterminate = on > 0 && on < total;
+        });
     };
-    const setAllAgents = (selected: boolean) => {
+    const setAllAgents = (target: Target, selected: boolean) => {
+        const out = excludedOf(target.name);
         for (const a of solutionAgents()) {
-            if (selected) state.excludedAgents.delete(a.id);
-            else state.excludedAgents.add(a.id);
+            if (selected) out.delete(a.id);
+            else out.add(a.id);
         }
-        refreshAgents();
     };
-    els.stepSuffix.querySelector('#agent-list')!.addEventListener('click', ev => {
-        const sel = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[data-select]');
-        if (sel) { setAllAgents(sel.dataset.select === 'all'); return; }
-        const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.toggle-btn');
-        if (!btn) return;
-        if (btn.dataset.publish) {
-            setPublishMode(btn.dataset.publish, btn.dataset.val as PublishMode);
-        } else if (btn.dataset.publishAll) {
-            for (const a of selectedAgents()) setPublishMode(a.schemaName, btn.dataset.publishAll as PublishMode);
-        } else {
-            return;
-        }
-        refreshAgents();
-    });
-    // Una sola delegation: le righe vengono riscritte a ogni cambio di suffisso
-    els.stepSuffix.querySelector('#agent-list')!.addEventListener('change', ev => {
-        const head = (ev.target as HTMLElement).closest<HTMLInputElement>('input[data-agent-all]');
-        if (head) { setAllAgents(head.checked); return; }
-        const box = (ev.target as HTMLElement).closest<HTMLInputElement>('input[data-agent]');
-        if (!box) return;
-        if (box.checked) state.excludedAgents.delete(box.dataset.agent!);
-        else state.excludedAgents.add(box.dataset.agent!);
-        refreshAgents();
-    });
-
-    syncSelectAll();
 
     // ── Targets: lista, spunte, nomi e ordine (spec 016)
-    const listEl = els.stepSuffix.querySelector<HTMLElement>('#target-list')!;
     const newInput = els.stepSuffix.querySelector<HTMLInputElement>('#target-new')!;
     const addBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#target-add-btn')!;
     const addEmptyBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#target-add-empty-btn')!;
@@ -1630,7 +1613,8 @@ function renderSuffixStep(): void {
         if (none) none.hidden = selectedTargetList().length > 0;
         renderTargetNotice();
         refreshArtifacts();
-        refreshAgents();
+        syncSelectAll();
+        refreshNext();
     };
     const complain = (message: string) => { state.targetNotice = message; renderTargetNotice(); };
     const add = (name: string) => {
@@ -1658,7 +1642,13 @@ function renderSuffixStep(): void {
         const i = Number(el.closest<HTMLElement>('[data-target-index]')?.dataset.targetIndex);
         const target = state.targets[i];
         if (!target) return;
-        if (el.matches('[data-target-pick]')) {
+        if (el.matches('[data-agent-all]')) {
+            setAllAgents(target, (el as HTMLInputElement).checked);
+        } else if (el.matches('[data-agent]')) {
+            const out = excludedOf(target.name);
+            if ((el as HTMLInputElement).checked) out.delete(el.dataset.agent!);
+            else out.add(el.dataset.agent!);
+        } else if (el.matches('[data-target-pick]')) {
             const on = (el as HTMLInputElement).checked;
             state.selectedTargets = on
                 ? [...state.selectedTargets, target.name]
@@ -1676,6 +1666,10 @@ function renderSuffixStep(): void {
             state.targets = renameTarget(state.targets, i, to);
             state.selectedTargets = state.selectedTargets.map(n => (n === from ? to : n));
             if (state.activeTargetName === from) state.activeTargetName = to;
+            // Le scelte per agent seguono il Target nel suo nuovo nome
+            for (const map of [state.excludedByTarget, state.publishByTarget] as Map<string, unknown>[]) {
+                if (map.has(from)) { map.set(to, map.get(from)); map.delete(from); }
+            }
             persistTargets({ from, to });
             persistSelection();
         } else {
@@ -1684,7 +1678,27 @@ function renderSuffixStep(): void {
         refreshTargets();
     });
     listEl.addEventListener('click', ev => {
-        const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-target-act]');
+        const node = ev.target as HTMLElement;
+        const owner = state.targets[Number(node.closest<HTMLElement>('[data-target-index]')?.dataset.targetIndex)];
+        const sel = node.closest<HTMLButtonElement>('button[data-select]');
+        const toggle = node.closest<HTMLButtonElement>('.toggle-btn');
+        if (owner && sel) {
+            setAllAgents(owner, sel.dataset.select === 'all');
+            refreshTargets();
+            return;
+        }
+        if (owner && toggle) {
+            if (toggle.dataset.publish) {
+                setPublishMode(owner.name, toggle.dataset.publish, toggle.dataset.val as PublishMode);
+            } else if (toggle.dataset.publishAll) {
+                for (const a of selectedAgents(owner.name)) setPublishMode(owner.name, a.schemaName, toggle.dataset.publishAll as PublishMode);
+            } else {
+                return;
+            }
+            refreshTargets();
+            return;
+        }
+        const btn = node.closest<HTMLElement>('[data-target-act]');
         if (!btn) return;
         const i = Number(btn.closest<HTMLElement>('[data-target-index]')?.dataset.targetIndex);
         const act = btn.dataset.targetAct;
@@ -1692,6 +1706,7 @@ function renderSuffixStep(): void {
         else if (act === 'down') state.targets = moveTarget(state.targets, i, i + 1);
         else if (act === 'remove') {
             const gone = state.targets[i]?.name;
+            if (gone !== undefined) { state.excludedByTarget.delete(gone); state.publishByTarget.delete(gone); }
             state.targets = removeTarget(state.targets, i);
             state.selectedTargets = state.selectedTargets.filter(n => n !== gone);
             persistSelection();
@@ -1731,8 +1746,8 @@ function renderSuffixStep(): void {
         dragFrom = -1;
         listEl.querySelectorAll('.is-dragging').forEach(r => r.classList.remove('is-dragging'));
     });
-    bindTargetSwitch(els.stepSuffix.querySelector('#target-switch-host'), refreshAgents);
-    refreshAgents();
+    syncSelectAll();
+    refreshNext();
 
     const refreshVersion = () => {
         syncVersionOption();
@@ -1785,7 +1800,7 @@ function renderReviewStep(): void {
     const tooLong = rows.some(r => r.next.length > TEAMS_NAME_LIMIT);
     const unchanged = rows.every(r => r.next === r.agent.name);
     const mixed = suffixesAfter(
-        solutionAgents().map(a => ({ name: a.name, selected: !state.excludedAgents.has(a.id) })),
+        solutionAgents().map(a => ({ name: a.name, selected: !state.excludedByTarget.get(activeSuffix())?.has(a.id) })),
         activeSuffix());
 
     els.stepReview.innerHTML = `
@@ -1822,7 +1837,7 @@ function renderReviewStep(): void {
                     ${solutionAgents().length > chosen.length ? `
                     <p class="hint" style="margin-top:12px">
                         Left as they are: ${solutionAgents()
-                            .filter(a => state.excludedAgents.has(a.id))
+                            .filter(a => state.excludedByTarget.get(activeSuffix())?.has(a.id))
                             .map(a => `<strong>${escapeHtml(a.name)}</strong>`).join(', ')}.
                     </p>` : ''}
                     ${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}
@@ -1926,10 +1941,20 @@ function confirmVersionWrite(sol: Solution): Promise<boolean> {
     });
 }
 
+/** I Target spuntati con le scelte di ognuno: i suoi agent e le sue eccezioni di publish (D8). */
+function targetRuns(): TargetRun[] {
+    return selectedTargetList().map(t => ({
+        name: t.name,
+        publishOnImport: t.publishOnImport,
+        agents: selectedAgents(t.name).map(a => a.schemaName),
+        publishByAgent: { ...(state.publishByTarget.get(t.name) ?? {}) },
+    }));
+}
+
 function renderPreviewStep(): void {
-    const chosen = selectedAgents().map(a => a.schemaName);
+    const runs = targetRuns();
     const sol = state.activeSolution;
-    if (!sol || !chosen.length) { navigateTo('welcome'); return; }
+    if (!sol || !runs.length || runs.some(r => !r.agents?.length)) { navigateTo('welcome'); return; }
     renderBreadcrumb();
 
     els.stepPreview.innerHTML = `
@@ -1950,19 +1975,19 @@ function renderPreviewStep(): void {
 
     // Tornare indietro e riavanzare non deve rifare l'export: sulla solution piu' pesante
     // dell'environment di riferimento la coppia costa 111 secondi (research.md §13).
-    const key = packagingKey(sol, chosen);
+    const key = packagingKey(sol, runs);
     if (state.packaging && state.packagingKey === key) {
         renderPreviewResult(targetView(state.packaging, activeIndex(state.packaging)));
         return;
     }
     state.packaging = null;
-    void runPreview(sol, chosen, ++previewSeq, key);
+    void runPreview(sol, runs, ++previewSeq, key);
 }
 
 /** Tutto ciò che, cambiando, rende obsoleto il package già preparato. */
-function packagingKey(sol: Solution, schemaNames: string[]): string {
-    return JSON.stringify([sol.uniqueName, [...schemaNames].sort(),
-        selectedTargetList().map(t => [t.name, t.publishOnImport]), state.options]);
+function packagingKey(sol: Solution, runs: TargetRun[]): string {
+    return JSON.stringify([sol.uniqueName,
+        runs.map(r => [r.name, r.publishOnImport, [...(r.agents ?? [])].sort(), r.publishByAgent]), state.options]);
 }
 
 /** Le fasi del packaging, nell'ordine in cui il servizio le attraversa. */
@@ -2017,7 +2042,7 @@ const DONE_HOLD_MS = 1800;
 let previewSeq = 0;
 
 async function runPreview(
-    sol: Solution, schemaNames: string[], seq: number, key: string,
+    sol: Solution, runs: TargetRun[], seq: number, key: string,
 ): Promise<void> {
     const startedAt = Date.now();
     const phases = phasesFor(state.options.newVersion !== null);
@@ -2040,9 +2065,7 @@ async function runPreview(
     };
     try {
         // Un solo export e una sola versione per tutti i Target spuntati, nell'ordine della lista
-        const result = await runPackagingTargets(
-            sol.uniqueName, selectedTargetList().map(t => ({ name: t.name, publishOnImport: t.publishOnImport })),
-            schemaNames, state.options, setProgress)
+        const result = await runPackagingTargets(sol.uniqueName, runs, [], state.options, setProgress)
             .finally(() => window.clearInterval(ticker));
         if (seq !== previewSeq) return;     // l'utente è già andato altrove
 
@@ -2920,7 +2943,8 @@ toolbox.events.on((_event: unknown, payload: { event: string }) => {
         log('Connection changed. Reloading...', 'info');
         state.agents = [];
         state.solutions = [];
-        state.excludedAgents.clear();
+        state.excludedByTarget.clear();
+        state.publishByTarget.clear();
         state.options.publishByAgent = {};
         resetVersionPlan();
         state.highlightAgentId = '';

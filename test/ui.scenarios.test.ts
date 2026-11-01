@@ -308,7 +308,7 @@ describe('revisione e anteprima: layout', () => {
         const ui = await boot(WORLD);
         await ui.openSolution('S2');
         await ui.startRename();
-        const widths = Array.from(ui.doc.querySelectorAll('#agent-list colgroup col'))
+        const widths = Array.from(ui.doc.querySelectorAll('#target-list .target-agents colgroup col'))
             .map(c => (c as HTMLElement).style.width);
         // checkbox stretta; agente e nome ricevono una quota; il tipo ha una larghezza fissa; l'ultima prende il resto
         expect(widths[0]).toBe('68px');

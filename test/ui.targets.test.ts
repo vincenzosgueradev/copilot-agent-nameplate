@@ -47,7 +47,7 @@ describe('la lista di partenza (FR-002)', () => {
         expect(ui.ticked()).toEqual([]);
         expect(ui.nextDisabled()).toBe(true);
         expect(ui.text('suffix')).toContain('Tick at least one target to continue');
-        expect(ui.suffixRows().map(r => r.nameAfter), 'senza Target non c\'e\' un nome "dopo"').toEqual(['—', '—']);
+        expect(ui.doc.querySelector('#target-list .target-agents'), 'senza Target spuntati non ci sono tabelle di agent').toBeNull();
         expect(ui.doc.getElementById('target-none')!.hidden).toBe(false);
     });
 
@@ -240,10 +240,12 @@ describe('rinominare, rimuovere, riordinare (FR-003)', () => {
         const ui = await bare();
         await ui.tickTarget('PROD', true);
         await ui.tickTarget('UAT', true);
-        expect(ui.switchTabs().map(t => t.label)).toEqual(['[UAT]', '[PROD]']);   // lista: UAT prima di PROD
+        expect(ui.ticked()).toEqual(['UAT', 'PROD']);   // lista: UAT prima di PROD
         for (let i = 0; i < 4; i++) await ui.moveTarget('PROD', 'up');   // da posizione 5 a 1: prima di UAT (2)
         expect(ui.targetNames().slice(0, 3)).toEqual(['DEV', 'PROD', 'TEST']);
-        expect(ui.switchTabs().map(t => t.label)).toEqual(['[PROD]', '[UAT]']);
+        expect(ui.ticked()).toEqual(['PROD', 'UAT']);
+        await ui.next();
+        expect(ui.switchTabs().map(t => t.label), 'il selettore della revisione segue l\'ordine').toEqual(['[PROD]', '[UAT]']);
     });
 });
 
@@ -349,32 +351,105 @@ describe('piu\' Target nello stesso giro (FR-006, FR-008, FR-009, FR-012, FR-013
         return ui;
     }
 
-    it('con un solo Target non compare nessun selettore; con due si', async () => {
+    it('con un solo Target non compare nessun selettore nella revisione; con due si', async () => {
         const ui = await bare();
         await ui.tickTarget('UAT', true);
+        await ui.next();
         expect(ui.switchTabs()).toEqual([]);
+        await ui.back();
         await ui.tickTarget('PROD', true);
+        await ui.next();
         expect(ui.switchTabs()).toEqual([{ label: '[UAT]', active: true }, { label: '[PROD]', active: false }]);
     });
 
-    it('il selettore cambia i nomi "dopo" e il publish mostrati; gli agent esclusi restano uguali per tutti (D5)', async () => {
+    it('D8: sotto ogni Target spuntato c\'e\' la sua tabella di agent, con il nome "dopo" di quel Target', async () => {
         const ui = await twoTargets();
-        expect(ui.suffixRows().map(r => r.nameAfter)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
+        const tables = ui.doc.querySelectorAll('#target-list .target-agents');
+        expect(tables.length, 'una tabella per Target spuntato').toBe(2);
+        expect(ui.suffixRows('UAT').map(r => r.nameAfter)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
+        expect(ui.suffixRows('PROD').map(r => r.nameAfter)).toEqual(['agent1 [PROD]', 'agent2 [PROD]']);
+        expect(ui.suffixRows('PROD').map(r => r.publish), 'il default di PROD').toEqual(['force-true', 'force-true']);
+        expect(ui.suffixRows('UAT').map(r => r.publish), 'il default di UAT').toEqual(['keep', 'keep']);
+        // togliere la spunta al Target toglie la sua tabella
+        await ui.tickTarget('PROD', false);
+        expect(ui.doc.querySelectorAll('#target-list .target-agents').length).toBe(1);
+    });
+
+    it('D8: gli agent e il publish per agent sono indipendenti fra i Target', async () => {
+        const ui = await twoTargets();
+        await ui.toggleAgent('agent2', 'PROD');
+        expect(ui.suffixRows('UAT').map(r => r.checked), 'UAT non cambia').toEqual([true, true]);
+        expect(ui.suffixRows('PROD').map(r => r.checked)).toEqual([true, false]);
+        await ui.setPublish('agent1 [DEV]', 'force-false', 'UAT');
+        expect(ui.suffixRows('UAT').map(r => r.publish)).toEqual(['force-false', 'keep']);
+        expect(ui.suffixRows('PROD').map(r => r.publish), 'PROD non cambia').toEqual(['force-true', null]);
+        await ui.setAll('force-true', 'UAT');
+        expect(ui.suffixRows('UAT').map(r => r.publish)).toEqual(['force-true', 'force-true']);
+        expect(ui.suffixRows('PROD').map(r => r.publish)).toEqual(['force-true', null]);
+    });
+
+    it('D8: le scelte di un Target si ritrovano se si toglie e si rimette la spunta; la rinomina le porta con se\'', async () => {
+        const ui = await twoTargets();
+        await ui.toggleAgent('agent2', 'PROD');
+        await ui.tickTarget('PROD', false);
+        await ui.tickTarget('PROD', true);
+        expect(ui.suffixRows('PROD').map(r => r.checked)).toEqual([true, false]);
+        await ui.renameTarget('PROD', 'LIVE');
+        expect(ui.suffixRows('LIVE').map(r => r.checked), 'dopo la rinomina').toEqual([true, false]);
+        expect(ui.suffixRows('LIVE').map(r => r.nameAfter)[0]).toBe('agent1 [LIVE]');
+    });
+
+    it('D8: un Target senza agent da rinominare blocca Next e lo dice nella sua tabella', async () => {
+        const ui = await twoTargets();
+        await ui.toggleAgent('agent1 [DEV]', 'PROD');
+        await ui.toggleAgent('agent2', 'PROD');
+        expect(ui.nextDisabled()).toBe(true);
+        const warn = ui.doc.querySelector('#target-list [data-agents-for]:last-of-type')?.textContent ?? '';
+        expect(Array.from(ui.doc.querySelectorAll('#target-list .target-agents')).map(t => t.textContent!.includes('Nothing to rename')))
+            .toEqual([false, true]);
+        expect(warn).toBeDefined();
+        await ui.toggleAgent('agent1 [DEV]', 'PROD');
+        expect(ui.nextDisabled()).toBe(false);
+    });
+
+    it('D8: un solo giro, due zip con agent e publish diversi', async () => {
+        const ui = await twoTargets();
+        await ui.toggleAgent('agent2', 'PROD');            // PROD lascia agent2 com'e'
+        await ui.setPublish('agent1 [DEV]', 'force-false', 'UAT');
+        await ui.next();
+        await ui.buildPackage();
+        await ui.toVerify();
+        await ui.save();
+        const { manifest, zips } = ui.written();
+        const byName = (n: string) => readProduced(Object.entries(zips).find(([pth]) => pth.endsWith(n))![1]);
+        expect(byName('_managed_UAT.zip')).toEqual({ ava_a1: { name: 'agent1 [UAT]', publish: false }, ava_a2: { name: 'agent2 [UAT]', publish: false } });
+        expect(byName('_managed_PROD.zip')).toEqual({ ava_a1: { name: 'agent1 [PROD]', publish: true }, ava_a2: { name: 'agent2', publish: false } });
+        const mf = manifest as { targets: { name: string; options: { publishByAgent: object }; agents: { schemaName: string; excluded: boolean }[] }[] };
+        expect(mf.targets[0]!.options.publishByAgent).toEqual({ ava_a1: 'force-false' });
+        expect(mf.targets[1]!.options.publishByAgent).toEqual({});
+        expect(mf.targets[0]!.agents.map(a => a.excluded)).toEqual([false, false]);
+        expect(mf.targets[1]!.agents.map(a => a.excluded)).toEqual([false, true]);
+    });
+
+    it('nella revisione il selettore cambia il Target mostrato, con le scelte di quel Target', async () => {
+        const ui = await twoTargets();
+        await ui.toggleAgent('agent2', 'PROD');
+        await ui.next();
+        expect(ui.reviewRows().map(r => r.resulting)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
         await ui.switchTo('[PROD]');
-        expect(ui.suffixRows().map(r => r.nameAfter)).toEqual(['agent1 [PROD]', 'agent2 [PROD]']);
-        expect(ui.suffixRows().map(r => r.publish), 'il default di PROD').toEqual(['force-true', 'force-true']);
+        expect(ui.reviewRows().map(r => r.resulting), 'PROD non rinomina agent2').toEqual(['agent1 [PROD]']);
         expect(ui.switchTabs().map(t => t.active)).toEqual([false, true]);
-        await ui.toggleAgent('agent2');
-        await ui.switchTo('[UAT]');
-        expect(ui.suffixRows().map(r => r.checked), 'l\'esclusione vale per entrambi').toEqual([true, false]);
     });
 
     it('tolta la spunta del Target mostrato, il selettore ripiega sul primo rimasto', async () => {
         const ui = await twoTargets();
+        await ui.next();
         await ui.switchTo('[PROD]');
+        await ui.back();
         await ui.tickTarget('PROD', false);
+        await ui.next();
         expect(ui.switchTabs()).toEqual([]);
-        expect(ui.suffixRows().map(r => r.nameAfter)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
+        expect(ui.reviewRows().map(r => r.resulting)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
     });
 
     it('la revisione nomina i Target e conta gli archivi', async () => {
@@ -519,12 +594,34 @@ describe('piu\' Target nello stesso giro (FR-006, FR-008, FR-009, FR-012, FR-013
         const ui = await bare(world);
         await ui.tickTarget('UAT', true);
         await ui.tickTarget('PROD', true);
-        await ui.toggleAgent('a2 [DEV]');     // escluso: resta [DEV] mentre gli altri diventano [UAT] / [PROD]
+        await ui.toggleAgent('a2 [DEV]', 'UAT');     // escluso solo in UAT: li' resta [DEV], in PROD no
         await ui.next();
         await ui.buildPackage();
         await ui.toVerify();
         const saved = await ui.save();
         expect(saved.confirmations).toEqual(['The agents would have different suffixes']);
+        const mf = ui.written().manifest as { confirmations: { what: string }[] };
+        expect(mf.confirmations[0]!.what).toContain('[UAT]: [UAT], [DEV]');
+        expect(mf.confirmations[0]!.what, 'PROD non ha nomi misti').not.toContain('[PROD]:');
+    });
+
+    it('lo stesso agent escluso in tutti e due i Target: la conferma elenca tutti e due', async () => {
+        const world: UiWorld = {
+            solutions: [{ unique: 'S1' }],
+            agents: [
+                { name: 'a1 [DEV]', schema: 'ava_a1', solution: 'S1', publish: null },
+                { name: 'a2 [DEV]', schema: 'ava_a2', solution: 'S1', publish: null },
+            ],
+        };
+        const ui = await bare(world);
+        await ui.tickTarget('UAT', true);
+        await ui.tickTarget('PROD', true);
+        await ui.toggleAgent('a2 [DEV]', 'UAT');
+        await ui.toggleAgent('a2 [DEV]', 'PROD');
+        await ui.next();
+        await ui.buildPackage();
+        await ui.toVerify();
+        await ui.save();
         const mf = ui.written().manifest as { confirmations: { what: string }[] };
         expect(mf.confirmations[0]!.what).toContain('[UAT]: [UAT], [DEV]');
         expect(mf.confirmations[0]!.what).toContain('[PROD]: [PROD], [DEV]');

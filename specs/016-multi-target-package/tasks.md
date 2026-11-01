@@ -33,8 +33,8 @@ Regole del progetto (CLAUDE.md): a ogni modifica `npx tsc --noEmit`, `npm run bu
 - [x] T025 Spec: D8 sostituisce D5 e il «uguale per tutti» di D7 (fatto in `spec.md`)
 - [x] T026 Motore: ogni Target puo' portare i **suoi** agent e le **sue** eccezioni di publish (`TargetRun`); senza, valgono quelli condivisi di oggi
 - [x] T027 Test del motore: agent diversi per Target, publish per agent diverso per Target, confronto fra Target con esclusioni diverse, negativi
-- [ ] T028 Schermata: sotto ogni Target spuntato la sua tabella di agent (casella, nome dopo la rinomina, publish per agent); intestazione sulla lista dei Target; via il selettore `[UAT] | [PROD]` dalla tabella agent
-- [ ] T029 Anteprima, controlli, conferma dei nomi misti, risultato e storico con le scelte per Target
+- [x] T028 Schermata: sotto ogni Target spuntato la sua tabella di agent (casella, nome dopo la rinomina, publish per agent); intestazione sulla lista dei Target; via il selettore `[UAT] | [PROD]` dalla tabella agent
+- [x] T029 Anteprima, controlli, conferma dei nomi misti, risultato e storico con le scelte per Target
 - [ ] T030 Test della schermata e mutazioni (`motore:`, `schermata:`) aggiornati; poi di nuovo T021–T022
 
 ## Fase 5 — Chiusura

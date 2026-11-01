@@ -2017,15 +2017,27 @@ select option {
 
 /* ── Targets: la lista delle destinazioni del rilascio (spec 016) ── */
 .target-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.target-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 8px 12px;
+/* Una scheda per Target: la riga con i suoi controlli e, sotto, la tabella dei suoi agent */
+.target-card {
     background: var(--color-surface-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
 }
-.target-row.is-on { border-color: var(--color-primary); }
-.target-row.is-dragging { opacity: 0.5; }
+.target-card.is-on { border-color: var(--color-primary); }
+.target-card.is-dragging { opacity: 0.5; }
+.target-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; }
+.target-agents { padding: 0 12px 12px; }
+.target-agents .data-table { background: var(--color-surface); }
+/* L'intestazione dice cosa e' ogni colonna della riga: stesse larghezze dei controlli sotto */
+.target-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 12px 6px;
+    font-size: var(--font-size-sm, 12px);
+    color: var(--color-text-muted);
+}
+.target-head .th-pick { width: 52px; text-align: center; }
+.target-head .th-name { flex: 1 1 160px; max-width: 260px; }
+.target-head .th-publish { flex: 0 0 auto; width: 170px; }
 .target-handle { cursor: grab; color: var(--color-text-muted); letter-spacing: -2px; user-select: none; padding: 0 4px; }
 .target-name { flex: 1 1 160px; max-width: 260px; }
 .target-publish { flex: 0 0 auto; width: auto; max-width: 170px; }

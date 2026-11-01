@@ -121,9 +121,10 @@ export interface Driver {
     typeSuffix(value: string): Promise<void>;
     clearSuffix(): Promise<void>;
     preset(name: string): Promise<void>;
-    toggleAgent(name: string): Promise<void>;
-    setPublish(name: string, mode: PublishMode): Promise<void>;
-    setAll(mode: PublishMode): Promise<void>;
+    /** Agent e publish si scelgono per Target (spec 016 D8): senza `target`, il primo Target spuntato. */
+    toggleAgent(name: string, target?: string): Promise<void>;
+    setPublish(name: string, mode: PublishMode, target?: string): Promise<void>;
+    setAll(mode: PublishMode, target?: string): Promise<void>;
     /** L'opzione "Raise the version in DEV". */
     setRaise(on: boolean): Promise<void>;
     typeVersion(value: string): Promise<void>;
@@ -135,7 +136,7 @@ export interface Driver {
     /** Il testo sotto l'opzione. */
     versionHint(): string;
     setKeepCopies(on: boolean): Promise<void>;
-    suffixRows(): SuffixRow[];
+    suffixRows(target?: string): SuffixRow[];
     suffixInput(): string;
     // ── Targets (spec 016)
     /** I nomi dei Target nella lista, nell'ordine in cui compaiono. */
@@ -158,7 +159,7 @@ export interface Driver {
     switchTabs(): { label: string; active: boolean }[];
     switchTo(label: string): Promise<void>;
     /** Il valore acceso nel toggle "per tutti", o `null` se nessuno lo e'. */
-    allActive(): PublishMode | null;
+    allActive(target?: string): PublishMode | null;
     nextDisabled(): boolean;
     // ── revisione, anteprima, verifica, salvataggio
     reviewRows(): ReviewRow[];
@@ -294,6 +295,14 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
     const rowName = (row: HTMLElement) => row.querySelector<HTMLInputElement>('[data-target-name]')?.value ?? '';
     const rowPick = (row: HTMLElement) => row.querySelector<HTMLInputElement>('[data-target-pick]')!;
     const selectedNames = () => targetRows().filter(r => rowPick(r).checked).map(rowName);
+    /** La tabella degli agent di un Target (D8): quella del Target nominato, o del primo spuntato. */
+    const agentsOf = (target?: string): HTMLElement => {
+        const card = Array.from(doc.querySelectorAll<HTMLElement>('#target-list [data-target-index]'))
+            .find(li => li.querySelector('.target-agents') && (target === undefined || rowName(li) === target));
+        const el = card?.querySelector<HTMLElement>('.target-agents');
+        if (!el) throw new Error(`tabella degli agent non trovata${target === undefined ? '' : ` per ${target}`}`);
+        return el;
+    };
     async function addTargetUi(name: string) {
         if (name === '') {
             await click($('#target-add-empty-btn'), 'add "no suffix"');
@@ -447,15 +456,15 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
                 .find(b => norm(b.textContent) === label);
             await click(btn ?? null, `switch ${label}`);
         },
-        async toggleAgent(name) {
-            await click($(`#agent-list input[data-agent="bot-${schemaOf(name)}"]`), `checkbox ${name}`);
+        async toggleAgent(name, target) {
+            await click($(`input[data-agent="bot-${schemaOf(name)}"]`, agentsOf(target)), `checkbox ${name}`);
         },
-        async setPublish(name, mode) {
-            await click($(`#agent-list .toggle-btn[data-publish="${schemaOf(name)}"][data-val="${mode}"]`),
+        async setPublish(name, mode, target) {
+            await click($(`.toggle-btn[data-publish="${schemaOf(name)}"][data-val="${mode}"]`, agentsOf(target)),
                 `publish ${name} ${mode}`);
         },
-        async setAll(mode) {
-            await click($(`#agent-list .toggle-btn[data-publish-all="${mode}"]`), `all ${mode}`);
+        async setAll(mode, target) {
+            await click($(`.toggle-btn[data-publish-all="${mode}"]`, agentsOf(target)), `all ${mode}`);
         },
         async setRaise(on) {
             const box = $<HTMLInputElement>('#opt-version')!;
@@ -476,14 +485,14 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
             const box = $<HTMLInputElement>('#opt-keep')!;
             if (box.checked !== on) await click(box, 'keep copies');
         },
-        allActive: () => {
-            const on = $('#agent-list tfoot .toggle-btn.is-active');
+        allActive: target => {
+            const on = $('tfoot .toggle-btn.is-active', agentsOf(target));
             return on ? PUBLISH_BY_LABEL[norm(on.textContent)] ?? null : null;
         },
         suffixInput: () => { const on = selectedNames(); return on.length === 1 ? on[0]! : ''; },
         nextDisabled: () => $<HTMLButtonElement>('#next-btn', stepEl())?.disabled ?? true,
-        suffixRows() {
-            return Array.from(doc.querySelectorAll('#agent-list tbody tr')).map(tr => {
+        suffixRows(target) {
+            return Array.from(agentsOf(target).querySelectorAll('tbody tr')).map(tr => {
                 const cells = Array.from(tr.querySelectorAll('td'));
                 const active = tr.querySelector('.toggle-btn.is-active');
                 return {

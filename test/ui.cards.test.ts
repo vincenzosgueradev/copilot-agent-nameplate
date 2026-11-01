@@ -175,7 +175,7 @@ describe('colonna Agent type nel passo del suffisso (FR-009)', () => {
         const ui = await boot(kindWorld());
         await ui.openSolution('S1');
         await ui.startRename();
-        const heads = Array.from(ui.doc.querySelectorAll('#agent-list thead th')).map(th => th.textContent!.trim());
+        const heads = Array.from(ui.doc.querySelectorAll('#target-list .target-agents thead th')).map(th => th.textContent!.trim());
         expect(heads).toEqual(['', 'Agent', 'Agent type', 'Name after the rename', 'Publish on import']);
         expect(ui.kindOf('classic [DEV]')).toEqual(STANDARD);
         expect(ui.kindOf('hub [DEV]')).toEqual(HARNESS);

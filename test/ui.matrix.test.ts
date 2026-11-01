@@ -51,14 +51,27 @@ function worldOf(n: number, rand: () => number) {
 
 /** Il modello: che cosa DEVE mostrare la schermata e produrre il package. */
 class Model {
+    /**
+     * Il Target ticchettato (uno solo in questi percorsi). Agent esclusi e publish per agent sono
+     * **per Target** (spec 016 D8): cambiare suffisso porta a un altro Target, con le sue scelte
+     * (all'inizio: tutti gli agent, publish di partenza), e tornarci le ritrova.
+     */
     suffix = '';
     /** "Raise the version in DEV": per default si, come nel pannello di export del portale. */
     raise = true;
     versionTouched = false;
     versionInput = '';
     keepCopies = false;
-    excluded = new Set<string>();
-    modes = new Map<string, PublishMode>();
+    private excludedBy = new Map<string, Set<string>>();
+    private modesBy = new Map<string, Map<string, PublishMode>>();
+    get excluded(): Set<string> {
+        if (!this.excludedBy.has(this.suffix)) this.excludedBy.set(this.suffix, new Set());
+        return this.excludedBy.get(this.suffix)!;
+    }
+    get modes(): Map<string, PublishMode> {
+        if (!this.modesBy.has(this.suffix)) this.modesBy.set(this.suffix, new Map());
+        return this.modesBy.get(this.suffix)!;
+    }
     /** Come li mostra la schermata: ordinati per nome. */
     readonly agents: UiAgent[];
     constructor(unsorted: UiAgent[]) {
@@ -137,7 +150,7 @@ function assertSuffixStep(ui: Driver, m: Model, where: string): void {
         expect(hint, `${where}: testo senza versione`).toContain(`${START} stays as it is in DEV`);
     }
     expect(ui.allActive(), `${where}: toggle "per tutti"`).toBe(m.commonMode());
-    const panel = ui.doc.getElementById('agent-list')!.textContent ?? '';
+    const panel = ui.doc.querySelector('#target-list .target-agents')!.textContent ?? '';
     expect(panel.includes('different suffixes'), `${where}: avviso suffissi misti`).toBe(m.mixed());
     expect(panel.includes('Nothing to rename'), `${where}: avviso nessun agent`).toBe(m.chosen().length === 0);
     expect(ui.suffixInput(), `${where}: campo suffisso`).toBe(m.suffix);
@@ -389,7 +402,7 @@ describe('schermata: struttura della tabella degli agent', () => {
         const ui = await boot(worldOf(3, rng(1)));
         await ui.openSolution('S1');
         await ui.startRename();
-        const table = ui.doc.querySelector('#agent-list table')!;
+        const table = ui.doc.querySelector('#target-list .target-agents table')!;
         const foot = table.querySelector('tfoot')!;
         expect(foot, 'piede della tabella').not.toBeNull();
         expect(foot.querySelectorAll('[data-publish-all]').length).toBe(3);
@@ -402,7 +415,7 @@ describe('schermata: struttura della tabella degli agent', () => {
         const ui = await boot(worldOf(3, rng(1)));
         await ui.openSolution('S1');
         await ui.startRename();
-        const table = ui.doc.querySelector('#agent-list table')!;
+        const table = ui.doc.querySelector('#target-list .target-agents table')!;
         // colonna del toggle di riga: la quinta (spunta, agent, tipo, nome dopo, publish); nel piede la prima cella copre le prime quattro
         const rowCell = table.querySelector('tbody tr td:nth-child(5)')!;
         const footCells = Array.from(table.querySelectorAll('tfoot tr td'));
@@ -419,7 +432,7 @@ describe('schermata: struttura della tabella degli agent', () => {
         const ui = await boot(worldOf(2, rng(2)));
         await ui.openSolution('S1');
         await ui.startRename();
-        const table = ui.doc.querySelector('#agent-list table')!;
+        const table = ui.doc.querySelector('#target-list .target-agents table')!;
         expect(table.classList.contains('data-table--fill')).toBe(true);
         expect(table.querySelectorAll('colgroup col').length).toBe(5);
     });
@@ -436,11 +449,11 @@ describe('schermata: struttura della tabella degli agent', () => {
         const ui = await boot(worldOf(4, rng(4)));
         await ui.openSolution('S1');
         await ui.startRename();
-        ui.doc.querySelectorAll('#agent-list tbody tr').forEach(tr => {
+        ui.doc.querySelectorAll('#target-list .target-agents tbody tr').forEach(tr => {
             expect(tr.querySelectorAll('.toggle-btn.is-active').length).toBe(1);
         });
         // etichette complete, mai abbreviazioni
-        const labels = Array.from(ui.doc.querySelectorAll('#agent-list tbody tr:first-child .toggle-btn')).map(b => b.textContent?.trim());
+        const labels = Array.from(ui.doc.querySelectorAll('#target-list .target-agents tbody tr:first-child .toggle-btn')).map(b => b.textContent?.trim());
         expect(labels).toEqual(Object.values(PUBLISH_LABEL));
     });
 });
