@@ -312,6 +312,15 @@ export interface Target {
     publishOnImport: PublishMode;
 }
 
+/**
+ * Un Target con le scelte **sue** per il giro (spec 016 D8): quali agent rinominare e le eccezioni
+ * di publish per agent. Se mancano, vale quello condiviso passato al motore (come prima di D8).
+ */
+export interface TargetRun extends Target {
+    agents?: string[];
+    publishByAgent?: Record<string, PublishMode>;
+}
+
 /** Spunte per solution (`uniqueName`) di un ambiente: i nomi dei Target usati l'ultima volta (spec 016 D3). */
 export type TargetSelection = Record<string, string[]>;
 

@@ -18,7 +18,7 @@ import { readPackage } from './package';
 import { applyPatch, buildPatchPlan } from './patch';
 import { buildZip, verifyZip, verificationPassed, type ExpectedValues } from './rezip';
 import { log } from './log';
-import type { PackageContents, PackagingOptions, PatchChange, Target, VerificationResult } from '../types';
+import type { PackageContents, PackagingOptions, PatchChange, TargetRun, VerificationResult } from '../types';
 
 export interface BuiltArchive {
     bytes: Uint8Array;
@@ -43,7 +43,7 @@ export interface PackagingResult {
 
 /** Il risultato di un Target: il suo piano, i suoi due archivi e il confronto col primo (spec 016). */
 export interface TargetResult {
-    target: Target;
+    target: TargetRun;
     plan: PatchChange[];
     managed: BuiltArchive;
     unmanaged: BuiltArchive;
@@ -108,7 +108,7 @@ const pause = (listener: unknown): Promise<void> =>
  */
 export async function runPackagingTargets(
     solutionUniqueName: string,
-    targets: readonly Target[],
+    targets: readonly TargetRun[],
     selectedAgents: string[],
     options: PackagingOptions,
     onProgress?: ExportProgress,
@@ -160,9 +160,14 @@ export async function runPackagingTargets(
 
     const results: TargetResult[] = [];
     for (const target of targets) {
-        // Il default del Target vale per ogni agent senza eccezione; l'eccezione per agent prevale (D7)
-        const targetOptions: PackagingOptions = { ...options, publishOnImport: target.publishOnImport };
-        const plan = buildPatchPlan(managedPkg, target.name, selectedAgents, targetOptions);
+        // Il default del Target vale per ogni agent senza eccezione; l'eccezione per agent prevale (D7).
+        // Agent ed eccezioni sono del Target se li porta (D8), altrimenti quelli condivisi del giro.
+        const targetOptions: PackagingOptions = {
+            ...options,
+            publishOnImport: target.publishOnImport,
+            publishByAgent: target.publishByAgent ?? options.publishByAgent,
+        };
+        const plan = buildPatchPlan(managedPkg, target.name, target.agents ?? selectedAgents, targetOptions);
         const label = target.name.trim() ? `[${target.name.trim()}]` : '(no suffix)';
         log(`Patch Plan ${label}: ${plan.length} modifiche `
             + `(${plan.filter(c => c.state !== 'no-change').length} effettive).`);

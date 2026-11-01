@@ -5,7 +5,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_OPTIONS, type PackagingOptions, type PublishMode, type Target } from '../src/types';
+import { DEFAULT_OPTIONS, type PackagingOptions, type PublishMode, type Target, type TargetRun } from '../src/types';
 
 const source = vi.hoisted(() => ({ make: (_managed: boolean): Uint8Array => new Uint8Array() }));
 vi.mock('../src/services/export', () => ({
@@ -57,7 +57,7 @@ beforeEach(() => {
 const t = (name: string, publishOnImport: PublishMode = 'keep'): Target => ({ name, publishOnImport });
 const OPTS: PackagingOptions = { ...DEFAULT_OPTIONS };
 
-async function run(targets: Target[], options: PackagingOptions = OPTS): Promise<MultiPackagingResult> {
+async function run(targets: TargetRun[], options: PackagingOptions = OPTS): Promise<MultiPackagingResult> {
     return runPackagingTargets('testSolution', targets, ['ava_a1', 'ava_a2'], options);
 }
 const input = (result: MultiPackagingResult, options: PackagingOptions = OPTS) => ({
@@ -136,6 +136,21 @@ describe('manifest v2: contenuto (contracts/manifest-v2.md)', () => {
         for (const kept of ['operationId', 'timestamp', 'user', 'notice', 'source', 'export', 'versionChange', 'fingerprint', 'drift', 'nameOccurrences', 'confirmations']) {
             expect(Object.keys(mf), `campo che resta: ${kept}`).toContain(kept);
         }
+    });
+
+    it('D8: ogni Target riporta le sue eccezioni di publish e i suoi agent', async () => {
+        const options = { ...OPTS, publishByAgent: { ava_a1: 'force-true' as PublishMode } };
+        const runs: TargetRun[] = [
+            { ...t('UAT', 'keep'), publishByAgent: { ava_a1: 'force-false' as PublishMode } },
+            { ...t('PROD', 'keep'), agents: ['ava_a2'], publishByAgent: {} },
+        ];
+        const result = await run(runs, options);
+        await writeArtifactSet('C:\\out', input(result, options));
+        const mf = JSON.parse(disk.writes.at(-1)!.data as string) as Mf;
+        expect(mf.targets[0]!.options.publishByAgent).toEqual({ ava_a1: 'force-false' });
+        expect(mf.targets[1]!.options.publishByAgent).toEqual({});
+        expect((mf.targets[0]!.agents as { after: string }[]).map(x => x.after)).toEqual(['alpha [UAT]', 'beta [UAT]']);
+        expect((mf.targets[1]!.agents as { after: string }[]).map(x => x.after)).toEqual(['alpha [DEV]', 'beta [PROD]']);
     });
 
     it('il confronto: il primo Target e\' il riferimento, gli altri dicono solo nomi e publish', async () => {
@@ -240,6 +255,15 @@ describe('record di storico: uno per operazione (FR-014)', () => {
         expect(rec.options.publishOnImport).toBe('force-true');
         expect(rec.verification).toEqual({ managed: result.targets[0]!.managed.verification, unmanaged: result.targets[0]!.unmanaged.verification });
         expect(rec.agents.map(a => a.after)).toEqual(['alpha [UAT]', 'beta [UAT]']);
+    });
+
+    it('D8: lo storico porta le eccezioni del primo Target, non quelle condivise', async () => {
+        const options = { ...OPTS, publishByAgent: { ava_a1: 'force-true' as PublishMode } };
+        const runs = [{ ...t('UAT'), publishByAgent: { ava_a2: 'force-false' as PublishMode } }, t('PROD')];
+        const result = await run(runs, options);
+        const written = await writeArtifactSet('C:\\out', input(result, options));
+        const rec = buildHistoryRecord({ written, result, options, user: 'me', sourceEnvironmentUrl: 'DEV', confirmations: [] });
+        expect(rec.options.publishByAgent).toEqual({ ava_a2: 'force-false' });
     });
 
     it('un Target solo: il suffisso com\'e\' (anche vuoto, come prima)', async () => {

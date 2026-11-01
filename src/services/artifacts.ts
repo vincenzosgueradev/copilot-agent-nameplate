@@ -268,7 +268,7 @@ function buildManifest(
             order,
             options: {
                 publishOnImport: tr.target.publishOnImport,
-                publishByAgent: options.publishByAgent ?? {},
+                publishByAgent: tr.target.publishByAgent ?? options.publishByAgent ?? {},
             },
             agents: agentOutcomes(pkg, tr.plan),
             files: files.filter(f => f.target === tr.target.name).map(fileEntry),
@@ -312,7 +312,11 @@ export function buildHistoryRecord(input: {
         // Un Target solo: il suffisso com'e'. Piu' Target: i nomi uniti, uno vuoto si legge "no suffix".
         suffix: names.length === 1 ? names[0]! : names.map(n => n.trim() || 'no suffix').join(' + '),
         agents: agentOutcomes(pkg, first.plan),
-        options: { ...options, publishOnImport: first.target.publishOnImport },
+        options: {
+            ...options,
+            publishOnImport: first.target.publishOnImport,
+            publishByAgent: first.target.publishByAgent ?? options.publishByAgent,
+        },
         versionChange: result.versionChange,
         artifactSetPath: written.set.folderPath,
         targets: result.targets.map(tr => ({

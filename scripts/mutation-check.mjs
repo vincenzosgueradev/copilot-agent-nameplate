@@ -290,6 +290,14 @@ const MUTATIONS = [
     ['schermata', 'src/app.ts', "if (problem) { complain(problem); return; }", "if (false) { complain(problem); return; }", "schermata: si aggiunge un Target con un nome non valido"],
     ['schermata', 'src/app.ts', "if (problem) { complain(problem); el.value = target.name; return; }", "if (false) { complain(problem); el.value = target.name; return; }", "schermata: si rinomina in un nome non valido"],
     ['schermata', 'src/app.ts', "if (!newInput.value.trim()) { complain('Type a name for the target.'); return; }", "if (false) { complain('Type a name for the target.'); return; }", "schermata: Add con il campo vuoto crea un Target senza suffisso"],
+    // -- spec 016 D8: agent e publish per Target
+    ["motore", "src/services/packaging.ts", "target.agents ?? selectedAgents, targetOptions", "selectedAgents, targetOptions", "motore: D8: i Target usano sempre gli agent condivisi"],
+    ["motore", "src/services/packaging.ts", "target.agents ?? selectedAgents, targetOptions", "target.agents ?? [], targetOptions", "motore: D8: un Target senza agent propri non rinomina nulla"],
+    ["motore", "src/services/packaging.ts", "publishByAgent: target.publishByAgent ?? options.publishByAgent,", "publishByAgent: options.publishByAgent,", "motore: D8: l'eccezione del Target e' ignorata"],
+    ["motore", "src/services/packaging.ts", "publishByAgent: target.publishByAgent ?? options.publishByAgent,", "publishByAgent: { ...options.publishByAgent, ...target.publishByAgent },", "motore: D8: le eccezioni condivise si sommano a quelle del Target"],
+    ["motore", "src/services/packaging.ts", "publishByAgent: target.publishByAgent ?? options.publishByAgent,", "publishByAgent: target.publishByAgent || undefined,", "motore: D8: senza eccezioni proprie non valgono quelle condivise"],
+    ["artefatti", "src/services/artifacts.ts", "publishByAgent: tr.target.publishByAgent ?? options.publishByAgent ?? {},", "publishByAgent: options.publishByAgent ?? {},", "artefatti: D8: il manifest riporta le eccezioni condivise e non quelle del Target"],
+    ["artefatti", "src/services/artifacts.ts", "publishByAgent: first.target.publishByAgent ?? options.publishByAgent,", "publishByAgent: options.publishByAgent,", "artefatti: D8: lo storico riporta le eccezioni condivise e non quelle del primo Target"],
 ];
 
 const only = process.argv[2];
