@@ -300,6 +300,19 @@ export interface ArtifactSet {
 
 // ── Storico ──────────────────────────────────────────────────────────────────
 
+/**
+ * Una destinazione del rilascio (spec 016): il suffisso, con il publish on import di partenza.
+ * `name` e' il suffisso senza parentesi quadre; vuoto = nessun suffisso (ammesso una volta sola).
+ * L'ordine e' quello della lista.
+ */
+export interface Target {
+    name: string;
+    publishOnImport: PublishMode;
+}
+
+/** Spunte per solution (`uniqueName`) di un ambiente: i nomi dei Target usati l'ultima volta (spec 016 D3). */
+export type TargetSelection = Record<string, string[]>;
+
 /** Pin delle solution (spec 012): nomi univoci fissati, per ambiente. */
 export type PinMap = Record<string, string[]>;
 

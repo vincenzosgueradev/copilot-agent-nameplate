@@ -13,8 +13,8 @@ Come `pins.ts`: stessa coda di scritture, stessa `parse` tollerante.
 - Una lista salvata illeggibile vale «mai configurata» e si dice nel log; un salvataggio fallito si dice all'utente (FR-004).
 
 ## 2. Motore (`src/services/packaging.ts`)
-- Nuovi tipi `PackagingTarget { name; publishOnImport }` e `TargetResult { target; plan; managed; unmanaged; valid; comparison }`.
-- `runPackagingTargets(solution, targets, agents, options, onProgress)`: versione una volta → `exportPair` una volta → lettura una volta → per ogni Target `buildPatchPlan` + `build` con `{...options, publishOnImport: target.publishOnImport}` → confronto di ogni Target col primo.
+- Il tipo `Target { name; publishOnImport }` (lo stesso della lista salvata, in `types.ts`) e il nuovo `TargetResult { target; plan; managed; unmanaged; valid; comparison }`.
+- `runPackagingTargets(solution, targets: Target[], agents, options, onProgress)`: versione una volta → `exportPair` una volta → lettura una volta → per ogni Target `buildPatchPlan` + `build` con `{...options, publishOnImport: target.publishOnImport}` → confronto di ogni Target col primo.
 - `runPackaging(solution, suffix, agents, options, onProgress)` resta, come involucro: chiama il nuovo motore con `[{ name: suffix, publishOnImport: options.publishOnImport }]` e restituisce `PackagingResult` com'è oggi. I test esistenti del motore continuano a chiamare questa funzione e provano che un Target dà lo stesso risultato di oggi.
 - Nuovo `src/services/compare.ts`: confronta due zip entry per entry e classifica ogni differenza (`agent-name`, `publish-on-import`); una differenza fuori dal piano di uno dei due fa **fallire** (`valid = false`).
 - Resta valido FR-085: un solo Target non valido rende non valido l'intero risultato.

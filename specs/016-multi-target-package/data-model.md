@@ -7,7 +7,7 @@ Nessuna scrittura su Dataverse oltre alla versione (invariata). Nuovi dati: due 
 ### Target
 | Campo | Tipo | Regole |
 |---|---|---|
-| `name` | stringa | È il **suffisso** senza parentesi quadre. 0–20 caratteri (`SUFFIX_MAX`), niente caratteri che le regole del suffisso di oggi rifiutano. **Vuoto ammesso, una sola volta** nella lista («no suffix»). Unico nella lista, senza distinguere le maiuscole (FR-005). |
+| `name` | stringa | È il **suffisso** senza parentesi quadre. 0–20 caratteri (`SUFFIX_MAX`, spazi ai lati esclusi). Non ammessi: `[` `]` (romperebbero il riconoscimento del suffisso) e i caratteri che Windows rifiuta nei nomi di file (`\ / : * ? " < > |` e i caratteri di controllo), perché il nome finisce nel nome dello zip. Oggi il campo libero non rifiutava nulla oltre la lunghezza: la regola per i Target è più stretta. **Vuoto ammesso, una sola volta** nella lista («no suffix»). Unico nella lista, senza distinguere le maiuscole (FR-005). |
 | `publishOnImport` | `'keep' \| 'force-true' \| 'force-false'` | Il valore di partenza per tutti gli agent di quel Target (D2). Default `'keep'`. |
 | ordine | posizione nell'array | Non è un campo: è l'ordine della lista (FR-003). |
 
@@ -33,8 +33,8 @@ Per connessione e per solution (`uniqueName`): l'elenco dei **nomi** di Target u
 
 ## Runtime (non salvato)
 ```ts
-PackagingTarget { name: string; publishOnImport: PublishMode }
-TargetResult    { target: PackagingTarget; plan: PatchChange[]; managed: BuiltArchive;
+Target          { name: string; publishOnImport: PublishMode }   // lo stesso tipo della lista salvata
+TargetResult    { target: Target; plan: PatchChange[]; managed: BuiltArchive;
                   unmanaged: BuiltArchive; valid: boolean; comparison: TargetComparison | null }
 TargetComparison{ against: string;                       // nome del Target di riferimento (il primo)
                   differing: { path: string; kind: 'agent-name' | 'publish-on-import' }[];

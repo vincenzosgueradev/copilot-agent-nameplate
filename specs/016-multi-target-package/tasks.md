@@ -3,10 +3,10 @@
 Regole del progetto (CLAUDE.md): a ogni modifica `npx tsc --noEmit`, `npm run build`, `npm test`; funzione nuova con matrice di test e oracolo scritto dalla spec; dopo ogni cambio di logica `npm run test:mutation` (gruppo `targets:`); i test esistenti **non si modificano** salvo T010 e T011. Un commit per fase, a fase verificata.
 
 ## Fase 1 — Lista dei Target (servizio)
-- [ ] T001 Tipi `Target`, `PackagingTarget`, `TargetResult` (`src/types.ts`)
-- [ ] T002 `services/targets.ts`: `defaultTargets`, `validateTargetName`, `moveTarget`, `renameTarget`, `reconcileSelection` (pure)
-- [ ] T003 `readTargets` / `saveTargets` / `readSelection` / `saveSelection`, coda di scritture, lettura tollerante (FR-004)
-- [ ] T004 Test: `test/targets.service.test.ts` (matrice e negativi, vedi sotto)
+- [x] T001 Tipi `Target` e `TargetSelection` (`src/types.ts`); `TargetResult` arriva con il motore (T006)
+- [x] T002 `services/targets.ts`: funzioni pure `defaultTargets`, `validateTargetName`, `moveTarget`, `addTarget`, `removeTarget`, `renameTarget`, `setTargetPublish`, `reconcileSelection`, `renameInSelections`
+- [x] T003 `readTargets` / `saveTargets` (con `renamed` che porta le spunte) / `readSelection` / `saveSelection`, coda di scritture, lettura tollerante (FR-004)
+- [x] T004 Test: `test/targets.service.test.ts` (85 test: matrice operazioni × stato, negativi, mutazioni gruppo `targets:`)
 
 ## Fase 2 — Motore
 - [ ] T005 `services/compare.ts`: confronto per entry e classificazione (FR-013)

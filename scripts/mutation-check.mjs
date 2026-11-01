@@ -206,6 +206,24 @@ const MUTATIONS = [
     ['managed', 'src/app.ts', "const orphansInView = effectiveFilter() !== 'managed';", "const orphansInView = effectiveFilter() === 'unmanaged';", 'managed: gli agent senza solution spariscono dalla vista All'],
     ['managed', 'src/app.ts', "const orphansInView = effectiveFilter() !== 'managed';", "const orphansInView = effectiveFilter() !== 'unmanaged';", 'managed: gli agent senza solution spariscono dalla vista Unmanaged'],
     ['managed', 'src/app.ts', "    if (sol.exportable) return '';\n    const env", "    const env", 'managed: il banner compare anche su una solution esportabile'],
+    // ── spec 016: lista dei Target (servizio)
+    ['targets', 'src/services/targets.ts', 'if (clean.length > SUFFIX_MAX)', 'if (clean.length >= SUFFIX_MAX)', 'targets: il limite dei 20 caratteri e\' sbagliato di uno'],
+    ['targets', 'src/services/targets.ts', String.raw`/[[\]\\/:*?"<>|`, String.raw`/[\]\\/:*?"<>|`, 'targets: la parentesi quadra aperta e\' ammessa nel nome'],
+    ['targets', 'src/services/targets.ts', 't.name.toLowerCase() === clean.toLowerCase()', 't.name === clean', 'targets: i doppioni con altre maiuscole sono ammessi'],
+    ['targets', 'src/services/targets.ts', 'i !== exceptIndex && ', '', 'targets: rinominare in se stesso risulta un doppione'],
+    ['targets', 'src/services/targets.ts', 'from >= out.length || to >= out.length', 'from > out.length || to > out.length', 'targets: lo spostamento oltre la fine corrompe la lista'],
+    ['targets', 'src/services/targets.ts', 'if (!Array.isArray(raw)) return null;', 'if (!Array.isArray(raw)) return [];', 'targets: un valore illeggibile vale lista vuota invece dei preset'],
+    ['targets', 'src/services/targets.ts', "PUBLISH_MODES.find(m => m === publishOnImport) ?? 'keep'", "PUBLISH_MODES.find(m => m === publishOnImport) ?? 'force-true'", 'targets: un publish non valido diventa force-true'],
+    ['targets', 'src/services/targets.ts', 'if (validateTargetName(clean, out) !== null) continue;', '', 'targets: la lettura accetta doppioni e nomi vietati'],
+    ['targets', 'src/services/targets.ts', 'if (renamed && renamed.from !== renamed.to) {', 'if (false) {', 'targets: le spunte non seguono la rinomina'],
+    ['targets', 'src/services/targets.ts', 'return list.filter(t => wanted.has(t.name)).map(t => t.name);', 'return [...names].filter(n => list.some(t => t.name === n));', 'targets: le spunte non seguono l\'ordine della lista'],
+    ['targets', 'src/services/targets.ts', 'if (Object.keys(mine).length) all[environment] = mine;', 'all[environment] = mine;', 'targets: l\'ultima spunta lascia una chiave vuota'],
+    ['targets', 'src/services/targets.ts', 'queue = run.catch(() => {});', 'queue = run;', 'targets: un errore blocca le scritture successive'],
+    ['targets', 'src/services/targets.ts', 'if (parsed) return parsed;', 'if (parsed && parsed.length) return parsed;', 'targets: una lista vuota torna ai preset'],
+    ['targets', 'src/services/targets.ts', "'DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'", "'DEV', 'UAT', 'STAGING', 'PREPROD', 'PROD'", 'targets: manca un preset'],
+    ['targets', 'src/services/targets.ts', '{ name: name.trim(), publishOnImport }]', '{ name, publishOnImport }]', 'targets: il nome aggiunto non viene ripulito'],
+    ['targets', 'src/services/targets.ts', "map[environment] = list.map(t => ({ name: t.name, publishOnImport: t.publishOnImport }));", "map['*'] = list.map(t => ({ name: t.name, publishOnImport: t.publishOnImport }));", 'targets: la lista vale per ogni ambiente'],
+    ['targets', 'src/services/targets.ts', 'names.map(n => (n === from ? to : n))', 'names.map(n => (n === from ? n : n))', 'targets: la rinomina non cambia le spunte'],
 ];
 
 const only = process.argv[2];
