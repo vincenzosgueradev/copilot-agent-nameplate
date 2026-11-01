@@ -5,7 +5,7 @@
 - [x] T004 Test della schermata: matrice mondo × filtro, righe, banner (`test/ui.managed.test.ts`, `ui-harness.ts`)
 - [x] T005 Mutazioni (`scripts/mutation-check.mjs`, gruppo `managed:`)
 - [x] T007 La riga degli agent senza solution non compare nella vista Managed (FR-007): test scritti prima e falliti, poi correzione (`app.ts`, `ui.managed.test.ts`, mutazioni)
-- [ ] T006 Prova a mano del quickstart su UAT e su DEV veri
+- [x] T006 Prova a mano del quickstart su UAT e su DEV veri (2026-11-01): banner e nota su UAT in tema scuro e chiaro, vista Managed su DEV. Trovato e corretto FR-007 (agent orfani) e il testo sulle schede di PPTB. Non visto con gli occhi: righe managed attenuate nella vista All (DEV non ha managed); coperte solo dai test.
 
 ## Tracciabilità
 | Requisito | Codice | Test |
