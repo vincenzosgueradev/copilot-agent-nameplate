@@ -3,8 +3,8 @@
 - [x] T002 Test e mutazioni dello stepper (`ui.stepper.test.ts`, 9 mutazioni `stepper:`; una equivalente tolta)
 - [x] T003 Sezioni ripiegabili con info: `decoratePanels`, `data-panel`, `data-info`, stato in sessione (`app.ts`, `styles.css`)
 - [x] T004 Test e mutazioni delle sezioni (`ui.panels.test.ts`, 23 mutazioni `panels:`; due equivalenti tolte)
-- [ ] T005 `services/diff.ts`: `diffLines`, prefisso/suffisso, LCS, contesto, pezzo evidenziato, limiti
-- [ ] T006 Test del servizio di diff: matrice, proprieta' con seme fisso, casi negativi (`diff.service.test.ts`) e mutazioni
+- [x] T005 `services/diff.ts`: `diffLines`, prefisso/suffisso, LCS, contesto, pezzo evidenziato, limiti
+- [x] T006 Test del servizio di diff: matrice, proprieta' con seme fisso, casi negativi (`diff.service.test.ts`, `diff.view.test.ts`, 28 mutazioni `diff:`)
 - [ ] T007 Diff nell'anteprima: schede Diff / Table, Split / Unified, file veri da `applyPatch` (`app.ts`, `styles.css`)
 - [ ] T008 Test e mutazioni del diff nella schermata (`ui.diff.test.ts`)
 - [ ] T009 Rifinitura dell'aspetto e tema chiaro
