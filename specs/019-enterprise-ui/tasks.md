@@ -1,6 +1,6 @@
 # Tasks 019
-- [ ] T001 Stepper: cerchi grandi, corrente evidente, linea che si riempie (`app.ts`, `styles.css`)
-- [ ] T002 Test e mutazioni dello stepper (`ui.stepper.test.ts`)
+- [x] T001 Stepper: cerchi grandi, corrente evidente, linea che si riempie (`app.ts`, `styles.css`)
+- [x] T002 Test e mutazioni dello stepper (`ui.stepper.test.ts`, 9 mutazioni `stepper:`; una equivalente tolta)
 - [ ] T003 Sezioni ripiegabili con info: `decoratePanels`, `data-panel`, `data-info`, stato in sessione (`app.ts`, `styles.css`)
 - [ ] T004 Test e mutazioni delle sezioni (`ui.panels.test.ts`)
 - [ ] T005 `services/diff.ts`: `diffLines`, prefisso/suffisso, LCS, contesto, pezzo evidenziato, limiti
@@ -13,7 +13,7 @@
 ## Tracciabilità
 | Requisito | Codice | Test |
 |---|---|---|
-| FR-001, FR-002 stepper | da fare | da fare |
+| FR-001, FR-002 stepper | `app.ts` (`stepperHtml`), `styles.css` (`.stepper*`) | `ui.stepper.test.ts` «lo stepper in ogni schermata», «l'aspetto» |
 | FR-003…FR-006 sezioni | da fare | da fare |
 | FR-007…FR-013 diff | da fare | da fare |
 | FR-014 aspetto | da fare | da fare |
