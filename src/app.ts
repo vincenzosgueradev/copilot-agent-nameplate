@@ -1194,10 +1194,12 @@ function stepperHtml(active: 1 | 2 | 3 | 4 | 5): string {
         const n = i + 1;
         const cls = n === active ? 'active' : n < active ? 'done' : '';
         const mark = n < active ? icon('check') : String(n);
-        return `<li class="stepper-item ${cls}"><span class="stepper-dot">${mark}</span><span class="stepper-label">${label}</span></li>`;
+        const current = n === active ? ' aria-current="step"' : '';
+        return `<li class="stepper-item ${cls}"${current}><span class="stepper-dot">${mark}</span><span class="stepper-label">${label}</span></li>`;
     });
+    // La linea tra due passi e' piena quando il passo a sinistra e' fatto (spec 019, FR-001)
     const withLines = items.flatMap((item, i) =>
-        i < items.length - 1 ? [item, '<li class="stepper-line" aria-hidden="true"></li>'] : [item]
+        i < items.length - 1 ? [item, `<li class="stepper-line${i + 1 < active ? ' done' : ''}" aria-hidden="true"></li>`] : [item]
     );
     return `<ol class="stepper">${withLines.join('')}</ol>`;
 }

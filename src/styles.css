@@ -658,40 +658,74 @@ mark.hl {
     flex-wrap: wrap;
 }
 
-.stepper { display: flex; align-items: center; gap: 8px; list-style: none; }
+.stepper { display: flex; align-items: center; gap: 10px; list-style: none; margin: 0; padding: 6px 4px; }
 
 .stepper-item {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 9px;
     font-size: var(--fs-sm);
     color: var(--color-text-muted);
+    transition: color 0.3s;
 }
 
 .stepper-dot {
-    width: 22px; height: 22px;
+    width: 32px;
+    height: 32px;
+    box-sizing: border-box;
     border-radius: 50%;
-    border: 1px solid var(--color-border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--fs-xs);
+    border: 2px solid var(--color-border);
+    background: var(--color-surface);
+    display: grid;
+    place-items: center;
+    font-size: var(--fs-sm);
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+                background-color 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s;
 }
 
-.stepper-item.active { color: var(--color-text-strong); font-weight: 500; }
-.stepper-item.active .stepper-dot {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: #fff;
-}
+.stepper-item.done { color: var(--color-text); }
 .stepper-item.done .stepper-dot {
     background: var(--color-success);
     border-color: var(--color-success);
     color: #fff;
 }
 
-.stepper-line { width: 28px; height: 1px; background: var(--color-border); }
+/* La pagina corrente: il cerchio piu' grande, con un anello e un bagliore (spec 019, FR-001) */
+.stepper-item.active { color: var(--color-text-strong); font-weight: 600; font-size: var(--fs-md); }
+.stepper-item.active .stepper-dot {
+    transform: scale(1.25);
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 28%, transparent),
+                0 0 18px color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+
+/* La linea tra due passi: grigia, e si riempie quando il passo a sinistra e' fatto */
+.stepper-line {
+    position: relative;
+    flex: 0 0 44px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-border);
+    overflow: hidden;
+}
+.stepper-line::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--color-success), var(--color-primary));
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.stepper-line.done::after { transform: scaleX(1); }
+
+@media (prefers-reduced-motion: reduce) {
+    .stepper-dot, .stepper-item, .stepper-line::after { transition: none; }
+}
 
 /* ── Suffix step ──
    Campo e preset sulla stessa riga: a tutta larghezza, incolonnati, lasciavano vuota meta'
@@ -1730,8 +1764,8 @@ mark.hl {
 
 /* Dentro un marcatore circolare pieno serve piu' corpo per restare leggibile */
 .stepper-dot .icon {
-    width: 12px;
-    height: 12px;
+    width: 15px;
+    height: 15px;
     vertical-align: 0;
 }
 
