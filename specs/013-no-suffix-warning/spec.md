@@ -14,7 +14,7 @@ Chi preme Review senza suffisso vede un avviso chiaro: che cosa succede ai nomi 
 - **FR-003**: "Go back and choose one" DEVE chiudere il dialogo e restare sul passo Suffix; Escape vale come annulla.
 - **FR-004**: "Continue without suffix" DEVE proseguire alla revisione senza altro cambio di comportamento.
 - **FR-005**: Con un suffisso scritto NON DEVE comparire alcun avviso.
-- **FR-006**: Il dialogo usa il dialogo di conferma esistente in variante avviso (cerchio CSS con "!", mai emoji).
+- **FR-006**: Il dialogo usa il dialogo di conferma esistente in variante avviso (cerchio con l'icona di avviso, una maschera CSS come le altre icone; mai emoji. Dalla spec 018 il «!» in CSS non c'è più).
 
 ## Fuori ambito
 I pixel del dialogo (colori, allineamento): prova a mano, vedi `quickstart.md`.

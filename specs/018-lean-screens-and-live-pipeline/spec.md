@@ -24,7 +24,7 @@ Chi arriva alla revisione vede subito quanti package escono e se c'è qualcosa d
 
 **Popup**
 - **FR-004**: Ogni popup ha nell'intestazione un'icona (maschera CSS come le altre icone: l'host non disegna l'SVG inline) scelta dal tipo (avviso, scrittura su un ambiente, conferma). Le righe «ambiente / solution / versione» hanno ciascuna la sua icona e un'etichetta. Il testo sotto è al massimo una frase di ambito e una di come tornare indietro.
-- **FR-005**: Il popup «un Target senza suffisso» e quello «cambia la versione» NON DEVONO ripetere la tabella dei package se la revisione la mostra già un passo prima: la sostituiscono con una riga («3 package, uno per Target»).
+- **FR-005**: I popup che elencano i package (D9 della 016) MANTENGONO la tabella: chi conferma vede quali file escono. Cambia come si presenta: il nome del file ha l'icona dell'archivio e la tabella resta dentro la larghezza del popup.
 
 **Pipeline**
 - **FR-006**: I passi dell'export sono **numerati** in cerchi collegati da una linea. Il passo in corso è più grande e pulsa; i passi fatti mostrano la spunta e la linea che li lega si riempie. Il tempo trascorso resta visibile.
