@@ -14,6 +14,7 @@
 | FR-004 conta solo il target spuntato | `app.ts` (`selectedTargetList`) | «un target Production non spuntato non cambia nulla» |
 | FR-005 salvataggio e liste vecchie | `services/targets.ts` | `targets.service.test.ts` «production» e «riaprendo il tool» |
 | FR-006 rinomina azzera, valore su target con nome ignorato | `services/targets.ts` | servizio e «rinominare toglie la casella» |
-| FR-007 etichetta «(production)» | `app.ts` (`targetsOverviewHtml`) | «la tabella dice production» |
+| FR-007 «PROD (no suffix)» nella tabella | `app.ts` (`targetsOverviewHtml`) | «il Target Production si chiama PROD, e dice che non ha suffisso» |
 | FR-008 Add / Restore non marcano; non entra nel package | `services/targets.ts`, `app.ts` | «Add no suffix parte spento», «il manifest non contiene production» |
 | FR-009 testo di aiuto | `app.ts` | «il testo spiega la casella» |
+| FR-010 alias PROD dove si nomina il Target | `app.ts` (`targetLabel`) | «l'alias PROD dove il tool nomina il Target» (linguette, matrice, casella, chip) |

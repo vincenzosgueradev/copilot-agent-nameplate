@@ -19,9 +19,10 @@ Chi ha un target di produzione senza suffisso lo marca una volta come «Producti
 - **FR-004**: Conta solo il target **spuntato** per questo giro: un target Production non spuntato non cambia nulla, e un target non marcato non spuntato non fa comparire l'avviso (come nella 016).
 - **FR-005**: La marcatura DEVE essere salvata con la lista dei target dell'ambiente (impostazioni locali di PPTB, come pin e target) e riletta all'apertura. Una lista salvata prima della 017, senza il campo, vale «non marcato».
 - **FR-006**: La marcatura ha senso solo con il nome vuoto: se il target viene **rinominato** con un nome non vuoto si azzera; un valore salvato su un target con nome è ignorato alla lettura.
-- **FR-007**: Nella tabella «un export, N package» (dialoghi e revisione) il target Production dice «(production)» al posto di «(removes the suffix)». I nomi cambiano come prima.
+- **FR-007**: Nella tabella «un export, N package» (revisione e popup) il target Production dice «PROD (no suffix)» al posto di «no suffix (removes the suffix)». I nomi cambiano come prima.
 - **FR-008**: «Add "no suffix"» e «Restore defaults» NON marcano nessun target. La marcatura non entra mai nel package, nel manifest né nello storico.
 - **FR-009**: Il testo sotto la lista spiega la casella in una frase.
+- **FR-010**: Dove il tool nomina il target senza nome (linguette dell'anteprima e dei controlli, tabelle, casella della riga, chip del risultato) il Target Production si chiama **«PROD»**, senza parentesi quadre perché nei nomi degli agent non c'è nessun [PROD]. Il target senza nome non marcato resta «no suffix»; un target che si chiama davvero PROD resta «[PROD]». Il nome della cartella su disco non cambia.
 
 ## Fuori ambito
 - Altre protezioni per la produzione (conferme extra, divieto di «Force no», nomi riservati): non richieste.
