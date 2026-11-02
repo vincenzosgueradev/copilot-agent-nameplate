@@ -727,6 +727,61 @@ mark.hl {
     .stepper-dot, .stepper-item, .stepper-line::after { transition: none; }
 }
 
+/* ── Riquadri ripiegabili con info (spec 019) ── */
+.panel[data-panel] { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); }
+.panel[data-panel] > .panel-head { justify-content: flex-start; gap: 10px; cursor: pointer; user-select: none; }
+.panel[data-panel] > .panel-head .panel-sub { margin-top: 0; }
+.panel-head-end { margin-left: auto; }
+
+.panel-toggle,
+.panel-info {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+.panel-toggle:hover,
+.panel-info:hover { background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-strong); }
+.panel-toggle:focus-visible,
+.panel-info:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.panel-toggle .icon { transition: transform 0.25s ease; }
+.panel-toggle[aria-expanded="false"] .icon { transform: rotate(-90deg); }
+.panel-info { color: var(--color-primary); }
+.panel-info[aria-expanded="true"] {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+/* La spiegazione: una striscia sotto l'intestazione, senza posizionamento e senza uscire dallo schermo */
+.panel-infobar {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px var(--sp-5);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+    border-bottom: 1px solid var(--color-border);
+}
+.panel-infobar > .icon { margin-top: 2px; color: var(--color-primary); }
+.panel-infobar[hidden] { display: none; }
+
+.panel--collapsed > :not(.panel-head) { display: none; }
+.panel--collapsed > .panel-head { border-bottom: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .panel-toggle, .panel-info, .panel-toggle .icon { transition: none; }
+}
+
 /* ── Suffix step ──
    Campo e preset sulla stessa riga: a tutta larghezza, incolonnati, lasciavano vuota meta'
    del pannello. Sotto i 900px tornano uno sopra l'altro. */

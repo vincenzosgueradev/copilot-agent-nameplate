@@ -996,6 +996,89 @@ function renderBreadcrumb(): void {
     });
 }
 
+// ── Riquadri ripiegabili con info (spec 019) ─────────────────────────────────
+
+/** Gli id dei riquadri ripiegati: solo in memoria, valgono per la sessione (FR-004). */
+const collapsedPanels = new Set<string>();
+/** I riquadri gia' visti almeno una volta: il «ripiegato di partenza» vale solo alla prima volta. */
+const seenPanels = new Set<string>();
+
+/**
+ * Arricchisce i riquadri con `data-panel`: un chevron che li ripiega e un'icona info che apre sotto
+ * l'intestazione una striscia con la spiegazione (FR-003, FR-005). Si chiama dopo ogni ridisegno;
+ * il contenuto ripiegato resta nel DOM, quindi non perde lo stato dei suoi controlli (FR-006).
+ */
+function decoratePanels(root: ParentNode): void {
+    root.querySelectorAll<HTMLElement>('.panel[data-panel]').forEach(panel => {
+        const id = panel.dataset.panel!;
+        const head = panel.querySelector<HTMLElement>(':scope > .panel-head');
+        if (!head || head.dataset.decorated) return;
+        head.dataset.decorated = '1';
+        if (!seenPanels.has(id)) {
+            seenPanels.add(id);
+            if (panel.dataset.collapsed === '1') collapsedPanels.add(id);
+        }
+
+        const heading = head.querySelector<HTMLElement>('.panel-heading')!;
+        const title = (heading.textContent ?? '').trim();
+        const lead = (Array.from(head.children).find(c => c === heading || c.contains(heading)) ?? heading) as HTMLElement;
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'panel-toggle';
+        toggle.innerHTML = icon('chevron-down');
+        head.insertBefore(toggle, head.firstChild);
+
+        const info = document.createElement('button');
+        info.type = 'button';
+        info.className = 'panel-info';
+        info.innerHTML = icon('info');
+        info.setAttribute('aria-label', `What is ${title}?`);
+        info.setAttribute('aria-expanded', 'false');
+        info.setAttribute('aria-controls', `info-${id}`);
+        lead.insertAdjacentElement('afterend', info);
+
+        const bar = document.createElement('div');
+        bar.className = 'panel-infobar';
+        bar.id = `info-${id}`;
+        bar.setAttribute('role', 'note');
+        bar.hidden = true;
+        bar.innerHTML = icon('info', 'icon--sm');
+        const text = document.createElement('span');
+        text.textContent = panel.dataset.info ?? '';
+        bar.appendChild(text);
+        head.insertAdjacentElement('afterend', bar);
+
+        // Cio' che sta a destra dell'intestazione (pulsanti, selettori) resta a destra
+        const lastLead = Array.from(head.children).filter(c => c.matches('.panel-sub')).pop() ?? info;
+        const end = lastLead.nextElementSibling as HTMLElement | null;
+        if (end) end.classList.add('panel-head-end');
+
+        const paint = () => {
+            const closed = collapsedPanels.has(id);
+            panel.classList.toggle('panel--collapsed', closed);
+            toggle.setAttribute('aria-expanded', String(!closed));
+            toggle.setAttribute('aria-label', `${closed ? 'Expand' : 'Collapse'} ${title}`);
+        };
+        const flip = () => {
+            if (collapsedPanels.has(id)) collapsedPanels.delete(id); else collapsedPanels.add(id);
+            paint();
+        };
+        paint();
+        toggle.addEventListener('click', ev => { ev.stopPropagation(); flip(); });
+        info.addEventListener('click', ev => {
+            ev.stopPropagation();
+            bar.hidden = !bar.hidden;
+            info.setAttribute('aria-expanded', String(!bar.hidden));
+        });
+        // Un clic sull'intestazione ripiega, ma non quando e' su un controllo che ci sta dentro
+        head.addEventListener('click', ev => {
+            if ((ev.target as HTMLElement).closest('button, a, input, label, select, textarea, .segmented, .switch')) return;
+            flip();
+        });
+    });
+}
+
 // ── Step navigation ───────────────────────────────────────────────────────────
 
 /** Ogni contenitore che scorre: lo step, la tabella dell'elenco e quella interna alla solution. */
@@ -1531,7 +1614,7 @@ function renderSuffixStep(): void {
         </div>
 
         <div class="stack">
-                <section class="panel" id="targets-panel">
+                <section class="panel" id="targets-panel" data-panel="suffix-targets" data-info="Each target is an environment you will import into. For every ticked target the tool builds one package from a single export, renaming the agents you choose and setting their publish option.">
                     <div class="panel-head">
                         <h3 class="panel-heading">${icon('tag', 'icon--head')}Targets</h3>
                         <span class="panel-sub">tick the targets to build for</span>
@@ -1567,7 +1650,7 @@ function renderSuffixStep(): void {
                     </div>
                 </section>
 
-                <section class="panel">
+                <section class="panel" data-panel="suffix-options" data-info="Raising the version writes a new number on the solution in DEV before the export, so every package is a distinct, upgradeable version.">
                     <div class="panel-head"><h3 class="panel-heading">${icon('sliders', 'icon--head')}Options</h3></div>
                     <div class="panel-body" style="padding:0">
 
@@ -1592,7 +1675,7 @@ function renderSuffixStep(): void {
                     </div>
                 </section>
 
-                <section class="panel">
+                <section class="panel" data-panel="suffix-artifacts" data-info="The files that will be written to disk: the managed archive to import, an unmanaged copy, the two original exports and a manifest with every hash." data-collapsed="1">
                     <div class="panel-head">
                         <div>
                             <h3 class="panel-heading">${icon('package', 'icon--head')}Artifacts</h3>
@@ -1842,6 +1925,7 @@ function renderSuffixStep(): void {
         persistSelection();
         navigateTo('review');
     });
+    decoratePanels(els.stepSuffix);
 }
 
 // ── Step: anteprima del Patch Plan ────────────────────────────────────────────
@@ -1896,7 +1980,7 @@ function renderReviewStep(): void {
         </div>
 
         <div class="stack">
-            <section class="panel">
+            <section class="panel" data-panel="review-rename" data-info="A summary of what will be built: one row per target with the agents renamed, the publish option and the file to import. Warnings appear only when something looks off.">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('pencil', 'icon--head')}Rename</h3>
                     <span class="panel-sub">${n > 1 ? `${n} packages from one export` : '1 package'}</span>
@@ -1910,7 +1994,7 @@ function renderReviewStep(): void {
                 </div>
             </section>
 
-            <section class="panel">
+            <section class="panel" data-panel="review-options" data-info="The version and the files chosen in the previous step, and whether anything is written to Dataverse.">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('sliders', 'icon--head')}Options</h3>
                 </div>
@@ -1943,6 +2027,7 @@ function renderReviewStep(): void {
         if (state.options.newVersion && !(await confirmVersionWrite(sol))) return;
         navigateTo('preview');
     });
+    decoratePanels(els.stepReview);
 }
 
 /**
@@ -2243,7 +2328,7 @@ function renderPreviewResult(r: PackagingResult): void {
     if (panels) {
         panels.innerHTML = `
             <div id="preview-switch-host">${targetSwitchHtml()}</div>
-            <section class="panel">
+            <section class="panel" data-panel="preview-changes" data-info="The exact edits applied to the package, file by file, as a before and after comparison. Nothing else in the package is touched.">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('pencil', 'icon--head')}What gets changed</h3>
                 </div>
@@ -2257,7 +2342,7 @@ function renderPreviewResult(r: PackagingResult): void {
                 </div>
             </section>
 
-            <section class="panel">
+            <section class="panel" data-panel="preview-publish" data-info="What each agent will carry on import: whether it is published and which channels, such as Teams and Microsoft 365 Copilot, it is connected to.">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('send', 'icon--head')}Publish and channels</h3>
                 </div>
@@ -2281,6 +2366,7 @@ function renderPreviewResult(r: PackagingResult): void {
                     </p>` : ''}
                 </div>
             </section>`;
+        decoratePanels(panels);
     }
 
     bindTargetSwitch(document.getElementById('preview-switch-host'), () => {
@@ -2330,7 +2416,7 @@ function targetsMatrixHtml(multi: MultiPackagingResult): string {
     if (multi.targets.length < 2) return '';
     const total = multi.targets[0]!.managed.source.entries.length;
     return `
-        <section class="panel">
+        <section class="panel" data-panel="verify-targets" data-info="Each target compared with the first one: only the names and the publish options should differ.">
             <div class="panel-head">
                 <h3 class="panel-heading">${icon('layers', 'icon--head')}Targets</h3>
                 <span class="panel-sub">each one compared with ${escapeHtml(targetLabel(multi.targets[0]!.target.name))}, the first</span>
@@ -2390,7 +2476,7 @@ function renderVerifyStep(): void {
             ${stepperHtml(4)}
         </div>
 
-        <section class="panel">
+        <section class="panel" data-panel="verify-contents" data-info="Everything the exported solution contains. The artifact is the whole solution, so all of it travels on import, not only the agent." data-collapsed="${extra.length ? '0' : '1'}">
             <div class="panel-head">
                 <h3 class="panel-heading">${icon('package', 'icon--head')}Package contents</h3>
             </div>
@@ -2413,7 +2499,7 @@ function renderVerifyStep(): void {
             </div>
         </section>
 
-        <section class="panel">
+        <section class="panel" data-panel="verify-checks" data-info="Automatic checks on both archives: readable, same number of entries, patched values confirmed, and every untouched file byte-identical to the export.">
             <div class="panel-head">
                 <h3 class="panel-heading">${icon('shield', 'icon--head')}Checks</h3>
                 <div id="target-switch-host">${targetSwitchHtml()}</div>
@@ -2486,6 +2572,7 @@ function renderVerifyStep(): void {
         return labels.length > 1 ? [{ target: tr.target.name, labels }] : [];
     });
     if (saveBtn) saveBtn.addEventListener('click', () => void confirmThenSave(unexpected, extra, mixed));
+    decoratePanels(els.stepVerify);
 }
 /**
  * I due casi che richiedono un assenso esplicito prima di produrre un artefatto.
@@ -2688,7 +2775,7 @@ function renderResultStep(): void {
             <span class="chip chip--success">managed</span>
         </div>`}
 
-        <section class="panel">
+        <section class="panel" data-panel="result-files" data-info="The files written to disk, with their role and SHA-256 hash. Import only the managed archive into UAT or PROD.">
             <div class="panel-head">
                 <h3 class="panel-heading">${icon('archive', 'icon--head')}Files produced</h3>
                 <span class="panel-sub">${set.files.length} archives · ${(set.totalBytes / 1024).toFixed(0)} KB</span>
@@ -2722,7 +2809,7 @@ function renderResultStep(): void {
             </div>
         </section>
 
-        <section class="panel">
+        <section class="panel" data-panel="result-where" data-info="The folder on this device that holds the artifact set, and the manifest that records who built it, when and from where.">
             <div class="panel-head">
                 <h3 class="panel-heading">${icon('folder', 'icon--head')}Where it is</h3>
             </div>
@@ -2762,6 +2849,7 @@ function renderResultStep(): void {
         });
     });
     els.stepResult.querySelector('#history-nav-btn')!.addEventListener('click', () => navigateTo('history'));
+    decoratePanels(els.stepResult);
     els.stepResult.querySelector('#done-btn')!.addEventListener('click', () => {
         state.packaging = null;
         state.packagingKey = '';
