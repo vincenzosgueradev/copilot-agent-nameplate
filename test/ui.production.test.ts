@@ -53,7 +53,7 @@ describe('la casella Production sulla riga (FR-001, FR-008)', () => {
     });
 });
 
-describe('la casella sta a destra, dopo il publish (allineamento delle righe)', () => {
+describe('la casella sta subito dopo il publish (allineamento delle righe)', () => {
     it('nella riga senza nome la casella viene dopo i pulsanti del publish e prima dei pulsanti di ordine', async () => {
         const ui = await bare();
         await ui.addTarget('');
@@ -72,10 +72,11 @@ describe('la casella sta a destra, dopo il publish (allineamento delle righe)', 
             Array.from(r.children).findIndex(k => k.matches('.target-publish')) - Array.from(r.children).findIndex(k => k.matches('[data-target-name]')));
         expect(new Set(names).size, 'stessa distanza tra nome e publish in ogni riga').toBe(1);
     });
-    it('il CSS spinge la casella a destra senza raddoppiare lo spazio dei pulsanti', () => {
+    it('la casella sta vicino al publish: a destra ci sono solo i pulsanti di ordine e rimozione', () => {
         const css = readSource('styles.css');
-        expect(/\.target-prod\s*\{[^}]*margin-left:\s*auto/.test(css)).toBe(true);
-        expect(/\.target-prod \+ \.target-actions\s*\{[^}]*margin-left:\s*0/.test(css)).toBe(true);
+        expect(/\.target-prod\s*\{[^}]*margin-left/.test(css), 'la casella non viene spinta a destra').toBe(false);
+        expect(/\.target-actions\s*\{[^}]*margin-left:\s*auto/.test(css), 'i pulsanti restano a destra').toBe(true);
+        expect(css).not.toMatch(/\.target-prod \+ \.target-actions/);
     });
 });
 

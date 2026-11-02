@@ -236,7 +236,7 @@ const MUTATIONS = [
     ["review", "src/app.ts", "const who = several ? `<strong>${escapeHtml(targetLabel(t.name))}</strong> ` : '';", "const who = '';", "review: l'avviso non dice di quale Target parla"],
     ["review", "src/app.ts", "${long === 1 ? '1 name is' : `${long} names are`}", "${`${long} names are`}", "review: il singolare dell'avviso e' sbagliato"],
     ["review", "src/app.ts", "                    ${targetsOverviewHtml(sol)}", "", "review: la tabella dei package non compare"],
-    ["production", "src/styles.css", ".target-prod + .target-actions { margin-left: 0; }", ".target-prod + .target-actions { margin-left: auto; }", "production: la casella e i pulsanti si dividono lo spazio a destra"],
+    ["production", "src/styles.css", ".target-actions { margin-left: auto;", ".target-actions { margin-left: 0;", "production: i pulsanti di ordine non stanno piu' a destra"],
     ["polish", "src/services/ui.ts", "(opts.warning || opts.danger ? 'alert' : 'info')", "'info'", "polish: il popup di avviso ha l'icona di un popup semplice"],
     ["polish", "src/services/ui.ts", "icon(opts.icon ?? ", "icon(", "polish: l'icona scelta dal popup viene ignorata"],
     ["polish", "src/app.ts", "        icon: 'upload',\n", "", "polish: il popup della versione non sceglie la sua icona"],
