@@ -5,6 +5,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { boot, flush, type Driver, type UiWorld } from './helpers/ui-harness';
+import { readSource } from './helpers/source';
 
 afterEach(() => { vi.useRealTimers(); });
 
@@ -49,6 +50,32 @@ describe('la casella Production sulla riga (FR-001, FR-008)', () => {
     it('il testo sotto la lista spiega la casella (FR-009)', async () => {
         const ui = await bare();
         expect(ui.doc.getElementById('step-suffix')!.textContent).toMatch(/tick\s+Production/);
+    });
+});
+
+describe('la casella sta a destra, dopo il publish (allineamento delle righe)', () => {
+    it('nella riga senza nome la casella viene dopo i pulsanti del publish e prima dei pulsanti di ordine', async () => {
+        const ui = await bare();
+        await ui.addTarget('');
+        const row = Array.from(ui.doc.querySelectorAll<HTMLElement>('#target-list .target-row'))
+            .find(r => r.querySelector<HTMLInputElement>('[data-target-name]')!.value === '')!;
+        const kids = Array.from(row.children);
+        const at = (sel: string) => kids.findIndex(k => k.matches(sel) || k.querySelector(sel));
+        expect(at('[data-target-name]')).toBeLessThan(at('[data-target-publish]'));
+        expect(at('[data-target-publish]'), 'il publish non si sposta per via della casella').toBeLessThan(at('[data-target-production]'));
+        expect(at('[data-target-production]')).toBeLessThan(at('[data-target-act]'));
+    });
+    it('il publish ha la stessa posizione con e senza casella: viene subito dopo il nome', async () => {
+        const ui = await bare();
+        await ui.addTarget('');
+        const names = Array.from(ui.doc.querySelectorAll<HTMLElement>('#target-list .target-row')).map(r =>
+            Array.from(r.children).findIndex(k => k.matches('.target-publish')) - Array.from(r.children).findIndex(k => k.matches('[data-target-name]')));
+        expect(new Set(names).size, 'stessa distanza tra nome e publish in ogni riga').toBe(1);
+    });
+    it('il CSS spinge la casella a destra senza raddoppiare lo spazio dei pulsanti', () => {
+        const css = readSource('styles.css');
+        expect(/\.target-prod\s*\{[^}]*margin-left:\s*auto/.test(css)).toBe(true);
+        expect(/\.target-prod \+ \.target-actions\s*\{[^}]*margin-left:\s*0/.test(css)).toBe(true);
     });
 });
 

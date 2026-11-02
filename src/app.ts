@@ -1503,17 +1503,17 @@ function targetRowsHtml(): string {
             <input class="text-input target-name" type="text" data-target-name maxlength="${SUFFIX_MAX}"
                 autocomplete="off" placeholder="(no suffix)" aria-label="Target name"
                 value="${escapeHtml(t.name)}">
+            <div class="toggle-group toggle-group--sm target-publish" role="group"
+                aria-label="Publish on import for ${escapeHtml(label)}">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
+                <button type="button" class="toggle-btn${t.publishOnImport === m ? ' is-active' : ''}"
+                    data-target-publish data-val="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}
+            </div>
             ${t.name.trim() ? '' : `<label class="check target-prod"
                 title="The production target has no suffix on purpose: no warning for it.">
                 <input class="check-input" type="checkbox" data-target-production
                     ${isProductionTarget(t) ? 'checked' : ''}>
                 <span class="check-mark"></span><span>Production</span>
             </label>`}
-            <div class="toggle-group toggle-group--sm target-publish" role="group"
-                aria-label="Publish on import for ${escapeHtml(label)}">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
-                <button type="button" class="toggle-btn${t.publishOnImport === m ? ' is-active' : ''}"
-                    data-target-publish data-val="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}
-            </div>
             <span class="target-actions">
                 <button type="button" class="btn btn--secondary btn--sm" data-target-act="up"
                     aria-label="Move ${escapeHtml(label)} up"${i === 0 ? ' disabled' : ''}>${icon('chevron-up', 'icon--sm')}</button>
