@@ -368,6 +368,7 @@ describe('i popup dicono quanti package escono e li elencano (D9)', () => {
         const rows = Array.from(ui.doc.querySelectorAll('#confirm-body .confirm-targets tbody tr')).map(tr =>
             Array.from(tr.querySelectorAll('td')).map(td => td.textContent!.replace(/\s+/g, ' ').trim()));
         expect(rows.map(r => r.slice(0, 3))).toEqual([['[UAT]', '2 of 2', 'Leave as is'], ['[PROD]', '1 of 2', 'Force yes']]);
+        expect(ui.doc.querySelector('#confirm-overlay .dialog')!.classList.contains('dialog--wide'), 'largo, per la tabella').toBe(true);
     });
 
     it('con un Target solo il dialogo della versione non parla di piu\' package', async () => {
@@ -378,6 +379,7 @@ describe('i popup dicono quanti package escono e li elencano (D9)', () => {
         await ui.buildPackageRaw();
         expect(ui.confirmText()).not.toContain('packages');
         expect(ui.doc.querySelector('#confirm-body .confirm-targets')).toBeNull();
+        expect(ui.doc.querySelector('#confirm-overlay .dialog')!.classList.contains('dialog--wide'), 'con un Target solo resta stretto').toBe(false);
     });
 
     it('il dialogo del suffisso vuoto, con piu\' Target, li elenca e dice come uscirne', async () => {
@@ -392,6 +394,7 @@ describe('i popup dicono quanti package escono e li elencano (D9)', () => {
         expect(text).toContain('S1_');
         expect(text).toContain('nosuffix.zip');
         expect(text).toContain('(removes the suffix)');
+        expect(ui.doc.querySelector('#confirm-overlay .dialog')!.classList.contains('dialog--wide'), 'largo, per la tabella').toBe(true);
     });
 
     it('la revisione ha il riepilogo dei Target quando sono piu\' d\'uno, e non con uno solo', async () => {

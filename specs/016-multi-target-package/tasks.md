@@ -42,7 +42,7 @@ Regole del progetto (CLAUDE.md): a ogni modifica `npx tsc --noEmit`, `npm run bu
 - [x] T032 `restoreDefaults` / `missingPresets` e pulsante Restore defaults
 - [x] T033 Riepilogo dei Target (agent, publish, file) nella revisione e nei dialoghi della versione e del suffisso vuoto
 - [x] T034 Test del servizio e della schermata
-- [ ] T035 Mutazioni D9 (14) tutte scoperte
+- [x] T035 Mutazioni D9 (14) tutte scoperte
 
 ## Fase 5 — Chiusura
 - [x] T020 Mutazioni in `scripts/mutation-check.mjs` (gruppi `targets:`, `confronto:`, `motore:`, `artefatti:`, `schermata:`), tutte scoperte
