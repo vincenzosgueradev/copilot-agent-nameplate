@@ -1194,9 +1194,13 @@ mark.hl {
 }
 
 /* Variante di avviso: bordo e titolo in colore, senza essere un errore */
-.dialog--wide { width: 760px; }
+.dialog--wide { width: min(1080px, 94vw); max-width: none; }
+.dialog--wide .dialog-body { max-height: calc(100vh - 190px); overflow-x: hidden; }
 .confirm-targets { width: 100%; margin: 0 0 var(--sp-3); }
 .confirm-targets code { font-size: var(--fs-sm); word-break: break-all; }
+/* Le colonne dal 4 in poi sono nowrap per le tabelle d'elenco: qui il nome del file deve andare a capo */
+.dialog .data-table.confirm-targets th,
+.dialog .data-table.confirm-targets td { white-space: normal; vertical-align: top; }
 .dialog--warning { border-color: var(--color-warning, #d9a23b); }
 .dialog--warning .dialog-header { display: flex; align-items: center; gap: 10px; }
 .dialog--warning .dialog-header::before {

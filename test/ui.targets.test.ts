@@ -5,6 +5,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { boot, readProduced, type Driver, type UiWorld } from './helpers/ui-harness';
+import { readSource } from './helpers/source';
 import type { PublishMode } from '../src/types';
 
 afterEach(() => { vi.useRealTimers(); });
@@ -369,6 +370,17 @@ describe('i popup dicono quanti package escono e li elencano (D9)', () => {
             Array.from(tr.querySelectorAll('td')).map(td => td.textContent!.replace(/\s+/g, ' ').trim()));
         expect(rows.map(r => r.slice(0, 3))).toEqual([['[UAT]', '2 of 2', 'Leave as is'], ['[PROD]', '1 of 2', 'Force yes']]);
         expect(ui.doc.querySelector('#confirm-overlay .dialog')!.classList.contains('dialog--wide'), 'largo, per la tabella').toBe(true);
+    });
+
+    it('il dialogo largo con la tabella dei package non ha barre di scorrimento inutili', () => {
+        const css = readSource('styles.css');
+        const rule = (re: RegExp) => re.exec(css)?.[1] ?? '';
+        expect(rule(/\.dialog--wide\s*\{([^}]*)\}/), 'largo abbastanza per il nome del file').toMatch(/width:\s*min\(1\d{3}px,\s*9\dvw\)/);
+        const body = rule(/\.dialog--wide \.dialog-body\s*\{([^}]*)\}/);
+        expect(body, 'alto quanto la finestra, non 400px').toMatch(/max-height:\s*calc\(100vh/);
+        expect(body, 'mai scorrimento orizzontale').toMatch(/overflow-x:\s*hidden/);
+        expect(rule(/\.dialog \.data-table\.confirm-targets td\s*\{([^}]*)\}/), 'il nome del file va a capo invece di allargare la tabella')
+            .toMatch(/white-space:\s*normal/);
     });
 
     it('con un Target solo il dialogo della versione non parla di piu\' package', async () => {

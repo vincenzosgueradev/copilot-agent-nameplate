@@ -212,6 +212,8 @@ const MUTATIONS = [
     ['targets', 'src/services/targets.ts', 't.name.toLowerCase() === clean.toLowerCase()', 't.name === clean', 'targets: i doppioni con altre maiuscole sono ammessi'],
     ['targets', 'src/services/targets.ts', 'out.splice(at < 0 ? out.length : at, 0,', 'out.splice(out.length, 0,', 'targets: Restore defaults rimette i preset in coda invece che al loro posto'],
     ['targets', 'src/services/targets.ts', 'rank(t.name) > rank(name)', 'rank(t.name) >= rank(name)', 'targets: Restore defaults inserisce dopo il preset successivo'],
+    ['schermata', 'src/styles.css', '.dialog--wide .dialog-body { max-height: calc(100vh - 190px); overflow-x: hidden; }', '.dialog--wide .dialog-body { max-height: 400px; }', 'schermata: il dialogo largo torna a 400px con barre di scorrimento'],
+    ['schermata', 'src/styles.css', '.dialog .data-table.confirm-targets td { white-space: normal;', '.dialog .data-table.confirm-targets td { white-space: nowrap;', 'schermata: il nome del file non va a capo e allarga la tabella'],
     ['targets', 'src/services/targets.ts', 'i !== exceptIndex && ', '', 'targets: rinominare in se stesso risulta un doppione'],
     ['targets', 'src/services/targets.ts', 'from >= out.length || to >= out.length', 'from > out.length || to > out.length', 'targets: lo spostamento oltre la fine corrompe la lista'],
     ['targets', 'src/services/targets.ts', 'if (!Array.isArray(raw)) return null;', 'if (!Array.isArray(raw)) return [];', 'targets: un valore illeggibile vale lista vuota invece dei preset'],
