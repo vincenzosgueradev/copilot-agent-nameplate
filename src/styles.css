@@ -20,6 +20,13 @@
     --color-text-strong: #ffffff;
     --color-primary: #0078d4;
     --color-primary-hover: #106ebe;
+    --diff-del-bg: rgba(255, 70, 70, 0.14);
+    --diff-del-hl: rgba(255, 70, 70, 0.40);
+    --diff-del-fg: #f1707a;
+    --diff-add-bg: rgba(60, 190, 100, 0.15);
+    --diff-add-hl: rgba(60, 190, 100, 0.42);
+    --diff-add-fg: #5fd38d;
+    --diff-gutter: #2d2d30;
     --color-success: #4caf50;
     --color-warning: #ff9800;
     --color-error: #f44336;
@@ -725,6 +732,66 @@ mark.hl {
 
 @media (prefers-reduced-motion: reduce) {
     .stepper-dot, .stepper-item, .stepper-line::after { transition: none; }
+}
+
+/* ── Diff del package, come l'editor di diff di un IDE (spec 019) ── */
+.change-tabs { margin-left: auto; display: inline-flex; padding: 2px; gap: 2px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); }
+.change-tab {
+    padding: 4px 12px; border: 0; border-radius: 6px; background: transparent;
+    font: inherit; font-size: var(--fs-sm); color: var(--color-text-muted); cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+.change-tab:hover { color: var(--color-text-strong); }
+.change-tab.is-active { background: var(--color-primary); color: #fff; }
+.change-tab:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.change-pane[hidden] { display: none; }
+.change-pane { padding: var(--sp-3); }
+
+.diff-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: var(--sp-3); }
+.diff-toolbar-label { font-size: var(--fs-sm); color: var(--color-text-muted); }
+
+.diff { border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; margin-bottom: var(--sp-3); background: var(--color-surface); }
+.diff:last-child { margin-bottom: 0; }
+.diff-head {
+    display: flex; align-items: center; gap: 12px; padding: 7px 12px;
+    background: var(--color-surface-2); border-bottom: 1px solid var(--color-border);
+    font-family: var(--font-mono, Consolas, 'Courier New', monospace); font-size: var(--fs-sm);
+}
+.diff-file { flex: 1; min-width: 0; color: var(--color-text-strong); overflow-wrap: anywhere; }
+.diff-stat { display: inline-flex; gap: 8px; font-variant-numeric: tabular-nums; }
+.diff-add { color: var(--diff-add-fg); }
+.diff-del { color: var(--diff-del-fg); }
+.diff-empty { margin: 0; padding: 12px; color: var(--color-text-muted); font-size: var(--fs-sm); }
+
+.diff-scroll { overflow-x: auto; }
+.diff-table {
+    width: 100%; border-collapse: collapse;
+    font-family: var(--font-mono, Consolas, 'Courier New', monospace); font-size: 12.5px; line-height: 1.6;
+}
+.diff--split .diff-table col.c-no, .diff--unified .diff-table col.c-no { width: 46px; }
+.diff-no {
+    padding: 0 8px; text-align: right; vertical-align: top; user-select: none;
+    color: var(--color-text-muted); background: var(--diff-gutter);
+    border-right: 1px solid var(--color-border);
+}
+.diff-code { position: relative; padding: 0 12px 0 24px; white-space: pre; vertical-align: top; color: var(--color-text); }
+.diff--split .diff-code { width: 50%; }
+.diff-mark { position: absolute; left: 8px; user-select: none; font-weight: 700; }
+.diff-code--old { background: var(--diff-del-bg); }
+.diff-code--old .diff-mark { color: var(--diff-del-fg); }
+.diff-code--new { background: var(--diff-add-bg); }
+.diff-code--new .diff-mark { color: var(--diff-add-fg); }
+.diff-code--old .diff-hl { background: var(--diff-del-hl); border-radius: 3px; color: inherit; }
+.diff-code--new .diff-hl { background: var(--diff-add-hl); border-radius: 3px; color: inherit; }
+.diff-code--empty {
+    background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--color-border) 70%, transparent) 5px 6px);
+}
+.diff--split .diff-code + .diff-no, .diff--split .diff-code--empty + .diff-no { border-left: 1px solid var(--color-border); }
+.diff-row--gap td, .diff-row--more td {
+    padding: 3px 12px; text-align: center; font-family: var(--font-sans, inherit); font-size: var(--fs-sm);
+    color: var(--color-text-muted);
+    background: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface));
+    border-block: 1px solid var(--color-border);
 }
 
 /* ── Riquadri ripiegabili con info (spec 019) ── */
@@ -2146,6 +2213,13 @@ select option {
     --color-text-strong: #111111;
     --color-primary: #0067b8;
     --color-primary-hover: #005a9e;
+    --diff-del-bg: rgba(220, 40, 50, 0.10);
+    --diff-del-hl: rgba(220, 40, 50, 0.28);
+    --diff-del-fg: #b3261e;
+    --diff-add-bg: rgba(30, 150, 70, 0.11);
+    --diff-add-hl: rgba(30, 150, 70, 0.30);
+    --diff-add-fg: #1b7a3d;
+    --diff-gutter: #f5f5f5;
     --color-success: #1b7a1f;
     --color-warning: #a15c00;
     --color-error: #c62828;

@@ -21,7 +21,9 @@ import {
     isProductionTarget, missingPresets, needsNoSuffixWarning, restoreDefaults, saveSelection, saveTargets,
     setTargetProduction, setTargetPublish, validateTargetName,
 } from './services/targets';
-import { agentOutcomes, buildName } from './services/patch';
+import { agentOutcomes, applyPatch, buildName } from './services/patch';
+import { fileDiff } from './services/diff';
+import { diffViewHtml, type DiffMode } from './services/diffView';
 import { nextVersion, versionProblem } from './services/solutionVersion';
 import { relevantDrift } from './services/compat';
 import { splitSuffix } from './services/package';
@@ -2230,6 +2232,11 @@ async function runPreview(
     }
 }
 
+/** Come si vede il diff: due colonne o una (spec 019, FR-010). Vale per tutti gli agent e si conserva. */
+let diffMode: DiffMode = 'split';
+/** La scheda scelta per ogni agent: `diff` di partenza (FR-007). */
+const changeTabs = new Map<string, 'diff' | 'table'>();
+
 const CHANGE_LABEL: Record<PatchChange['element'], string> = {
     name: 'Name', publishOnImport: 'Publish on import',
 };
@@ -2246,6 +2253,17 @@ function changeGroupsHtml(r: PackagingResult): string {
     const nameOf = (schema: string, fallback: string) =>
         outcomes.find(o => o.schemaName === schema)?.after ?? fallback;
 
+    // Il diff si fa sui byte veri: quelli dell'export e quelli che produce la patch (FR-009)
+    let patched: Record<string, Uint8Array> | null = null;
+    try { patched = applyPatch(pkg, r.plan).files; } catch { patched = null; }
+    const decode = (bytes: Uint8Array | undefined): string => (bytes ? new TextDecoder().decode(bytes) : '');
+    const diffsOf = (changes: PatchChange[]): string => {
+        if (!patched) return '<p class="hint hint--warn">The comparison could not be built: the table lists the changes.</p>';
+        const files = [...new Set(changes.map(c => c.file))].sort();
+        return files.map(f => diffViewHtml(
+            fileDiff(f, decode(pkg.entries.find(e => e.path === f)?.data), decode(patched![f])), diffMode)).join('');
+    };
+
     const row = (c: PatchChange) => `
         <tr>
             <td class="cell-strong">${CHANGE_LABEL[c.element]}
@@ -2255,20 +2273,30 @@ function changeGroupsHtml(r: PackagingResult): string {
             <td><span class="chip chip--${c.state === 'no-change' ? 'muted' : 'success'}">${c.state}</span>
                 ${c.exceedsTeamsLimit ? '<span class="chip chip--warning">&gt; 30 char</span>' : ''}</td>
         </tr>`;
-    const group = (title: string, sub: string, iconName: IconName, changes: PatchChange[], key: string) => `
+    const group = (title: string, sub: string, iconName: IconName, changes: PatchChange[], key: string) => {
+        const tab = changeTabs.get(key) ?? 'diff';
+        const tabBtn = (id: 'diff' | 'table', label: string) => `
+            <button type="button" class="change-tab${tab === id ? ' is-active' : ''}" role="tab"
+                aria-selected="${tab === id}" data-change-tab="${id}">${label}</button>`;
+        return `
         <section class="change-group" data-group="${escapeHtml(key)}">
             <header class="change-head">
                 ${icon(iconName, 'icon--head')}
                 <strong>${escapeHtml(title)}</strong>
                 <code>${escapeHtml(sub)}</code>
                 <span class="chip chip--muted">${changes.length} ${changes.length === 1 ? 'change' : 'changes'}</span>
+                <div class="change-tabs" role="tablist" aria-label="View">${tabBtn('diff', 'Diff')}${tabBtn('table', 'Table')}</div>
             </header>
-            <table class="data-table data-table--fill">
-                <colgroup><col style="width:30%"><col style="width:26%"><col style="width:26%"><col></colgroup>
-                <thead><tr><th>What</th><th>Before</th><th>After</th><th>State</th></tr></thead>
-                <tbody>${changes.map(row).join('')}</tbody>
-            </table>
+            <div class="change-pane" data-pane="diff" role="tabpanel"${tab === 'diff' ? '' : ' hidden'}>${diffsOf(changes)}</div>
+            <div class="change-pane" data-pane="table" role="tabpanel"${tab === 'table' ? '' : ' hidden'}>
+                <table class="data-table data-table--fill">
+                    <colgroup><col style="width:30%"><col style="width:26%"><col style="width:26%"><col></colgroup>
+                    <thead><tr><th>What</th><th>Before</th><th>After</th><th>State</th></tr></thead>
+                    <tbody>${changes.map(row).join('')}</tbody>
+                </table>
+            </div>
         </section>`;
+    };
 
     const perAgent = pkg.agents
         .map(a => ({
@@ -2281,7 +2309,17 @@ function changeGroupsHtml(r: PackagingResult): string {
             .localeCompare(nameOf(y.agent.schemaName, y.agent.name)));
     const left = outcomes.filter(o => o.excluded);
 
+    const toolbar = perAgent.length ? `
+        <div class="diff-toolbar">
+            <span class="diff-toolbar-label">Layout</span>
+            <div class="segmented diff-mode" role="group" aria-label="Diff layout">
+                <button type="button" class="segment${diffMode === 'split' ? ' active' : ''}" aria-pressed="${diffMode === 'split'}" data-diff-mode="split">Split</button>
+                <button type="button" class="segment${diffMode === 'unified' ? ' active' : ''}" aria-pressed="${diffMode === 'unified'}" data-diff-mode="unified">Unified</button>
+            </div>
+        </div>` : '';
+
     return `
+        ${toolbar}
         ${perAgent.map(x => group(
             nameOf(x.agent.schemaName, x.agent.name), x.agent.schemaName, 'bot', x.changes,
             `agent:${x.agent.schemaName}`)).join('')}
@@ -2367,6 +2405,21 @@ function renderPreviewResult(r: PackagingResult): void {
                 </div>
             </section>`;
         decoratePanels(panels);
+        panels.querySelectorAll<HTMLElement>('[data-diff-mode]').forEach(btn => btn.addEventListener('click', () => {
+            diffMode = btn.dataset.diffMode === 'unified' ? 'unified' : 'split';
+            if (state.packaging) renderPreviewResult(targetView(state.packaging, activeIndex(state.packaging)));
+        }));
+        panels.querySelectorAll<HTMLElement>('[data-change-tab]').forEach(btn => btn.addEventListener('click', () => {
+            const group = btn.closest<HTMLElement>('.change-group')!;
+            const want = btn.dataset.changeTab === 'table' ? 'table' : 'diff';
+            changeTabs.set(group.dataset.group ?? '', want);
+            group.querySelectorAll<HTMLElement>('[data-change-tab]').forEach(b => {
+                const on = b === btn;
+                b.classList.toggle('is-active', on);
+                b.setAttribute('aria-selected', String(on));
+            });
+            group.querySelectorAll<HTMLElement>('.change-pane').forEach(p => { p.hidden = p.dataset.pane !== want; });
+        }));
     }
 
     bindTargetSwitch(document.getElementById('preview-switch-host'), () => {

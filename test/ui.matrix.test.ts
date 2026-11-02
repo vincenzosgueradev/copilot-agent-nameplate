@@ -248,7 +248,7 @@ async function walk(n: number, seed: number, steps: number, e2e: boolean): Promi
     expect(note !== null, `${where()}: nota sulla versione`).toBe(m.newVersion() !== null);
     if (note) expect(note.textContent!.replace(/\s+/g, ' '), where()).toContain(`${START} → ${m.newVersion()}`);
     sortedChosen.forEach((a, i) => {
-        const rows = Array.from(groups[i]!.querySelectorAll('tbody tr')).map(tr => tr.querySelector('td')!.textContent!.replace(/\s+/g, ' ').trim().split(' ')[0]);
+        const rows = Array.from(groups[i]!.querySelectorAll('.change-pane[data-pane="table"] tbody tr')).map(tr => tr.querySelector('td')!.textContent!.replace(/\s+/g, ' ').trim().split(' ')[0]);
         const publishChanges = m.modeOf(a) !== 'keep' && m.publishAfter(a) !== a.publish;
         expect(rows.length, `${where()}: righe del blocco ${a.schema}`).toBe(publishChanges ? 2 : 1);
         expect(groups[i]!.querySelector('.change-head')!.textContent, `${where()}: titolo del blocco`).toContain(m.after(a));

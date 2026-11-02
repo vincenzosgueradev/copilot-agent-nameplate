@@ -338,7 +338,7 @@ describe('revisione e anteprima: layout', () => {
         await ui.buildPackage();
         const groups = Array.from(ui.doc.querySelectorAll('#step-preview .change-group'));
         expect(groups.map(g => g.getAttribute('data-group'))).toEqual(['agent:ava_b1', 'agent:ava_b3']);
-        const rowsOf = (g: Element) => Array.from(g.querySelectorAll('tbody tr')).map(tr => tr.querySelector('td')!.textContent!.replace(/\s+/g, ' ').trim());
+        const rowsOf = (g: Element) => Array.from(g.querySelectorAll('.change-pane[data-pane="table"] tbody tr')).map(tr => tr.querySelector('td')!.textContent!.replace(/\s+/g, ' ').trim());
         expect(rowsOf(groups[0]!)).toEqual(['Name ava_b1/bot.xml'.replace('ava_b1/', 'bots/ava_b1/'), 'Publish on import bots/ava_b1/configuration.json']);
         expect(rowsOf(groups[1]!)).toEqual(['Name bots/ava_b3/bot.xml']);
         expect(ui.doc.getElementById('version-note')!.textContent!.replace(/\s+/g, ' ')).toContain('1.0.0.2 → 1.0.0.3');
