@@ -179,7 +179,6 @@ export interface Driver {
     allActive(target?: string): PublishMode | null;
     nextDisabled(): boolean;
     // ── revisione, anteprima, verifica, salvataggio
-    reviewRows(): ReviewRow[];
     buildPackage(): Promise<void>;
     /** Clic su "Build the package" senza rispondere a un'eventuale conferma. */
     startBuildRaw(): Promise<void>;
@@ -542,17 +541,6 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
             });
         },
 
-        reviewRows() {
-            return Array.from(doc.querySelectorAll('#step-review table:not(.confirm-targets) tbody tr')).map(tr => {
-                const cells = Array.from(tr.querySelectorAll('td'));
-                return {
-                    agent: norm(cells[0]?.textContent),
-                    resulting: norm(cells[1]?.textContent),
-                    publish: PUBLISH_BY_LABEL[norm(cells[2]?.textContent)] ?? null,
-                    length: norm(cells[3]?.textContent),
-                };
-            });
-        },
         async startBuildRaw() { await click($('#next-btn', stepEl()), 'Build the package'); },
         async startBuild() {
             await click($('#next-btn', stepEl()), 'Build the package');

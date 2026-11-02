@@ -1182,18 +1182,6 @@ function activeIndex(multi: MultiPackagingResult): number {
     return Math.max(0, multi.targets.findIndex(t => t.target.name === name));
 }
 
-/** Il riepilogo dei Target spuntati: con uno solo, il suffisso come prima. */
-function targetsSummaryHtml(): string {
-    const list = selectedTargetList();
-    if (list.length < 2) {
-        const s = activeSuffix();
-        return s ? `<strong>[${escapeHtml(s)}]</strong>` : '<span class="cell-muted">none — removes the existing one</span>';
-    }
-    return list.map(t => t.name.trim()
-        ? `<strong>[${escapeHtml(t.name.trim())}]</strong>` : '<span class="cell-muted">no suffix</span>').join(' ');
-}
-
-
 function stepperHtml(active: 1 | 2 | 3 | 4 | 5): string {
     const steps = ['Suffix', 'Review', 'Preview', 'Checks', 'Result'];
     const items = steps.map((label, i) => {
@@ -1864,19 +1852,42 @@ function renderSuffixStep(): void {
  * la revisione va fatta *prima* di pagarlo, non dopo. Qui non si chiama Dataverse: si mostra
  * solo quello che si sa gia' dalla scelta dell'agent e dalle opzioni dello step precedente.
  */
+/**
+ * Gli avvisi della revisione, per ogni Target spuntato. L'elenco dei nomi non c'e': l'utente li ha
+ * gia' visti, uno per uno, nel passo Suffix (spec 018, FR-001). Restano solo le cose che potrebbero
+ * sorprenderlo: nomi oltre il limite di Teams, nessun cambio, suffissi misti nello stesso ambiente.
+ */
+function reviewWarningsHtml(): string {
+    const list = selectedTargetList();
+    const several = list.length > 1;
+    const out: string[] = [];
+    for (const t of list) {
+        const who = several ? `<strong>${escapeHtml(targetLabel(t.name))}</strong> ` : '';
+        const agents = selectedAgents(t.name);
+        const next = agents.map(a => buildName(a.name, t.name));
+        const long = next.filter(n => n.length > TEAMS_NAME_LIMIT).length;
+        if (long) {
+            out.push(`<p class="hint hint--warn">${who}${long === 1 ? '1 name is' : `${long} names are`} over
+                ${TEAMS_NAME_LIMIT} characters, the limit of the Teams manifest. Packaging is not blocked.</p>`);
+        }
+        if (agents.every((a, i) => next[i] === a.name)) {
+            out.push(`<p class="hint hint--warn">${who}No name changes: the agents already have these names.
+                The package is still produced.</p>`);
+        }
+        const gone = state.excludedByTarget.get(t.name);
+        const mixed = suffixesAfter(solutionAgents().map(a => ({ name: a.name, selected: !gone?.has(a.id) })), t.name);
+        if (mixed.length > 1) out.push(mixedSuffixHtml(mixed, t.name));
+    }
+    return out.join('');
+}
+
 function renderReviewStep(): void {
     const sol = state.activeSolution;
-    const chosen = selectedAgents();
-    if (!sol || !chosen.length) { navigateTo('welcome'); return; }
+    if (!sol || !selectedAgents().length) { navigateTo('welcome'); return; }
     renderBreadcrumb();
 
-    const rows = chosen.map(a => ({ agent: a, next: buildName(a.name, activeSuffix()) }));
-    const tooLong = rows.some(r => r.next.length > TEAMS_NAME_LIMIT);
-    const unchanged = rows.every(r => r.next === r.agent.name);
-    const mixed = suffixesAfter(
-        solutionAgents().map(a => ({ name: a.name, selected: !state.excludedByTarget.get(activeSuffix())?.has(a.id) })),
-        activeSuffix());
-
+    const n = selectedTargetList().length;
+    const writes = state.options.newVersion !== null;
     els.stepReview.innerHTML = `
         <div class="step-header step-header-row">
             <div class="step-id">${icon('check')}<h2 class="step-title">Review before the export</h2></div>
@@ -1887,91 +1898,34 @@ function renderReviewStep(): void {
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('pencil', 'icon--head')}Rename</h3>
-                    <span class="panel-sub">what you are about to change</span>
-                    <div id="target-switch-host">${targetSwitchHtml()}</div>
+                    <span class="panel-sub">${n > 1 ? `${n} packages from one export` : '1 package'}</span>
                 </div>
                 <div class="panel-body">
                     <div class="kv"><span class="kv-key">Solution</span>
                         <span class="kv-val">${escapeHtml(sol.friendlyName || sol.uniqueName)}
                         <span class="cell-muted">${escapeHtml(sol.version)}</span></span></div>
-                    <div class="kv"><span class="kv-key">${selectedTargetList().length > 1 ? 'Targets' : 'Suffix'}</span>
-                        <span class="kv-val">${targetsSummaryHtml()}</span></div>
-                    ${selectedTargetList().length > 1 ? `
-                    <p class="hint" style="margin-top:12px">This run builds <strong>${selectedTargetList().length} packages</strong>
-                        from one export, one for each target:</p>
-                    ${targetsOverviewHtml(sol)}` : ''}
-                    <table class="data-table" style="margin-top:12px">
-                        <thead><tr><th>Agent</th><th>Resulting name</th><th>Publish on import</th>
-                            <th class="col-num">Length</th></tr></thead>
-                        <tbody>${rows.map(r => `
-                            <tr>
-                                <td class="cell-muted">${agentIconHtml(r.agent.id, 20)} ${escapeHtml(r.agent.name)}
-                                    <code>${escapeHtml(r.agent.schemaName)}</code></td>
-                                <td class="cell-strong cell-nowrap">${escapeHtml(r.next)}</td>
-                                <td class="cell-nowrap">${PUBLISH_LABELS[agentPublishMode(r.agent.schemaName)]}</td>
-                                <td class="col-num ${r.next.length > TEAMS_NAME_LIMIT ? 'kv-val--warn' : ''}">${r.next.length} / ${TEAMS_NAME_LIMIT}</td>
-                            </tr>`).join('')}</tbody>
-                    </table>
-                    ${solutionAgents().length > chosen.length ? `
-                    <p class="hint" style="margin-top:12px">
-                        Left as they are: ${solutionAgents()
-                            .filter(a => state.excludedByTarget.get(activeSuffix())?.has(a.id))
-                            .map(a => `<strong>${escapeHtml(a.name)}</strong>`).join(', ')}.
-                    </p>` : ''}
-                    ${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}
-                    ${unchanged ? `
-                    <p class="hint hint--warn" style="margin-top:12px">
-                        No name changes: the agents are already called that. The package
-                        is still produced, but no rename actually takes place.
-                    </p>` : ''}
-                    ${tooLong ? `
-                    <p class="hint hint--warn" style="margin-top:12px">
-                        Over ${TEAMS_NAME_LIMIT} characters. The limit applies to the Teams
-                        manifest, whose name derives from the agent's. It does not block packaging.
-                    </p>` : ''}
+                    ${targetsOverviewHtml(sol)}
+                    ${reviewWarningsHtml()}
                 </div>
             </section>
 
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('sliders', 'icon--head')}Options</h3>
-                    <span class="panel-sub">chosen in the previous step</span>
                 </div>
                 <div class="panel-body">
                     <div class="kv"><span class="kv-key">Version</span>
                         <span class="kv-val" id="review-version">${versionHintNow()}</span></div>
                     <div class="kv"><span class="kv-key">Artifacts produced</span>
-                        <span class="kv-val">${selectedTargetList().length > 1
-                            ? (state.options.keepSourceArtifacts
-                                ? `${archiveCount()} archives <span class="cell-muted">— managed and unmanaged for each target, and the two originals</span>`
-                                : `${archiveCount()} archives <span class="cell-muted">— only the managed ones to import, one per target</span>`)
-                            : (state.options.keepSourceArtifacts
-                                ? `4 archives <span class="cell-muted">— managed, unmanaged and the two originals</span>`
-                                : `1 archive <span class="cell-muted">— only the managed one to import</span>`)}
-                        + manifest</span></div>
-
-                    <h4 class="section-title">What happens next</h4>
+                        <span class="kv-val">${archiveCount()} ${archiveCount() === 1 ? 'archive' : 'archives'}
+                            <span class="cell-muted">${state.options.keepSourceArtifacts
+                                ? '— managed and unmanaged for each target, and the two originals'
+                                : '— only the managed ones to import'}</span> + manifest</span></div>
                     <ul class="facts">
-                        <li>${icon('package', 'icon--sm')}
-                            <span><strong>Two exports</strong> of the solution, managed and
-                            unmanaged, both patched: they also verify each other.</span></li>
-                        <li>${icon('archive', 'icon--archive icon--sm')}
-                            <span>On disk ${selectedTargetList().length > 1
-                                ? `<strong>${archiveCount()} archives</strong> and the manifest, from one export and one version.`
-                                : state.options.keepSourceArtifacts
-                                ? `<strong>4 archives</strong> and the manifest.`
-                                : `<strong>only the managed one</strong>, the only one you will
-                                   import, and the manifest.`}</span></li>
                         <li>${icon('shield', 'icon--sm')}
-                            <span>${state.options.newVersion
-                                ? `<strong>The only change to Dataverse is the solution version</strong>
-                                   in DEV, which you confirm before the build. The artifact itself is
-                                   born on disk.`
-                                : `<strong>Nothing is written to Dataverse</strong>: the
-                                   artifact is born on disk.`}</span></li>
-                        <li>${icon('history', 'icon--sm')}
-                            <span>From a few seconds to a few minutes, depending on the size
-                            of the solution.</span></li>
+                            <span>${writes
+                                ? '<strong>The only change to Dataverse is the solution version</strong> in DEV, which you confirm before the build.'
+                                : '<strong>Nothing is written to Dataverse</strong>: the artifacts are born on disk.'}</span></li>
                     </ul>
                 </div>
             </section>
@@ -1983,7 +1937,6 @@ function renderReviewStep(): void {
                 ${icon('package', 'icon--sm')} Build the package</button>
         </div>`;
 
-    bindTargetSwitch(els.stepReview.querySelector('#target-switch-host'), renderReviewStep);
     els.stepReview.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('suffix'));
     els.stepReview.querySelector('#next-btn')!.addEventListener('click', async () => {
         if (state.options.newVersion && !(await confirmVersionWrite(sol))) return;

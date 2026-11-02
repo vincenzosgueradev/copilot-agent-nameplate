@@ -246,7 +246,8 @@ describe('rinominare, rimuovere, riordinare (FR-003)', () => {
         expect(ui.targetNames().slice(0, 3)).toEqual(['DEV', 'PROD', 'TEST']);
         expect(ui.ticked()).toEqual(['PROD', 'UAT']);
         await ui.next();
-        expect(ui.switchTabs().map(t => t.label), 'il selettore della revisione segue l\'ordine').toEqual(['[PROD]', '[UAT]']);
+        const rows = Array.from(ui.doc.querySelectorAll('#step-review .confirm-targets tbody tr td:first-child')).map(td => td.textContent!.trim());
+        expect(rows, 'la tabella della revisione segue l\'ordine').toEqual(['[PROD]', '[UAT]']);
     });
 });
 
@@ -409,7 +410,7 @@ describe('i popup dicono quanti package escono e li elencano (D9)', () => {
         expect(ui.doc.querySelector('#confirm-overlay .dialog')!.classList.contains('dialog--wide'), 'largo, per la tabella').toBe(true);
     });
 
-    it('la revisione ha il riepilogo dei Target quando sono piu\' d\'uno, e non con uno solo', async () => {
+    it('la revisione ha la tabella dei package: una riga per Target', async () => {
         const ui = await twoWithFiles();
         await ui.next();
         expect(ui.doc.querySelectorAll('#step-review .confirm-targets tbody tr').length).toBe(2);
@@ -417,7 +418,9 @@ describe('i popup dicono quanti package escono e li elencano (D9)', () => {
         await ui.back();
         await ui.tickTarget('PROD', false);
         await ui.next();
-        expect(ui.doc.querySelector('#step-review .confirm-targets')).toBeNull();
+        expect(ui.doc.querySelectorAll('#step-review .confirm-targets tbody tr').length, 'con un Target, una riga').toBe(1);
+        expect(ui.text('review')).toContain('1 package');
+        expect(ui.text('review')).not.toContain('packages');
     });
 
     it('un Target con publish diversi per agent si riassume come "Mixed"', async () => {
@@ -534,15 +537,17 @@ describe('piu\' Target nello stesso giro (FR-006, FR-008, FR-009, FR-012, FR-013
         return ui;
     }
 
-    it('con un solo Target non compare nessun selettore nella revisione; con due si', async () => {
+    it('la revisione non ha il selettore dei Target ne\' l\'elenco degli agent, con uno o con due Target', async () => {
         const ui = await bare();
         await ui.tickTarget('UAT', true);
         await ui.next();
         expect(ui.switchTabs()).toEqual([]);
+        expect(ui.doc.querySelector('#step-review table:not(.confirm-targets)')).toBeNull();
         await ui.back();
         await ui.tickTarget('PROD', true);
         await ui.next();
-        expect(ui.switchTabs()).toEqual([{ label: '[UAT]', active: true }, { label: '[PROD]', active: false }]);
+        expect(ui.switchTabs()).toEqual([]);
+        expect(ui.doc.querySelector('#step-review table:not(.confirm-targets)')).toBeNull();
     });
 
     it('D8: sotto ogni Target spuntato c\'e\' la sua tabella di agent, con il nome "dopo" di quel Target', async () => {
@@ -692,9 +697,6 @@ describe('piu\' Target nello stesso giro (FR-006, FR-008, FR-009, FR-012, FR-013
         const ui = await bare(world);
         await ui.tickTarget('UAT', true);
         await ui.tickTarget('PROD', true);
-        await ui.next();
-        await ui.switchTo('[PROD]');                 // il Target mostrato non e' quello senza suffisso
-        await ui.back();
         await ui.addTarget('');
         await ui.toggleAgent('a1 [DEV]', 'PROD');    // escluso solo in PROD: nel Target senza suffisso c'e' ancora
         await ui.nextRaw();
@@ -722,38 +724,33 @@ describe('piu\' Target nello stesso giro (FR-006, FR-008, FR-009, FR-012, FR-013
         expect(mf.targets[1]!.agents.map(a => a.excluded)).toEqual([false, true]);
     });
 
-    it('nella revisione il selettore cambia il Target mostrato, con le scelte di quel Target', async () => {
-        const ui = await twoTargets();
-        await ui.toggleAgent('agent2', 'PROD');
+    it('gli avvisi della revisione parlano di ogni Target, con le sue scelte', async () => {
+        const long = 'a'.repeat(26) + ' [DEV]';
+        const world: UiWorld = {
+            solutions: [{ unique: 'S1' }],
+            agents: [
+                { name: long, schema: 'ava_a1', solution: 'S1', publish: null },
+                { name: 'b [DEV]', schema: 'ava_a2', solution: 'S1', publish: null },
+            ],
+        };
+        const ui = await bare(world);
+        await ui.tickTarget('UAT', true);
+        await ui.tickTarget('STAGING', true);
+        await ui.toggleAgent(long, 'STAGING');   // il nome lungo resta fuori da STAGING
         await ui.next();
-        expect(ui.reviewRows().map(r => r.resulting)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
-        await ui.switchTo('[PROD]');
-        expect(ui.reviewRows().map(r => r.resulting), 'PROD non rinomina agent2').toEqual(['agent1 [PROD]']);
-        expect(ui.switchTabs().map(t => t.active)).toEqual([false, true]);
-    });
-
-    it('tolta la spunta del Target mostrato, il selettore ripiega sul primo rimasto', async () => {
-        const ui = await twoTargets();
-        await ui.next();
-        await ui.switchTo('[PROD]');
-        await ui.back();
-        await ui.tickTarget('PROD', false);
-        await ui.next();
-        expect(ui.switchTabs()).toEqual([]);
-        expect(ui.reviewRows().map(r => r.resulting)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
+        const warn = ui.text('review');
+        expect(warn).toMatch(/\[UAT\] 1 name is over 30 characters/);
+        expect(warn, 'STAGING non ha nomi lunghi').not.toMatch(/\[STAGING\] \d+ names? (is|are) over/);
     });
 
     it('la revisione nomina i Target e conta gli archivi', async () => {
         const ui = await twoTargets();
         await ui.next();
         const t = ui.text('review');
-        expect(t).toContain('Targets');
         expect(t).toContain('[UAT]');
         expect(t).toContain('[PROD]');
         expect(t).toContain('2 archives');
-        expect(ui.reviewRows().map(r => r.resulting)).toEqual(['agent1 [UAT]', 'agent2 [UAT]']);
-        await ui.switchTo('[PROD]');
-        expect(ui.reviewRows().map(r => r.resulting)).toEqual(['agent1 [PROD]', 'agent2 [PROD]']);
+        expect(ui.doc.querySelector('#step-review table:not(.confirm-targets)'), 'i nomi degli agent stanno nel passo Suffix').toBeNull();
     });
 
     it('con le copie extra gli archivi diventano 2 per Target piu\' 2', async () => {

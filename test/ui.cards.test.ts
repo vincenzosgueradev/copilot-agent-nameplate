@@ -87,7 +87,7 @@ describe('lettura fallita (FR-005)', () => {
 });
 
 describe('la stessa icona in tutte le liste (FR-007)', () => {
-    it('passo del suffisso e revisione mostrano l\'icona', async () => {
+    it('il passo del suffisso mostra l\'icona; la revisione non elenca gli agent', async () => {
         const ui = await boot(world());
         await ui.openSolution('S1');
         await ui.startRename();
@@ -96,8 +96,7 @@ describe('la stessa icona in tutte le liste (FR-007)', () => {
         await ui.typeSuffix('UAT');
         await ui.next();
         expect(ui.step()).toBe('review');
-        expect(ui.cardOf('ok [DEV]')!.img).toBe(URI);
-        expect(ui.reviewRows().map(r => r.resulting)).toEqual(['bad [UAT]', 'ok [UAT]', 'plain [UAT]']);
+        expect(ui.doc.querySelector('#step-review table:not(.confirm-targets)'), 'la revisione non elenca gli agent').toBeNull();
     });
 
     it('i chip della ricerca portano l\'icona gia\' letta; la ricerca non legge nulla', async () => {

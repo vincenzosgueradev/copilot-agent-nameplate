@@ -217,16 +217,11 @@ async function walk(n: number, seed: number, steps: number, e2e: boolean): Promi
     // ── revisione
     await ui.next();
     expect(ui.step(), where()).toBe('review');
-    expect(ui.reviewRows(), `${where()}: tabella di revisione`).toEqual(m.chosen().map(a => ({
-        agent: `${a.name} ${a.schema}`,
-        resulting: m.after(a),
-        publish: m.modeOf(a),
-        length: `${m.after(a).length} / ${TEAMS_NAME_LIMIT}`,
-    })));
+    // La revisione non elenca gli agent (spec 018): i nomi si vedono nel passo Suffix. Restano gli avvisi.
+    expect(ui.doc.querySelector('#step-review table:not(.confirm-targets)'), `${where()}: nessuna tabella di agent`).toBeNull();
     const review = ui.text('review');
-    for (const a of m.agents.filter(x => !m.selected(x))) {
-        expect(review.includes(a.name), `${where()}: escluso ${a.name} citato in revisione`).toBe(true);
-    }
+    const tooLong = m.chosen().some(a => m.after(a).length > TEAMS_NAME_LIMIT);
+    expect(/over \d+ characters/.test(review), `${where()}: avviso sui 30 caratteri`).toBe(tooLong);
     expect(review.includes('different suffixes'), `${where()}: suffissi misti in revisione`).toBe(m.mixed());
 
     // il passo indietro conserva tutto
@@ -436,12 +431,11 @@ describe('schermata: struttura della tabella degli agent', () => {
         expect(table.classList.contains('data-table--fill')).toBe(true);
         expect(table.querySelectorAll('colgroup col').length).toBe(5);
     });
-    it('il nome risultante non va a capo', async () => {
+    it('il nome risultante non va a capo, nel passo Suffix', async () => {
         const ui = await boot(worldOf(2, rng(3)));
         await ui.openSolution('S1');
         await ui.startRename();
-        await ui.next();
-        const cells = ui.doc.querySelectorAll('#step-review tbody tr td:nth-child(2)');
+        const cells = ui.doc.querySelectorAll('#target-list .target-agents tbody tr td:nth-child(4)');
         expect(cells.length).toBe(2);
         cells.forEach(c => expect(c.classList.contains('cell-nowrap')).toBe(true));
     });
