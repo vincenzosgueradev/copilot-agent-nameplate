@@ -210,6 +210,8 @@ const MUTATIONS = [
     ['targets', 'src/services/targets.ts', 'if (clean.length > SUFFIX_MAX)', 'if (clean.length >= SUFFIX_MAX)', 'targets: il limite dei 20 caratteri e\' sbagliato di uno'],
     ['targets', 'src/services/targets.ts', String.raw`/[[\]\\/:*?"<>|`, String.raw`/[\]\\/:*?"<>|`, 'targets: la parentesi quadra aperta e\' ammessa nel nome'],
     ['targets', 'src/services/targets.ts', 't.name.toLowerCase() === clean.toLowerCase()', 't.name === clean', 'targets: i doppioni con altre maiuscole sono ammessi'],
+    ['targets', 'src/services/targets.ts', 'out.splice(at < 0 ? out.length : at, 0,', 'out.splice(out.length, 0,', 'targets: Restore defaults rimette i preset in coda invece che al loro posto'],
+    ['targets', 'src/services/targets.ts', 'rank(t.name) > rank(name)', 'rank(t.name) >= rank(name)', 'targets: Restore defaults inserisce dopo il preset successivo'],
     ['targets', 'src/services/targets.ts', 'i !== exceptIndex && ', '', 'targets: rinominare in se stesso risulta un doppione'],
     ['targets', 'src/services/targets.ts', 'from >= out.length || to >= out.length', 'from > out.length || to > out.length', 'targets: lo spostamento oltre la fine corrompe la lista'],
     ['targets', 'src/services/targets.ts', 'if (!Array.isArray(raw)) return null;', 'if (!Array.isArray(raw)) return [];', 'targets: un valore illeggibile vale lista vuota invece dei preset'],

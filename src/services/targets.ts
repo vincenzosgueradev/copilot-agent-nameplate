@@ -40,9 +40,19 @@ export function missingPresets(list: readonly Target[]): string[] {
     return DEFAULT_TARGET_NAMES.filter(n => !have.has(n.toLowerCase()));
 }
 
-/** Rimette in fondo i preset tolti (publish `keep`); gli altri Target restano come sono (D9). */
+/**
+ * Rimette i preset tolti (publish `keep`) al loro posto: subito prima del primo preset successivo,
+ * nell'ordine di partenza, che c'e' ancora nella lista; se non ce n'e', in fondo. Gli altri Target
+ * restano dove sono (D9).
+ */
 export function restoreDefaults(list: readonly Target[]): Target[] {
-    return [...list, ...missingPresets(list).map(name => ({ name, publishOnImport: 'keep' as PublishMode }))];
+    const out = [...list];
+    const rank = (name: string) => DEFAULT_TARGET_NAMES.findIndex(n => n.toLowerCase() === name.toLowerCase());
+    for (const name of missingPresets(list)) {
+        const at = out.findIndex(t => rank(t.name) > rank(name));
+        out.splice(at < 0 ? out.length : at, 0, { name, publishOnImport: 'keep' as PublishMode });
+    }
+    return out;
 }
 
 /**

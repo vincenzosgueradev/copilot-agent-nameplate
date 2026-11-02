@@ -301,13 +301,13 @@ describe('Restore: rimettere i Target tolti (D9)', () => {
         expect(ui.restoreEnabled()).toBe(true);
     });
 
-    it('rimette in fondo i preset tolti, salva la lista, e poi si spegne', async () => {
+    it('rimette i preset tolti al loro posto, salva la lista, e poi si spegne', async () => {
         const ui = await bare();
         await ui.removeTarget('UAT');
         await ui.removeTarget('PROD');
         await ui.restoreTargets();
-        expect(ui.targetNames()).toEqual(['DEV', 'TEST', 'STAGING', 'PREPROD', 'UAT', 'PROD']);
-        expect(savedList(ui)!.DEV!.map(x => x.name)).toEqual(['DEV', 'TEST', 'STAGING', 'PREPROD', 'UAT', 'PROD']);
+        expect(ui.targetNames()).toEqual(['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD']);
+        expect(savedList(ui)!.DEV!.map(x => x.name)).toEqual(['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD']);
         expect(ui.restoreEnabled()).toBe(false);
     });
 
@@ -331,7 +331,7 @@ describe('Restore: rimettere i Target tolti (D9)', () => {
         expect(ui.targetNames()).toEqual(PRESETS);
         await ui.renameTarget('UAT', 'LIVE');
         await ui.restoreTargets();
-        expect(ui.targetNames()).toEqual([...PRESETS.map(n => (n === 'UAT' ? 'LIVE' : n)), 'UAT']);
+        expect(ui.targetNames(), 'UAT torna prima di STAGING, LIVE resta al suo posto').toEqual(['DEV', 'TEST', 'LIVE', 'UAT', 'STAGING', 'PREPROD', 'PROD']);
     });
 
     it('un Target tolto e ripristinato riparte senza le scelte per agent di prima', async () => {

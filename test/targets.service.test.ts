@@ -52,19 +52,27 @@ describe('ripristino dei preset tolti (D9)', () => {
         expect(missingPresets([])).toEqual(P);
         expect(restoreDefaults([])).toEqual(P.map(n => t(n)));
     });
-    it('uno alla volta: ognuno dei sei, se manca, torna in fondo senza toccare gli altri', () => {
+    it('uno alla volta: ognuno dei sei, se manca, torna al suo posto senza toccare gli altri', () => {
         for (const gone of P) {
             const list = defaultTargets().filter(x => x.name !== gone).map(x => ({ ...x, publishOnImport: 'force-true' as const }));
             expect(missingPresets(list), gone).toEqual([gone]);
             const back = restoreDefaults(list);
-            expect(names(back), gone).toEqual([...names(list), gone]);
-            expect(back.slice(0, -1), `gli altri restano com'erano (${gone})`).toEqual(list);
-            expect(back.at(-1), `il ripristinato riparte da "keep" (${gone})`).toEqual(t(gone));
+            expect(names(back), gone).toEqual(P);
+            expect(back.filter(x => x.name !== gone), `gli altri restano com'erano (${gone})`).toEqual(list);
+            expect(back.find(x => x.name === gone), `il ripristinato riparte da "keep" (${gone})`).toEqual(t(gone));
         }
     });
-    it('piu\' preset tolti tornano nell\'ordine di partenza, dopo i Target personalizzati', () => {
+    it('piu preset tolti tornano al loro posto; i Target personalizzati restano dove sono', () => {
         const list = [t('HOTFIX'), t('DEV'), t('UAT')];
-        expect(names(restoreDefaults(list))).toEqual(['HOTFIX', 'DEV', 'UAT', 'TEST', 'STAGING', 'PREPROD', 'PROD']);
+        expect(names(restoreDefaults(list))).toEqual(['HOTFIX', 'DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD']);
+    });
+    it('i preset tolti tornano subito prima del successivo preset presente, anche dopo un Target personalizzato', () => {
+        const list = [t('DEV'), t('UAT'), t('HOTFIX'), t('PROD')];
+        expect(names(restoreDefaults(list))).toEqual(['DEV', 'TEST', 'UAT', 'HOTFIX', 'STAGING', 'PREPROD', 'PROD']);
+    });
+    it('senza preset successivi torna in fondo; lista vuota dei preset: tutti in fondo, in ordine', () => {
+        expect(names(restoreDefaults([t('HOTFIX')]))).toEqual(['HOTFIX', ...P]);
+        expect(names(restoreDefaults([t('DEV'), t('TEST')]))).toEqual(P);
     });
     it('un preset rinominato conta come tolto; il confronto non distingue le maiuscole', () => {
         expect(missingPresets([t('LIVE'), t('dev'), t('Test'), t('UAT'), t('STAGING'), t('PREPROD')])).toEqual(['PROD']);
