@@ -24,6 +24,7 @@ dice che cosa i test **non** coprono e come controllarlo a mano.
 | [015](015-managed-source-guidance/spec.md) | Guida sulle solution managed: nota sopra l'elenco, righe distinguibili, banner che nomina l'ambiente e dice cosa fare | **Implementata** (provata a mano su UAT e DEV) | — | estende 001 (FR-068), 005 |
 | [016](016-multi-target-package/spec.md) | Targets: lista di destinazioni personalizzabile e ricordata per ambiente DEV; un export, una versione, uno zip per Target e confronto tra i Target | **Implementata** (fasi 1-5 e revisione D8: agent e publish per Target); resta la prova a mano sul DEV (quickstart) | — | estende 002, 004 |
 | [017](017-production-target/spec.md) | Casella «Production» sul target senza suffisso: l'avviso della 013 non compare per la produzione | **Implementata** (resta la prova a mano sul DEV) | — | estende 013, 016 |
+| [018](018-lean-screens-and-live-pipeline/spec.md) | Revisione sobria (senza elenco agent), popup con icone, pipeline numerata e viva, pulizia dei testi ridondanti | **In corso** (blocco A fatto) | — | estende 001, 013, 016 |
 
 ## Come leggere le specifiche successive
 
