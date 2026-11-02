@@ -2047,6 +2047,7 @@ select option {
 .target-head .th-publish { flex: 0 0 auto; width: 270px; }
 .target-handle { cursor: grab; color: var(--color-text-muted); letter-spacing: -2px; user-select: none; padding: 0 4px; }
 .target-name { flex: 1 1 160px; max-width: 260px; }
+.target-prod { flex: 0 0 auto; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--color-text); white-space: nowrap; cursor: pointer; }
 .target-publish { flex: 0 0 auto; }
 .panel-head .target-restore { margin-left: auto; }
 .target-actions { margin-left: auto; display: inline-flex; gap: 4px; }

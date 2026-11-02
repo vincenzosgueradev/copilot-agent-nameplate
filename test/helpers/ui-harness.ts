@@ -159,6 +159,10 @@ export interface Driver {
     dragTarget(from: string, to: string): Promise<void>;
     setTargetPublish(name: string, mode: PublishMode): Promise<void>;
     targetPublish(name: string): PublishMode | null;
+    /** La casella Production del Target (spec 017): spunta o toglie la spunta. */
+    setProduction(name: string, on: boolean): Promise<void>;
+    /** `null` se la riga non ha la casella. */
+    production(name: string): boolean | null;
     /** «Restore defaults» della lista dei Target (D9). */
     restoreTargets(): Promise<void>;
     restoreEnabled(): boolean;
@@ -460,6 +464,17 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
             return (on?.dataset.val as PublishMode | undefined) ?? null;
         },
         targetNotice: () => norm($('#target-notice')?.textContent),
+        async setProduction(name, on) {
+            const row = targetRows().find(r => rowName(r) === name);
+            const box = row?.querySelector<HTMLInputElement>('[data-target-production]');
+            if (!box) throw new Error(`casella Production non trovata: "${name}"`);
+            if (box.checked !== on) await click(box, `production ${name}`);
+        },
+        production(name) {
+            const row = targetRows().find(r => rowName(r) === name);
+            const box = row?.querySelector<HTMLInputElement>('[data-target-production]');
+            return box ? box.checked : null;
+        },
         async restoreTargets() { await click($('#target-restore-btn'), 'restore defaults'); },
         restoreEnabled: () => !($<HTMLButtonElement>('#target-restore-btn')?.disabled ?? true),
         confirmText: () => norm($('#confirm-overlay')?.textContent),

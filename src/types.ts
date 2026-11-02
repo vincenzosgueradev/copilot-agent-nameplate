@@ -310,6 +310,11 @@ export interface ArtifactSet {
 export interface Target {
     name: string;
     publishOnImport: PublishMode;
+    /**
+     * Spec 017: il Target senza nome e' la produzione, il suffisso vuoto e' voluto e l'avviso
+     * della 013 non scatta. Vale solo con il nome vuoto; assente = no.
+     */
+    production?: boolean;
 }
 
 /**

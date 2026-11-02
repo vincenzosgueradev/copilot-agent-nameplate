@@ -86,9 +86,30 @@ export function removeTarget(list: readonly Target[], index: number): Target[] {
     return list.filter((_, i) => i !== index);
 }
 
+/** Rinominare con un nome non vuoto toglie la marcatura Production: vale solo senza nome (spec 017, FR-006). */
 export function renameTarget(list: readonly Target[], index: number, name: string): Target[] {
-    return list.map((t, i) => (i === index ? { ...t, name: name.trim() } : t));
+    return list.map((t, i) => {
+        if (i !== index) return t;
+        const { production: _gone, ...rest } = t;
+        const clean = name.trim();
+        return clean ? { ...rest, name: clean } : { ...t, name: clean };
+    });
 }
+
+/** Il Target senza nome marcato Production: il suffisso vuoto e' voluto (spec 017). */
+export const isProductionTarget = (t: Target): boolean => t.production === true && t.name.trim() === '';
+
+/** Marca o smarca il Target come Production. Un Target con un nome non si marca (FR-006). */
+export function setTargetProduction(list: readonly Target[], index: number, production: boolean): Target[] {
+    return list.map((t, i) => {
+        if (i !== index) return t;
+        const { production: _old, ...rest } = t;
+        return production && !t.name.trim() ? { ...rest, production: true } : rest;
+    });
+}
+
+/** Un Target senza nome e non marcato: e' quello per cui l'avviso della 013 ha ragione di scattare. */
+export const needsNoSuffixWarning = (t: Target): boolean => t.name.trim() === '' && !isProductionTarget(t);
 
 export function setTargetPublish(list: readonly Target[], index: number, publishOnImport: PublishMode): Target[] {
     return list.map((t, i) => (i === index ? { ...t, publishOnImport } : t));
@@ -117,12 +138,14 @@ function parseTargets(raw: unknown): Target[] | null {
     const out: Target[] = [];
     for (const item of raw) {
         if (typeof item !== 'object' || item === null) continue;
-        const { name, publishOnImport } = item as Record<string, unknown>;
+        const { name, publishOnImport, production } = item as Record<string, unknown>;
         if (typeof name !== 'string') continue;
         const clean = name.trim();
         if (validateTargetName(clean, out) !== null) continue;   // lungo, con caratteri vietati o doppio
         const mode = PUBLISH_MODES.find(m => m === publishOnImport) ?? 'keep';
-        out.push({ name: clean, publishOnImport: mode });
+        out.push(production === true && clean === ''
+            ? { name: clean, publishOnImport: mode, production: true }
+            : { name: clean, publishOnImport: mode });
     }
     return out;
 }
@@ -177,7 +200,9 @@ export async function saveTargets(
     await enqueue(async () => {
         const settings = globalThis.toolboxAPI.settings;
         const map = parseMap(await settings.get(TARGETS_KEY));
-        map[environment] = list.map(t => ({ name: t.name, publishOnImport: t.publishOnImport }));
+        map[environment] = list.map(t => (isProductionTarget(t)
+            ? { name: t.name, publishOnImport: t.publishOnImport, production: true }
+            : { name: t.name, publishOnImport: t.publishOnImport }));
         await settings.set(TARGETS_KEY, map);
 
         if (renamed && renamed.from !== renamed.to) {

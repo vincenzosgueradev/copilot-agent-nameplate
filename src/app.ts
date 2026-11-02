@@ -18,7 +18,8 @@ import { MAX_PINS, pinFirst, readPins, setPinned } from './services/pins';
 import { runPackagingTargets, targetView, type MultiPackagingResult, type PackagingResult } from './services/packaging';
 import {
     addTarget, moveTarget, readSelection, readTargets, removeTarget, renameTarget,
-    missingPresets, restoreDefaults, saveSelection, saveTargets, setTargetPublish, validateTargetName,
+    isProductionTarget, missingPresets, needsNoSuffixWarning, restoreDefaults, saveSelection, saveTargets,
+    setTargetProduction, setTargetPublish, validateTargetName,
 } from './services/targets';
 import { agentOutcomes, buildName } from './services/patch';
 import { nextVersion, versionProblem } from './services/solutionVersion';
@@ -1287,7 +1288,7 @@ function targetsOverviewHtml(sol: Solution): string {
             <thead><tr><th>Target</th><th>Agents renamed</th><th>Publish on import</th><th>Package to import</th></tr></thead>
             <tbody>${selectedTargetList().map(t => `
                 <tr>
-                    <td class="cell-strong">${escapeHtml(targetLabel(t.name))}${t.name.trim() ? '' : ' <span class="cell-muted">(removes the suffix)</span>'}</td>
+                    <td class="cell-strong">${escapeHtml(targetLabel(t.name))}${t.name.trim() ? '' : ` <span class="cell-muted">(${isProductionTarget(t) ? 'production' : 'removes the suffix'})</span>`}</td>
                     <td>${selectedAgents(t.name).length} of ${total}</td>
                     <td>${escapeHtml(publishSummary(t.name))}</td>
                     <td><code>${escapeHtml(packageFileName(sol, t.name, 'managed'))}</code></td>
@@ -1502,6 +1503,12 @@ function targetRowsHtml(): string {
             <input class="text-input target-name" type="text" data-target-name maxlength="${SUFFIX_MAX}"
                 autocomplete="off" placeholder="(no suffix)" aria-label="Target name"
                 value="${escapeHtml(t.name)}">
+            ${t.name.trim() ? '' : `<label class="check target-prod"
+                title="The production target has no suffix on purpose: no warning for it.">
+                <input class="check-input" type="checkbox" data-target-production
+                    ${isProductionTarget(t) ? 'checked' : ''}>
+                <span class="check-mark"></span><span>Production</span>
+            </label>`}
             <div class="toggle-group toggle-group--sm target-publish" role="group"
                 aria-label="Publish on import for ${escapeHtml(label)}">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
                 <button type="button" class="toggle-btn${t.publishOnImport === m ? ' is-active' : ''}"
@@ -1563,7 +1570,8 @@ function renderSuffixStep(): void {
                             <p class="hint hint--warn" id="target-notice" role="alert">${escapeHtml(state.targetNotice)}</p>
                         </div>
                         <p class="hint" style="margin-top:8px">
-                            A target without a suffix <strong>removes</strong> the existing one.
+                            A target without a suffix <strong>removes</strong> the existing one; tick <strong>Production</strong>
+                            on it if that is your production target, and the warning will not appear.
                             Drag the handle or use the arrows to reorder. The list is remembered for this environment.
                         </p>
                     </div>
@@ -1712,6 +1720,9 @@ function renderSuffixStep(): void {
                 ? [...state.selectedTargets, target.name]
                 : state.selectedTargets.filter(n => n !== target.name);
             persistSelection();
+        } else if (el.matches('[data-target-production]')) {
+            state.targets = setTargetProduction(state.targets, i, (el as HTMLInputElement).checked);
+            persistTargets();
         } else if (el.matches('[data-target-name]')) {
             const problem = validateTargetName(el.value, state.targets, i);
             if (problem) { complain(problem); el.value = target.name; return; }
@@ -1838,7 +1849,7 @@ function renderSuffixStep(): void {
 
     els.stepSuffix.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('solution'));
     els.stepSuffix.querySelector('#next-btn')!.addEventListener('click', async () => {
-        if (selectedTargetList().some(t => t.name.trim() === '') && !(await confirmNoSuffix(sol))) return;
+        if (selectedTargetList().some(needsNoSuffixWarning) && !(await confirmNoSuffix(sol))) return;
         persistSelection();
         navigateTo('review');
     });

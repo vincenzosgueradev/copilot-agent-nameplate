@@ -4,8 +4,9 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-    addTarget, defaultTargets, missingPresets, moveTarget, readSelection, readTargets, reconcileSelection,
-    removeTarget, renameInSelections, renameTarget, restoreDefaults, saveSelection, saveTargets, setTargetPublish,
+    addTarget, defaultTargets, isProductionTarget, missingPresets, needsNoSuffixWarning, moveTarget, readSelection, readTargets, reconcileSelection,
+    removeTarget, renameInSelections, renameTarget, restoreDefaults, saveSelection, saveTargets, setTargetProduction,
+    setTargetPublish,
     validateTargetName,
 } from '../src/services/targets';
 import type { Target } from '../src/types';
@@ -328,4 +329,111 @@ describe('operazioni × stato della lista, salvate e rilette (matrice FR-003)', 
             });
         }
     }
+});
+
+
+describe('Target Production senza suffisso (spec 017)', () => {
+    const prod = (): Target => ({ name: '', publishOnImport: 'keep', production: true });
+
+    describe('isProductionTarget / needsNoSuffixWarning: nome x marcatura (FR-002, FR-003, FR-006)', () => {
+        const cases: [string, Target, boolean, boolean][] = [
+            // [descrizione, target, produzione?, serve l'avviso?]
+            ['senza nome, non marcato', t(''), false, true],
+            ['senza nome, marcato', prod(), true, false],
+            ['senza nome, marcato false esplicito', { ...t(''), production: false }, false, true],
+            ['solo spazi, marcato', { name: '   ', publishOnImport: 'keep', production: true }, true, false],
+            ['con nome, non marcato', t('UAT'), false, false],
+            ['con nome, marcato a mano nei dati: ignorato', { ...t('PROD'), production: true }, false, false],
+        ];
+        for (const [label, target, isProd, warns] of cases) {
+            it(label, () => {
+                expect(isProductionTarget(target)).toBe(isProd);
+                expect(needsNoSuffixWarning(target)).toBe(warns);
+            });
+        }
+    });
+
+    describe('setTargetProduction (FR-001, FR-006, FR-008)', () => {
+        it('marca il Target senza nome e lo smarca', () => {
+            const on = setTargetProduction([t('DEV'), t('')], 1, true);
+            expect(on[1]).toEqual(prod());
+            expect(setTargetProduction(on, 1, false)[1]).toEqual(t(''));
+            expect('production' in setTargetProduction(on, 1, false)[1]!, 'smarcato = campo assente').toBe(false);
+        });
+        it('un Target con nome non si marca', () => {
+            expect(setTargetProduction([t('UAT')], 0, true)).toEqual([t('UAT')]);
+        });
+        it('tocca solo il Target indicato e non modifica la lista che riceve', () => {
+            const list = [t(''), t('UAT', 'force-true')];
+            const out = setTargetProduction(list, 0, true);
+            expect(out[1]).toBe(list[1]);
+            expect(list[0]).toEqual(t(''));
+        });
+        it('indice fuori lista: lista invariata', () => {
+            expect(setTargetProduction([t('')], 5, true)).toEqual([t('')]);
+        });
+    });
+
+    describe('renameTarget e la marcatura (FR-006)', () => {
+        it('un nome non vuoto toglie la marcatura', () => {
+            expect(renameTarget([prod()], 0, 'LIVE')).toEqual([t('LIVE')]);
+        });
+        it('un nome vuoto (o di soli spazi) la lascia', () => {
+            expect(renameTarget([prod()], 0, '   ')).toEqual([prod()]);
+        });
+        it('rinominare un altro Target non tocca la marcatura', () => {
+            expect(renameTarget([prod(), t('UAT')], 1, 'TEST')).toEqual([prod(), t('TEST')]);
+        });
+    });
+
+    describe('salvataggio e rilettura (FR-005, FR-008)', () => {
+        it('la marcatura sopravvive a salva e rileggi', async () => {
+            await saveTargets('DEV', [t('UAT'), prod()]);
+            expect(await readTargets('DEV')).toEqual([t('UAT'), prod()]);
+        });
+        it('nei dati salvati compare solo per il Target marcato', async () => {
+            await saveTargets('DEV', [t('UAT'), prod()]);
+            const saved = (store.get('releaseTargets') as Record<string, Record<string, unknown>[]>).DEV!;
+            expect(saved[0]).toEqual({ name: 'UAT', publishOnImport: 'keep' });
+            expect(saved[1]).toEqual({ name: '', publishOnImport: 'keep', production: true });
+        });
+        it('una lista salvata prima della 017 (senza il campo) vale non marcato', async () => {
+            store.set('releaseTargets', { DEV: [{ name: '', publishOnImport: 'force-true' }] });
+            expect(await readTargets('DEV')).toEqual([t('', 'force-true')]);
+        });
+        const odd: [string, unknown][] = [
+            ['stringa "true"', 'true'], ['numero 1', 1], ['false', false], ['null', null], ['oggetto', {}],
+        ];
+        for (const [label, value] of odd) {
+            it(`un valore che non è il booleano true vale non marcato (${label})`, async () => {
+                store.set('releaseTargets', { DEV: [{ name: '', publishOnImport: 'keep', production: value }] });
+                expect(await readTargets('DEV')).toEqual([t('')]);
+            });
+        }
+        it('un valore salvato su un Target con nome viene ignorato', async () => {
+            store.set('releaseTargets', { DEV: [{ name: 'PROD', publishOnImport: 'keep', production: true }] });
+            expect(await readTargets('DEV')).toEqual([t('PROD')]);
+        });
+        it('salvare un Target con nome marcato a mano non scrive la marcatura', async () => {
+            await saveTargets('DEV', [{ ...t('PROD'), production: true }]);
+            expect((store.get('releaseTargets') as Record<string, Record<string, unknown>[]>).DEV![0]).toEqual({ name: 'PROD', publishOnImport: 'keep' });
+        });
+        it('la marcatura segue il Target quando si riordina la lista', async () => {
+            await saveTargets('DEV', [prod(), t('UAT')]);
+            const back = await readTargets('DEV');
+            await saveTargets('DEV', [back[1]!, back[0]!]);
+            expect(await readTargets('DEV')).toEqual([t('UAT'), prod()]);
+        });
+    });
+
+    describe('addTarget e restoreDefaults non marcano (FR-008)', () => {
+        it('Add "no suffix" parte non marcato', () => {
+            expect(addTarget([], '')).toEqual([t('')]);
+        });
+        it('Restore defaults non marca nessun preset e lascia la marcatura dove sta', () => {
+            const out = restoreDefaults([prod()]);
+            expect(out[0]).toEqual(prod());
+            expect(out.slice(1).every(x => !('production' in x))).toBe(true);
+        });
+    });
 });
