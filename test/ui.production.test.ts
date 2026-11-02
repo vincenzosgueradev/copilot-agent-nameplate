@@ -4,7 +4,7 @@
  * la persistenza e la rinomina. Oracolo scritto dalla spec (FR-001…FR-009), non dal codice.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { boot, flush, type Driver, type UiWorld } from './helpers/ui-harness';
+import { boot, flush, readProduced, type Driver, type UiWorld } from './helpers/ui-harness';
 import { readSource } from './helpers/source';
 
 afterEach(() => { vi.useRealTimers(); });
@@ -25,6 +25,8 @@ async function bare(settings?: Record<string, unknown>) {
 }
 
 const warningShown = (ui: Driver) => ui.doc.getElementById('confirm-overlay')!.style.display === 'flex';
+const cells = (ui: Driver) => Array.from(ui.doc.querySelectorAll('#step-review .confirm-targets tbody tr'))
+    .map(tr => tr.querySelector('td')!.textContent!.replace(/\s+/g, ' ').trim());
 const savedDev = (ui: Driver) => (ui.fs.settings.get('releaseTargets') as Record<string, Record<string, unknown>[]>).DEV!;
 
 describe('la casella Production sulla riga (FR-001, FR-008)', () => {
@@ -126,6 +128,63 @@ describe('matrice: avviso della 013 × marcatura × target spuntati (FR-002, FR-
     });
 });
 
+describe('l\'alias PROD dove il tool nomina il Target (FR-010)', () => {
+    /** Un giro con UAT e il Target senza nome, marcato o no, fino ai controlli. */
+    async function run(marked: boolean) {
+        const ui = await bare();
+        await ui.tickTarget('UAT', true);
+        await ui.addTarget('');
+        await ui.setProduction('', marked);
+        await ui.next();
+        return ui;
+    }
+    const matrix = (ui: Driver) => Array.from(ui.doc.querySelectorAll('#targets-matrix tbody tr td:first-child')).map(td => td.textContent!.trim());
+
+    for (const [marked, label] of [[true, 'PROD'], [false, 'no suffix']] as const) {
+        it(`${marked ? 'marcato' : 'non marcato'}: le linguette dell'anteprima e dei controlli dicono «${label}»`, async () => {
+            const ui = await run(marked);
+            await ui.buildPackage();
+            expect(ui.switchTabs().map(t => t.label)).toEqual(['[UAT]', label]);
+            await ui.toVerify();
+            expect(ui.switchTabs().map(t => t.label)).toEqual(['[UAT]', label]);
+            expect(matrix(ui)).toEqual(['[UAT]', label]);
+        });
+        it(`${marked ? 'marcato' : 'non marcato'}: la casella della riga e il risultato dicono «${label}»`, async () => {
+            const ui = await run(marked);
+            await ui.back();
+            const pick = Array.from(ui.doc.querySelectorAll<HTMLInputElement>('#target-list [data-target-pick]')).map(i => i.getAttribute('aria-label'));
+            expect(pick).toContain(`Build for ${label}`);
+            await ui.next();
+            await ui.buildPackage();
+            await ui.toVerify();
+            await ui.save();
+            // I chip dei file da importare: il nome della cartella su disco resta quello vero («[UAT, no suffix]»)
+            const chips = Array.from(ui.doc.querySelectorAll('#step-result .chip')).map(c => c.textContent!.trim());
+            expect(chips).toContain(label);
+            if (marked) expect(chips).not.toContain('no suffix');
+        });
+    }
+    it('un Target che si chiama davvero PROD resta [PROD], e il suo nome non cambia', async () => {
+        const ui = await bare();
+        await ui.tickTarget('PROD', true);
+        await ui.addTarget('');
+        await ui.setProduction('', true);
+        await ui.next();
+        expect(cells(ui)).toEqual(['[PROD]', 'PROD (no suffix)']);
+    });
+    it('i nomi degli agent non cambiano: il Target Production non ha suffisso', async () => {
+        const ui = await run(true);
+        await ui.buildPackage();
+        await ui.toVerify();
+        await ui.save();
+        const zips = ui.written().zips;
+        const prod = Object.entries(zips).find(([path]) => path.includes('_managed_nosuffix'))!;
+        const uat = Object.entries(zips).find(([path]) => path.includes('_managed_UAT'))!;
+        expect(readProduced(prod[1]).ava_a1!.name, 'senza suffisso: [DEV] tolto').toBe('agent1');
+        expect(readProduced(uat[1]).ava_a1!.name).toBe('agent1 [UAT]');
+    });
+});
+
 describe('persistenza (FR-005)', () => {
     it('la marcatura si salva con la lista, e solo per il Target marcato', async () => {
         const ui = await bare();
@@ -175,16 +234,14 @@ describe('rinomina (FR-006)', () => {
 });
 
 describe('la tabella dei package e il package (FR-007, FR-008)', () => {
-    const cells = (ui: Driver) => Array.from(ui.doc.querySelectorAll('#step-review .confirm-targets tbody tr'))
-        .map(tr => tr.querySelector('td')!.textContent!.replace(/\s+/g, ' ').trim());
 
-    it('il Target Production dice (production)', async () => {
+    it('il Target Production si chiama PROD, e dice che non ha suffisso', async () => {
         const ui = await bare();
         await ui.tickTarget('UAT', true);
         await ui.addTarget('');
         await ui.setProduction('', true);
         await ui.next();
-        expect(cells(ui)).toEqual(['[UAT]', 'no suffix (production)']);
+        expect(cells(ui)).toEqual(['[UAT]', 'PROD (no suffix)']);
     });
     it('il Target senza nome non marcato dice ancora (removes the suffix)', async () => {
         const ui = await bare();

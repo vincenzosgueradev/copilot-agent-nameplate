@@ -1102,8 +1102,14 @@ function activeTarget(): Target | null {
 /** Il suffisso del Target mostrato; vuoto se nessun Target e' spuntato. */
 const activeSuffix = (): string => activeTarget()?.name ?? '';
 
-/** L'etichetta di un Target nei testi: `[UAT]`, o «no suffix». */
-const targetLabel = (name: string): string => (name.trim() ? `[${name.trim()}]` : 'no suffix');
+/**
+ * L'etichetta di un Target nei testi: `[UAT]`, o «no suffix». Il Target senza nome marcato Production
+ * si chiama «PROD»: e' l'alias che l'utente gli ha dato, senza parentesi perche' nei nomi non c'e' nessun [PROD].
+ */
+const targetLabel = (name: string): string => {
+    if (name.trim()) return `[${name.trim()}]`;
+    return state.targets.some(isProductionTarget) ? 'PROD' : 'no suffix';
+};
 
 /** Il publish on import di un agent per un Target (di default il mostrato): la sua eccezione batte il default del Target (D7, D8). */
 function agentPublishMode(schemaName: string, target: string = activeSuffix()): PublishMode {
@@ -1276,7 +1282,7 @@ function targetsOverviewHtml(sol: Solution): string {
             <thead><tr><th>Target</th><th>Agents renamed</th><th>Publish on import</th><th>Package to import</th></tr></thead>
             <tbody>${selectedTargetList().map(t => `
                 <tr>
-                    <td class="cell-strong">${escapeHtml(targetLabel(t.name))}${t.name.trim() ? '' : ` <span class="cell-muted">(${isProductionTarget(t) ? 'production' : 'removes the suffix'})</span>`}</td>
+                    <td class="cell-strong">${escapeHtml(targetLabel(t.name))}${t.name.trim() ? '' : ` <span class="cell-muted">(${isProductionTarget(t) ? 'no suffix' : 'removes the suffix'})</span>`}</td>
                     <td>${selectedAgents(t.name).length} of ${total}</td>
                     <td>${escapeHtml(publishSummary(t.name))}</td>
                     <td>${icon('archive', 'icon--archive icon--xs')}<code>${escapeHtml(packageFileName(sol, t.name, 'managed'))}</code></td>
