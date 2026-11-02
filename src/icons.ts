@@ -44,7 +44,11 @@ export type IconName =
     | 'layers'
     | 'unmanaged'
     | 'managed'
-    | 'all-solutions';
+    | 'all-solutions'
+    | 'environment'
+    | 'upload'
+    | 'undo'
+    | 'info';
 
 /** Markup dell'icona, pronto da concatenare in un template string. */
 export function icon(name: IconName, cls = ''): string {

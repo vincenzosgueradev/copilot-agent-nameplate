@@ -380,7 +380,7 @@ describe('i popup dicono quanti package escono e li elencano (D9)', () => {
         const body = rule(/\.dialog--wide \.dialog-body\s*\{([^}]*)\}/);
         expect(body, 'alto quanto la finestra, non 400px').toMatch(/max-height:\s*calc\(100vh/);
         expect(body, 'mai scorrimento orizzontale').toMatch(/overflow-x:\s*hidden/);
-        expect(rule(/\.dialog \.data-table\.confirm-targets td\s*\{([^}]*)\}/), 'il nome del file va a capo invece di allargare la tabella')
+        expect(rule(/\.data-table\.confirm-targets td\s*\{([^}]*)\}/), 'il nome del file va a capo invece di allargare la tabella')
             .toMatch(/white-space:\s*normal/);
     });
 

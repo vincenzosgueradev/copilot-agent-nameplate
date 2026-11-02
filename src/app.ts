@@ -1279,7 +1279,7 @@ function targetsOverviewHtml(sol: Solution): string {
                     <td class="cell-strong">${escapeHtml(targetLabel(t.name))}${t.name.trim() ? '' : ` <span class="cell-muted">(${isProductionTarget(t) ? 'production' : 'removes the suffix'})</span>`}</td>
                     <td>${selectedAgents(t.name).length} of ${total}</td>
                     <td>${escapeHtml(publishSummary(t.name))}</td>
-                    <td><code>${escapeHtml(packageFileName(sol, t.name, 'managed'))}</code></td>
+                    <td>${icon('archive', 'icon--archive icon--xs')}<code>${escapeHtml(packageFileName(sol, t.name, 'managed'))}</code></td>
                 </tr>`).join('')}</tbody>
         </table>`;
 }
@@ -1950,30 +1950,35 @@ function renderReviewStep(): void {
  * per tornare indietro (marketplace policy: nessuna modifica a un ambiente senza consenso).
  */
 function confirmVersionWrite(sol: Solution): Promise<boolean> {
+    const n = selectedTargetList().length;
     return askConfirm({
         title: 'Change the solution version in DEV',
         warning: true,
-        wide: selectedTargetList().length > 1,
+        icon: 'upload',
+        wide: n > 1,
         okLabel: 'Change the version and build',
         cancelLabel: 'Go back',
         bodyHtml: `
             <p class="warn-lead">Before exporting, the tool <strong>writes to this environment</strong>:</p>
-            <ul class="warn-list">
-                <li>Environment: <strong>${escapeHtml(state.connectionName || 'DEV')}</strong>${state.connectionUrl
-                    ? ` <span class="cell-muted">(${escapeHtml(state.connectionUrl)})</span>` : ''}</li>
-                <li>Solution: <strong>${escapeHtml(sol.uniqueName)}</strong></li>
-                <li>Version: <code>${escapeHtml(state.versionFrom)}</code> <span class="warn-arrow">${icon('arrow-right', 'icon--xs')}</span>
-                    <code>${escapeHtml(state.options.newVersion ?? '')}</code></li>
-            </ul>
-            <p>Scope: <strong>one property of one solution</strong>. This is the only change the tool makes to
-                the environment. Agents, components and variables are not touched.</p>
-            ${selectedTargetList().length > 1 ? `
-            <p>Then it exports <strong>once</strong> and builds <strong>${selectedTargetList().length} packages</strong>,
-                one for each target, all with this version:</p>
+            <dl class="dlg-facts">
+                <div class="dlg-fact">${icon('environment')}<dt>Environment</dt>
+                    <dd><strong>${escapeHtml(state.connectionName || 'DEV')}</strong>${state.connectionUrl
+                        ? ` <span class="cell-muted">(${escapeHtml(state.connectionUrl)})</span>` : ''}</dd></div>
+                <div class="dlg-fact">${icon('layers')}<dt>Solution</dt>
+                    <dd><strong>${escapeHtml(sol.uniqueName)}</strong></dd></div>
+                <div class="dlg-fact">${icon('tag')}<dt>Version</dt>
+                    <dd><code>${escapeHtml(state.versionFrom)}</code> <span class="warn-arrow">${icon('arrow-right', 'icon--xs')}</span>
+                        <code>${escapeHtml(state.options.newVersion ?? '')}</code></dd></div>
+            </dl>
+            <p class="dlg-note">${icon('shield', 'icon--sm')}<span>Scope: <strong>one property of one solution</strong>. This is the only
+                change the tool makes to the environment. Agents, components and variables are not touched.</span></p>
+            ${n > 1 ? `
+            <p class="dlg-note">${icon('package', 'icon--sm')}<span>Then it exports <strong>once</strong> and builds <strong>${n} packages</strong>,
+                one for each target, all with this version:</span></p>
             ${targetsOverviewHtml(sol)}` : ''}
-            <p class="hint">The tool cannot undo it. To go back, set the previous version in the solution's
-                properties in the portal. To keep a copy of the current state, export the solution
-                before continuing. To skip the change, go back and turn off "Raise the version".</p>`,
+            <p class="dlg-note">${icon('undo', 'icon--sm')}<span>The tool cannot undo it. To go back, set the previous version in the
+                solution's properties in the portal. To keep a copy of the current state, export the solution
+                before continuing. To skip the change, go back and turn off "Raise the version".</span></p>`,
     });
 }
 
@@ -2058,17 +2063,21 @@ function phaseFromMessage(msg: string, current: number, phases: string[]): numbe
     return current;
 }
 
-/** Il riquadro di attesa: barra indeterminata, fasi con il loro stato, messaggio e secondi. */
+/**
+ * Il riquadro di attesa: barra indeterminata e passi numerati. Il numero sta in `data-step` e lo
+ * scrive il CSS, cosi' il testo del passo resta solo il suo nome. Il passo fatto ha la spunta, quello
+ * in corso e' piu' grande e pulsa, la linea tra i passi si riempie man mano (spec 018, FR-006).
+ */
 function packProgressHtml(phase: number, msg: string, seconds: number, phases: string[]): string {
     const done = phase >= phases.length;
     const rows = phases.map((label, i) => {
         const state = i < phase ? 'done' : i === phase ? 'running' : 'todo';
         const mark = state === 'done' ? icon('check', 'icon--xs') : '';
-        return `<li class="ph ph--${state}"><span class="ph-dot">${mark}</span>${label}</li>`;
+        return `<li class="ph ph--${state}"><span class="ph-dot" data-step="${i + 1}">${mark}</span><span class="ph-label">${label}</span></li>`;
     }).join('');
     return `
         <div class="pack-bar${done ? ' pack-bar--done' : ''}"><span></span></div>
-        <ul class="ph-list">${rows}</ul>
+        <ol class="ph-list" aria-label="Export steps">${rows}</ol>
         <p class="pack-msg">${escapeHtml(msg)} · <strong>${seconds} s</strong></p>`;
 }
 

@@ -1,5 +1,7 @@
 /// <reference types="@pptb/types" />
 
+import { icon, type IconName } from '../icons';
+
 /** Dialog di conferma condiviso dai passi che chiedono un assenso esplicito. */
 
 /**
@@ -18,6 +20,8 @@ export interface ConfirmOptions {
     cancelLabel?: string;
     /** Piu' largo, per una tabella. */
     wide?: boolean;
+    /** L'icona dell'intestazione. Di partenza: avviso per i popup `warning`, info per gli altri. */
+    icon?: IconName;
 }
 
 /** Risolve `true` sulla conferma; `false` su annulla o Escape. */
@@ -30,6 +34,8 @@ export function askConfirm(opts: ConfirmOptions): Promise<boolean> {
 
     return new Promise(resolve => {
         title.textContent = opts.title;
+        const mark = document.getElementById('confirm-icon');
+        if (mark) mark.innerHTML = icon(opts.icon ?? (opts.warning || opts.danger ? 'alert' : 'info'));
         body.innerHTML = opts.bodyHtml;
         okBtn.textContent = opts.okLabel ?? 'Confirm';
         cancelBtn.textContent = opts.cancelLabel ?? 'Cancel';
