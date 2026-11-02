@@ -1936,10 +1936,9 @@ select option {
 .foot-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: var(--sp-4);
 }
-.foot-row .hint { margin: 0; }
 
 /* Selezione rapida degli agent: conteggio + "Select all" / "Deselect all" */
 .select-bar {

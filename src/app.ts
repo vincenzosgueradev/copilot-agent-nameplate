@@ -1290,23 +1290,18 @@ function artifactListHtml(sol: Solution, targetNames: string[], keepExtras: bool
     for (const name of targetNames) {
         rows.push(
             [true, packageFileName(sol, name, 'managed'),
-                'The only one to import into UAT or PROD. Being managed, it creates no '
-                + 'unmanaged layer in the target environment.'],
+                'The one to import into UAT or PROD. Managed: no unmanaged layer.'],
             [keepExtras, packageFileName(sol, name, 'unmanaged'),
-                'The same patch, unmanaged, for source control or a development environment. '
-                + 'Never import it downstream.'],
+                'The same patch, unmanaged, for source control. Never import it downstream.'],
         );
     }
     rows.push(
         [keepExtras, 'source_managed.zip',
-            'The original managed export, unpatched. Re-import it to go back; beside the '
-            + 'patched one it proves a single element was touched.'],
+            'The original managed export, unpatched. Re-import it to go back.'],
         [keepExtras, 'source_unmanaged.zip',
-            'The original unmanaged export: an untouched snapshot of the solution as it '
-            + 'stood in the source environment.'],
+            'The original unmanaged export, untouched.'],
         [true, 'manifest.json',
-            'Who, when, from where, the suffix applied and every file hash. It tells apart '
-            + 'two artifacts of the same version built for different environments.'],
+            'Who, when, from where, the suffix applied and every file hash.'],
     );
     const n = rows.filter(([on, f]) => on && f.endsWith('.zip')).length;
     return `
@@ -1464,7 +1459,6 @@ function agentRowsHtml(target: Target): string {
                             <button type="button" class="chip-btn" data-select="none">Deselect all</button>
                         </div>
                         <div class="foot-row">
-                            <span class="hint">Publish on import carries the new name to Teams and Microsoft 365 Copilot.</span>
                             <span class="foot-label">Set for all ticked agents</span>
                         </div>
                     </td>
@@ -1473,7 +1467,7 @@ function agentRowsHtml(target: Target): string {
             </tfoot>
         </table>
         ${agents.every(a => out.has(a.id))
-            ? '<p class="hint hint--warn" style="margin-top:12px"><strong>Nothing to rename.</strong> This tool exists to rename agents: with none ticked the package would be identical to the solution in DEV, so there is nothing to build. To move a solution unchanged between environments, use the native solution export or your ALM pipeline. Tick at least one agent to continue.</p>' : ''}
+            ? '<p class="hint hint--warn" style="margin-top:12px"><strong>Nothing to rename.</strong> With no agent ticked the package would be identical to the solution in DEV. Tick at least one to continue.</p>' : ''}
         ${mixed.length > 1 ? mixedSuffixHtml(mixed, target.name) : ''}`;
 }
 
@@ -1532,7 +1526,7 @@ function renderSuffixStep(): void {
                 <section class="panel" id="targets-panel">
                     <div class="panel-head">
                         <h3 class="panel-heading">${icon('tag', 'icon--head')}Targets</h3>
-                        <span class="panel-sub">tick the environments to build for; under each one, choose its agents and publish option</span>
+                        <span class="panel-sub">tick the targets to build for</span>
                         <button type="button" id="target-restore-btn" class="btn btn--secondary btn--sm target-restore"
                             title="Put back the standard targets you removed (DEV, TEST, UAT, STAGING, PREPROD, PROD)"
                             ${missingPresets(state.targets).length ? '' : 'disabled'}>Restore defaults</button>
@@ -1560,7 +1554,7 @@ function renderSuffixStep(): void {
                         <p class="hint" style="margin-top:8px">
                             A target without a suffix <strong>removes</strong> the existing one; tick <strong>Production</strong>
                             on it if that is your production target, and the warning will not appear.
-                            Drag the handle or use the arrows to reorder. The list is remembered for this environment.
+                            The list is remembered for this environment.
                         </p>
                     </div>
                 </section>
@@ -1594,7 +1588,6 @@ function renderSuffixStep(): void {
                     <div class="panel-head">
                         <div>
                             <h3 class="panel-heading">${icon('package', 'icon--head')}Artifacts</h3>
-                            <span class="panel-sub">what lands on disk</span>
                         </div>
                         <label class="switch" for="opt-keep"
                             title="the patched unmanaged archive and the two original exports">
@@ -2245,7 +2238,6 @@ function renderPreviewResult(r: PackagingResult): void {
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('pencil', 'icon--head')}What gets changed</h3>
-                    <span class="panel-sub">grouped by agent</span>
                 </div>
                 <div class="panel-body">
                     ${changeGroupsHtml(r)}
@@ -2260,7 +2252,6 @@ function renderPreviewResult(r: PackagingResult): void {
             <section class="panel">
                 <div class="panel-head">
                     <h3 class="panel-heading">${icon('send', 'icon--head')}Publish and channels</h3>
-                    <span class="panel-sub">what the package will carry, per agent</span>
                 </div>
                 <div class="panel-body">
                     ${publishRows.map(row => `
@@ -2394,7 +2385,6 @@ function renderVerifyStep(): void {
         <section class="panel">
             <div class="panel-head">
                 <h3 class="panel-heading">${icon('package', 'icon--head')}Package contents</h3>
-                <span class="panel-sub">what travels on import</span>
             </div>
             <div class="panel-body">
                 <table class="data-table">
@@ -2412,18 +2402,12 @@ function renderVerifyStep(): void {
                                 : '<span class="chip chip--warning">beyond the agent</span>'}</td>
                         </tr>`).join('')}</tbody>
                 </table>
-                ${extra.length ? `
-                <div class="note note--warn">
-                    The artifact is the <strong>whole solution</strong>: everything above
-                    travels on import, not just the agent.
-                </div>` : ''}
             </div>
         </section>
 
         <section class="panel">
             <div class="panel-head">
                 <h3 class="panel-heading">${icon('shield', 'icon--head')}Checks</h3>
-                <span class="panel-sub">managed and unmanaged side by side</span>
                 <div id="target-switch-host">${targetSwitchHtml()}</div>
             </div>
             <div class="panel-body">
@@ -2515,6 +2499,7 @@ async function confirmThenSave(
             : describe(mixed[0]!.labels);
         const ok = await askConfirm({
             title: 'The agents would have different suffixes',
+            icon: 'tag',
             okLabel: 'Continue anyway',
             danger: true,
             bodyHtml: `
@@ -2534,6 +2519,7 @@ async function confirmThenSave(
     if (unexpected.length) {
         const ok = await askConfirm({
             title: 'The name appears in unexpected places',
+            icon: 'search',
             okLabel: 'Understood, continue',
             danger: true,
             bodyHtml: `
@@ -2555,6 +2541,7 @@ async function confirmThenSave(
     if (extra.length) {
         const ok = await askConfirm({
             title: 'The package holds more than the agent',
+            icon: 'package',
             okLabel: 'Continue',
             bodyHtml: `
                 <p>The artifact is the <strong>whole solution</strong>: the following also travels
@@ -2607,6 +2594,7 @@ async function saveArtifactSet(): Promise<void> {
             confirmations: state.confirmations,
             confirmOverwrite: folderName => askConfirm({
                 title: 'That folder already exists',
+                icon: 'folder',
                 okLabel: 'Overwrite',
                 danger: true,
                 bodyHtml: `<p>In <code>${escapeHtml(folder)}</code> a folder named
@@ -2932,6 +2920,7 @@ els.historyBtn.addEventListener('click', () => navigateTo('history'));
 els.exportLogBtn.addEventListener('click', async () => {
     const ok = await askConfirm({
         title: 'Export the log',
+        icon: 'download',
         okLabel: 'CSV',
         bodyHtml: `<p>${getEntries().length} entries. <strong>CSV</strong> to open it in a spreadsheet,
             <strong>Cancel</strong> and press the button again if you prefer JSON.</p>

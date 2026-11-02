@@ -125,7 +125,8 @@ describe('scegliere il suffisso con i Target', () => {
         await ui.next();
         expect(ui.step()).toBe('suffix');
         expect(ui.text('suffix')).toContain('Nothing to rename');
-        expect(ui.text('suffix')).toContain('native solution export or your ALM pipeline');
+        expect(ui.text('suffix')).toContain('Tick at least one to continue');
+        expect(ui.text('suffix')).not.toContain('ALM pipeline');
         expect(ui.suffixRows().every(r => r.nameAfter.startsWith('left as it is'))).toBe(true);
     });
 });
