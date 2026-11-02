@@ -18,7 +18,7 @@ import { MAX_PINS, pinFirst, readPins, setPinned } from './services/pins';
 import { runPackagingTargets, targetView, type MultiPackagingResult, type PackagingResult } from './services/packaging';
 import {
     addTarget, moveTarget, readSelection, readTargets, removeTarget, renameTarget,
-    saveSelection, saveTargets, setTargetPublish, validateTargetName,
+    missingPresets, restoreDefaults, saveSelection, saveTargets, setTargetPublish, validateTargetName,
 } from './services/targets';
 import { agentOutcomes, buildName } from './services/patch';
 import { nextVersion, versionProblem } from './services/solutionVersion';
@@ -1013,7 +1013,8 @@ function scrollToTop(root: HTMLElement): void {
  * Suffisso vuoto = togliere quello che c'e' (spec 013). E' lecito ma sorprende: prima di andare
  * avanti si dice, con esempi veri, che cosa succede ai nomi.
  */
-function confirmNoSuffix(): Promise<boolean> {
+function confirmNoSuffix(sol: Solution): Promise<boolean> {
+    const several = selectedTargetList().length > 1;
     const picked = selectedAgents('');
     const changing = picked.filter(a => splitSuffix(a.name).currentSuffix);
     const sample = changing.length ? changing : picked;
@@ -1021,18 +1022,28 @@ function confirmNoSuffix(): Promise<boolean> {
         <li><span class="warn-from">${escapeHtml(a.name)}</span>
             <span class="warn-arrow">${icon('arrow-right', 'icon--xs')}</span>
             <strong>${escapeHtml(buildName(a.name, ''))}</strong></li>`).join('');
+    const some = changing.length === 1 ? 'one agent' : `${changing.length} agents`;
     const lead = changing.length
-        ? `The suffix is empty, so the existing one is <strong>removed</strong> from ${changing.length === 1 ? 'the agent' : `${changing.length} agents`}.`
-        : 'The suffix is empty and these agents have none, so their names stay as they are.';
+        ? (several
+            ? `The target <strong>without a suffix</strong> <strong>removes</strong> the existing suffix from ${some}.`
+            : `The suffix is empty, so the existing one is <strong>removed</strong> from ${changing.length === 1 ? 'the agent' : `${changing.length} agents`}.`)
+        : (several
+            ? 'The target <strong>without a suffix</strong> changes no names: its agents have no suffix.'
+            : 'The suffix is empty and these agents have none, so their names stay as they are.');
     return askConfirm({
-        title: 'No suffix selected',
+        title: several ? 'A target without a suffix' : 'No suffix selected',
         warning: true,
-        okLabel: 'Continue without suffix',
-        cancelLabel: 'Go back and choose one',
+        wide: several,
+        okLabel: several ? 'Continue' : 'Continue without suffix',
+        cancelLabel: several ? 'Go back' : 'Go back and choose one',
         bodyHtml: `
             <p class="warn-lead">${lead}</p>
             <ul class="warn-list">${rows}</ul>
-            <p class="hint">Pick a suffix such as DEV, UAT or PROD if you meant to name the environment.</p>`,
+            ${several ? `
+            <p>This run builds <strong>${selectedTargetList().length} packages</strong> from one export, one for each target:</p>
+            ${targetsOverviewHtml(sol)}
+            <p class="hint">Untick the target without a suffix if you did not mean to build one.</p>`
+                : '<p class="hint">Pick a suffix such as DEV, UAT or PROD if you meant to name the environment.</p>'}`,
     });
 }
 
@@ -1247,18 +1258,52 @@ function versionHintHtml(from: string, to: string | null): string {
         <span class="vline"><em>Update</em> and <em>Stage for upgrade</em> keep them.</span>`;
 }
 
+/** Il nome del file di un package: porta la versione che avra' (quella nuova se si alza, altrimenti quella di DEV). */
+function packageFileName(sol: Solution, targetName: string, kind: 'managed' | 'unmanaged'): string {
+    const version = (state.options.newVersion ?? state.versionFrom ?? sol.version).replace(/\./g, '_');
+    return `${sol.uniqueName}_${version}_${kind}_${targetName.trim() || 'nosuffix'}.zip`;
+}
+
+/** Il publish on import degli agent rinominati di un Target, in una frase: il valore comune o «Mixed». */
+function publishSummary(targetName: string): string {
+    const modes = selectedAgents(targetName).map(a => agentPublishMode(a.schemaName, targetName));
+    if (new Set(modes).size <= 1) return PUBLISH_LABELS[modes[0] ?? 'keep'];
+    const part = (m: PublishMode, word: string): string => {
+        const n = modes.filter(x => x === m).length;
+        return n ? `${n} ${word}` : '';
+    };
+    return `Mixed: ${[part('force-true', 'yes'), part('force-false', 'no'), part('keep', 'as is')].filter(Boolean).join(', ')}`;
+}
+
+/**
+ * Il riepilogo dei Target spuntati: per ognuno quanti agent si rinominano, il publish e il file
+ * da importare. Sta nella revisione e nei dialoghi che precedono il giro, cosi' si vede da subito
+ * quanti package escono e a che cosa serve ciascuno (D9).
+ */
+function targetsOverviewHtml(sol: Solution): string {
+    const total = solutionAgents().length;
+    return `
+        <table class="data-table confirm-targets">
+            <thead><tr><th>Target</th><th>Agents renamed</th><th>Publish on import</th><th>Package to import</th></tr></thead>
+            <tbody>${selectedTargetList().map(t => `
+                <tr>
+                    <td class="cell-strong">${escapeHtml(targetLabel(t.name))}${t.name.trim() ? '' : ' <span class="cell-muted">(removes the suffix)</span>'}</td>
+                    <td>${selectedAgents(t.name).length} of ${total}</td>
+                    <td>${escapeHtml(publishSummary(t.name))}</td>
+                    <td><code>${escapeHtml(packageFileName(sol, t.name, 'managed'))}</code></td>
+                </tr>`).join('')}</tbody>
+        </table>`;
+}
+
 function artifactListHtml(sol: Solution, targetNames: string[], keepExtras: boolean): string {
-    // Il file porta la versione che avra' il package: quella nuova se si alza, altrimenti quella di DEV
-    const base = `${sol.uniqueName}_${(state.options.newVersion ?? state.versionFrom ?? sol.version).replace(/\./g, '_')}`;
     const many = targetNames.length > 1;
     const rows: Array<[boolean, string, string]> = [];
     for (const name of targetNames) {
-        const tag = name.trim() || 'nosuffix';
         rows.push(
-            [true, `${base}_managed_${tag}.zip`,
+            [true, packageFileName(sol, name, 'managed'),
                 'The only one to import into UAT or PROD. Being managed, it creates no '
                 + 'unmanaged layer in the target environment.'],
-            [keepExtras, `${base}_unmanaged_${tag}.zip`,
+            [keepExtras, packageFileName(sol, name, 'unmanaged'),
                 'The same patch, unmanaged, for source control or a development environment. '
                 + 'Never import it downstream.'],
         );
@@ -1457,10 +1502,11 @@ function targetRowsHtml(): string {
             <input class="text-input target-name" type="text" data-target-name maxlength="${SUFFIX_MAX}"
                 autocomplete="off" placeholder="(no suffix)" aria-label="Target name"
                 value="${escapeHtml(t.name)}">
-            <select class="text-input target-publish" data-target-publish
+            <div class="toggle-group toggle-group--sm target-publish" role="group"
                 aria-label="Publish on import for ${escapeHtml(label)}">${(Object.keys(PUBLISH_LABELS) as PublishMode[]).map(m => `
-                <option value="${m}"${t.publishOnImport === m ? ' selected' : ''}>${PUBLISH_LABELS[m]}</option>`).join('')}
-            </select>
+                <button type="button" class="toggle-btn${t.publishOnImport === m ? ' is-active' : ''}"
+                    data-target-publish data-val="${m}">${PUBLISH_LABELS[m]}</button>`).join('')}
+            </div>
             <span class="target-actions">
                 <button type="button" class="btn btn--secondary btn--sm" data-target-act="up"
                     aria-label="Move ${escapeHtml(label)} up"${i === 0 ? ' disabled' : ''}>${icon('chevron-up', 'icon--sm')}</button>
@@ -1492,6 +1538,9 @@ function renderSuffixStep(): void {
                     <div class="panel-head">
                         <h3 class="panel-heading">${icon('tag', 'icon--head')}Targets</h3>
                         <span class="panel-sub">tick the environments to build for; under each one, choose its agents and publish option</span>
+                        <button type="button" id="target-restore-btn" class="btn btn--secondary btn--sm target-restore"
+                            title="Put back the standard targets you removed (DEV, TEST, UAT, STAGING, PREPROD, PROD)"
+                            ${missingPresets(state.targets).length ? '' : 'disabled'}>Restore defaults</button>
                     </div>
                     <div class="panel-body">
                         <div class="target-head" aria-hidden="true">
@@ -1606,8 +1655,10 @@ function renderSuffixStep(): void {
     const newInput = els.stepSuffix.querySelector<HTMLInputElement>('#target-new')!;
     const addBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#target-add-btn')!;
     const addEmptyBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#target-add-empty-btn')!;
+    const restoreBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#target-restore-btn')!;
     const refreshTargets = () => {
         listEl.innerHTML = targetRowsHtml();
+        restoreBtn.disabled = missingPresets(state.targets).length === 0;
         addEmptyBtn.hidden = state.targets.some(t => t.name === '');
         const none = els.stepSuffix.querySelector<HTMLElement>('#target-none');
         if (none) none.hidden = selectedTargetList().length > 0;
@@ -1636,6 +1687,13 @@ function renderSuffixStep(): void {
         if (ev.key === 'Enter') { ev.preventDefault(); addBtn.click(); }
     });
     addEmptyBtn.addEventListener('click', () => add(''));
+    restoreBtn.addEventListener('click', () => {
+        if (!missingPresets(state.targets).length) return;
+        state.targets = restoreDefaults(state.targets);
+        state.targetNotice = '';
+        persistTargets();
+        refreshTargets();
+    });
 
     listEl.addEventListener('change', ev => {
         const el = ev.target as HTMLInputElement | HTMLSelectElement;
@@ -1654,9 +1712,6 @@ function renderSuffixStep(): void {
                 ? [...state.selectedTargets, target.name]
                 : state.selectedTargets.filter(n => n !== target.name);
             persistSelection();
-        } else if (el.matches('[data-target-publish]')) {
-            state.targets = setTargetPublish(state.targets, i, el.value as PublishMode);
-            persistTargets();
         } else if (el.matches('[data-target-name]')) {
             const problem = validateTargetName(el.value, state.targets, i);
             if (problem) { complain(problem); el.value = target.name; return; }
@@ -1682,6 +1737,14 @@ function renderSuffixStep(): void {
         const owner = state.targets[Number(node.closest<HTMLElement>('[data-target-index]')?.dataset.targetIndex)];
         const sel = node.closest<HTMLButtonElement>('button[data-select]');
         const toggle = node.closest<HTMLButtonElement>('.toggle-btn');
+        if (owner && toggle?.hasAttribute('data-target-publish')) {
+            // Il valore del Target vale per tutti i suoi agent: le eccezioni per agent si azzerano (D9)
+            state.targets = setTargetPublish(state.targets, state.targets.indexOf(owner), toggle.dataset.val as PublishMode);
+            state.publishByTarget.delete(owner.name);
+            persistTargets();
+            refreshTargets();
+            return;
+        }
         if (owner && sel) {
             setAllAgents(owner, sel.dataset.select === 'all');
             refreshTargets();
@@ -1775,7 +1838,7 @@ function renderSuffixStep(): void {
 
     els.stepSuffix.querySelector('#back-btn')!.addEventListener('click', () => navigateTo('solution'));
     els.stepSuffix.querySelector('#next-btn')!.addEventListener('click', async () => {
-        if (selectedTargetList().some(t => t.name.trim() === '') && !(await confirmNoSuffix())) return;
+        if (selectedTargetList().some(t => t.name.trim() === '') && !(await confirmNoSuffix(sol))) return;
         persistSelection();
         navigateTo('review');
     });
@@ -1822,6 +1885,10 @@ function renderReviewStep(): void {
                         <span class="cell-muted">${escapeHtml(sol.version)}</span></span></div>
                     <div class="kv"><span class="kv-key">${selectedTargetList().length > 1 ? 'Targets' : 'Suffix'}</span>
                         <span class="kv-val">${targetsSummaryHtml()}</span></div>
+                    ${selectedTargetList().length > 1 ? `
+                    <p class="hint" style="margin-top:12px">This run builds <strong>${selectedTargetList().length} packages</strong>
+                        from one export, one for each target:</p>
+                    ${targetsOverviewHtml(sol)}` : ''}
                     <table class="data-table" style="margin-top:12px">
                         <thead><tr><th>Agent</th><th>Resulting name</th><th>Publish on import</th>
                             <th class="col-num">Length</th></tr></thead>
@@ -1922,6 +1989,7 @@ function confirmVersionWrite(sol: Solution): Promise<boolean> {
     return askConfirm({
         title: 'Change the solution version in DEV',
         warning: true,
+        wide: selectedTargetList().length > 1,
         okLabel: 'Change the version and build',
         cancelLabel: 'Go back',
         bodyHtml: `
@@ -1935,6 +2003,10 @@ function confirmVersionWrite(sol: Solution): Promise<boolean> {
             </ul>
             <p>Scope: <strong>one property of one solution</strong>. This is the only change the tool makes to
                 the environment. Agents, components and variables are not touched.</p>
+            ${selectedTargetList().length > 1 ? `
+            <p>Then it exports <strong>once</strong> and builds <strong>${selectedTargetList().length} packages</strong>,
+                one for each target, all with this version:</p>
+            ${targetsOverviewHtml(sol)}` : ''}
             <p class="hint">The tool cannot undo it. To go back, set the previous version in the solution's
                 properties in the portal. To keep a copy of the current state, export the solution
                 before continuing. To skip the change, go back and turn off "Raise the version".</p>`,

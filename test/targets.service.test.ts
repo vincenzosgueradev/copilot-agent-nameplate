@@ -4,8 +4,8 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-    addTarget, defaultTargets, moveTarget, readSelection, readTargets, reconcileSelection,
-    removeTarget, renameInSelections, renameTarget, saveSelection, saveTargets, setTargetPublish,
+    addTarget, defaultTargets, missingPresets, moveTarget, readSelection, readTargets, reconcileSelection,
+    removeTarget, renameInSelections, renameTarget, restoreDefaults, saveSelection, saveTargets, setTargetPublish,
     validateTargetName,
 } from '../src/services/targets';
 import type { Target } from '../src/types';
@@ -38,6 +38,45 @@ describe('preset di partenza (FR-002)', () => {
     it('ogni chiamata dà una lista nuova: modificarla non altera i preset', () => {
         defaultTargets().pop();
         expect(defaultTargets().length).toBe(6);
+    });
+});
+
+describe('ripristino dei preset tolti (D9)', () => {
+    const P = ['DEV', 'TEST', 'UAT', 'STAGING', 'PREPROD', 'PROD'];
+
+    it('lista completa: niente da ripristinare, lista invariata', () => {
+        expect(missingPresets(defaultTargets())).toEqual([]);
+        expect(restoreDefaults(defaultTargets())).toEqual(defaultTargets());
+    });
+    it('lista vuota: tornano tutti e sei, nell\'ordine di partenza, tutti "keep"', () => {
+        expect(missingPresets([])).toEqual(P);
+        expect(restoreDefaults([])).toEqual(P.map(n => t(n)));
+    });
+    it('uno alla volta: ognuno dei sei, se manca, torna in fondo senza toccare gli altri', () => {
+        for (const gone of P) {
+            const list = defaultTargets().filter(x => x.name !== gone).map(x => ({ ...x, publishOnImport: 'force-true' as const }));
+            expect(missingPresets(list), gone).toEqual([gone]);
+            const back = restoreDefaults(list);
+            expect(names(back), gone).toEqual([...names(list), gone]);
+            expect(back.slice(0, -1), `gli altri restano com'erano (${gone})`).toEqual(list);
+            expect(back.at(-1), `il ripristinato riparte da "keep" (${gone})`).toEqual(t(gone));
+        }
+    });
+    it('piu\' preset tolti tornano nell\'ordine di partenza, dopo i Target personalizzati', () => {
+        const list = [t('HOTFIX'), t('DEV'), t('UAT')];
+        expect(names(restoreDefaults(list))).toEqual(['HOTFIX', 'DEV', 'UAT', 'TEST', 'STAGING', 'PREPROD', 'PROD']);
+    });
+    it('un preset rinominato conta come tolto; il confronto non distingue le maiuscole', () => {
+        expect(missingPresets([t('LIVE'), t('dev'), t('Test'), t('UAT'), t('STAGING'), t('PREPROD')])).toEqual(['PROD']);
+    });
+    it('non modifica la lista che riceve', () => {
+        const list = [t('DEV')];
+        restoreDefaults(list);
+        expect(list).toEqual([t('DEV')]);
+    });
+    it('il risultato e\' sempre una lista valida: nomi tutti diversi e accettati', () => {
+        const back = restoreDefaults([t('UAT'), t('HOTFIX')]);
+        back.forEach((x, i) => expect(validateTargetName(x.name, back, i), x.name).toBeNull());
     });
 });
 

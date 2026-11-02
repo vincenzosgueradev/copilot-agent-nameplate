@@ -318,6 +318,21 @@ const MUTATIONS = [
     ['schermata', "src/app.ts", "${mixed.length > 1 ? mixedSuffixHtml(mixed, target.name) : ''}`;", "${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}`;", "schermata: D8 UI: l'avviso dei nomi misti elenca gli agent del Target sbagliato"],
     ['schermata', "src/app.ts", "${on ? `<div class=\"target-agents\" data-agents-for=\"${i}\">${agentRowsHtml(t)}</div>` : ''}", "<div class=\"target-agents\" data-agents-for=\"${i}\">${agentRowsHtml(t)}</div>", "schermata: D8 UI: la tabella compare anche per i Target non spuntati"],
     ['schermata', "src/app.ts", "const out = state.excludedByTarget.get(name);\n    return solutionAgents().filter(a =>\n        out?.has(a.id) &&", "const out = state.excludedByTarget.get('');\n    return solutionAgents().filter(a =>\n        out?.has(a.id) &&", "schermata: D8 UI: i nomi misti guardano le esclusioni del Target senza suffisso"],
+    // -- spec 016 D9: publish del Target a pulsanti, Restore, riepilogo nei popup
+    ["targets", "src/services/targets.ts", "return DEFAULT_TARGET_NAMES.filter(n => !have.has(n.toLowerCase()));", "return DEFAULT_TARGET_NAMES.filter(n => have.has(n.toLowerCase()));", "targets: D9: i preset mancanti sono quelli presenti"],
+    ["targets", "src/services/targets.ts", "const have = new Set(list.map(t => t.name.toLowerCase()));", "const have = new Set(list.map(t => t.name));", "targets: D9: il ripristino distingue le maiuscole"],
+    ["targets", "src/services/targets.ts", "return [...list, ...missingPresets(list).map(", "return [...missingPresets(list).map(", "targets: D9: il ripristino mette i preset in testa e perde la lista"],
+    ["targets", "src/services/targets.ts", "missingPresets(list).map(name => ({ name, publishOnImport: 'keep' as PublishMode }))];", "missingPresets(list).map(name => ({ name, publishOnImport: 'force-true' as PublishMode }))];", "targets: D9: i preset ripristinati partono con un publish diverso"],
+    ["schermata", "src/app.ts", "            state.publishByTarget.delete(owner.name);\n            persistTargets();", "            persistTargets();", "schermata: D9 UI: cambiare il publish del Target lascia le eccezioni degli agent"],
+    ["schermata", "src/app.ts", "restoreBtn.disabled = missingPresets(state.targets).length === 0;", "restoreBtn.disabled = false;", "schermata: D9 UI: Restore resta acceso con la lista completa"],
+    ["schermata", "src/app.ts", "        state.targets = restoreDefaults(state.targets);", "        state.targets = state.targets;", "schermata: D9 UI: Restore non rimette nulla"],
+    ["schermata", "src/app.ts", "if (new Set(modes).size <= 1) return PUBLISH_LABELS[modes[0] ?? 'keep'];", "if (true) return PUBLISH_LABELS[modes[0] ?? 'keep'];", "schermata: D9 UI: il riepilogo non dice mai «Mixed»"],
+    ["schermata", "src/app.ts", "<td>${selectedAgents(t.name).length} of ${total}</td>", "<td>${selectedAgents().length} of ${total}</td>", "schermata: D9 UI: il riepilogo conta gli agent del Target mostrato"],
+    ["schermata", "src/app.ts", "<td><code>${escapeHtml(packageFileName(sol, t.name, 'managed'))}</code></td>", "<td><code>${escapeHtml(packageFileName(sol, t.name, 'unmanaged'))}</code></td>", "schermata: D9 UI: il riepilogo indica l'unmanaged da importare"],
+    ["schermata", "src/app.ts", "    const several = selectedTargetList().length > 1;\n    const picked = selectedAgents('');", "    const several = false;\n    const picked = selectedAgents('');", "schermata: D9 UI: il dialogo del suffisso vuoto non elenca i Target"],
+    ["schermata", "src/app.ts", "            ${selectedTargetList().length > 1 ? `\n            <p>Then it exports", "            ${selectedTargetList().length > 0 ? `\n            <p>Then it exports", "schermata: D9 UI: il dialogo della versione parla di piu' package anche con uno solo"],
+    ["schermata", "src/app.ts", "        wide: several,\n", "        wide: false,\n", "schermata: D9 UI: il dialogo del suffisso vuoto resta stretto con la tabella"],
+    ["schermata", "src/app.ts", "        wide: selectedTargetList().length > 1,\n", "        wide: false,\n", "schermata: D9 UI: il dialogo della versione resta stretto con la tabella"],
 ];
 
 const only = process.argv[2];

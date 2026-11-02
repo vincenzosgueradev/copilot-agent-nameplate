@@ -1194,6 +1194,9 @@ mark.hl {
 }
 
 /* Variante di avviso: bordo e titolo in colore, senza essere un errore */
+.dialog--wide { width: 760px; }
+.confirm-targets { width: 100%; margin: 0 0 var(--sp-3); }
+.confirm-targets code { font-size: var(--fs-sm); word-break: break-all; }
 .dialog--warning { border-color: var(--color-warning, #d9a23b); }
 .dialog--warning .dialog-header { display: flex; align-items: center; gap: 10px; }
 .dialog--warning .dialog-header::before {
@@ -2037,10 +2040,11 @@ select option {
 }
 .target-head .th-pick { width: 52px; text-align: center; }
 .target-head .th-name { flex: 1 1 160px; max-width: 260px; }
-.target-head .th-publish { flex: 0 0 auto; width: 170px; }
+.target-head .th-publish { flex: 0 0 auto; width: 270px; }
 .target-handle { cursor: grab; color: var(--color-text-muted); letter-spacing: -2px; user-select: none; padding: 0 4px; }
 .target-name { flex: 1 1 160px; max-width: 260px; }
-.target-publish { flex: 0 0 auto; width: auto; max-width: 170px; }
+.target-publish { flex: 0 0 auto; }
+.panel-head .target-restore { margin-left: auto; }
 .target-actions { margin-left: auto; display: inline-flex; gap: 4px; }
 .target-add { margin-top: 12px; }
 .target-switch { margin-left: auto; }

@@ -159,6 +159,13 @@ export interface Driver {
     dragTarget(from: string, to: string): Promise<void>;
     setTargetPublish(name: string, mode: PublishMode): Promise<void>;
     targetPublish(name: string): PublishMode | null;
+    /** «Restore defaults» della lista dei Target (D9). */
+    restoreTargets(): Promise<void>;
+    restoreEnabled(): boolean;
+    /** Il testo del dialogo di conferma aperto. */
+    confirmText(): string;
+    /** Come buildPackage, ma si ferma al dialogo della versione senza rispondere. */
+    buildPackageRaw(): Promise<void>;
     /** Il messaggio sotto il campo Add (vuoto se non c'e'). */
     targetNotice(): string;
     /** I pulsanti del selettore dei Target mostrati: etichette, e quale e' attivo. */
@@ -443,17 +450,20 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
         },
         async setTargetPublish(name, mode) {
             const row = targetRows().find(r => rowName(r) === name);
-            const sel = row?.querySelector<HTMLSelectElement>('[data-target-publish]');
-            if (!sel) throw new Error(`Target non trovato: ${name}`);
-            sel.value = mode;
-            sel.dispatchEvent(new Event('change', { bubbles: true }));
-            await flush();
+            const btn = row?.querySelector<HTMLElement>(`[data-target-publish][data-val="${mode}"]`);
+            if (!btn) throw new Error(`Target non trovato: ${name}`);
+            await click(btn, `target publish ${name} ${mode}`);
         },
         targetPublish(name) {
             const row = targetRows().find(r => rowName(r) === name);
-            return (row?.querySelector<HTMLSelectElement>('[data-target-publish]')?.value as PublishMode | undefined) ?? null;
+            const on = row?.querySelector<HTMLElement>('[data-target-publish].is-active');
+            return (on?.dataset.val as PublishMode | undefined) ?? null;
         },
         targetNotice: () => norm($('#target-notice')?.textContent),
+        async restoreTargets() { await click($('#target-restore-btn'), 'restore defaults'); },
+        restoreEnabled: () => !($<HTMLButtonElement>('#target-restore-btn')?.disabled ?? true),
+        confirmText: () => norm($('#confirm-overlay')?.textContent),
+        async buildPackageRaw() { await click($('#next-btn', stepEl()), 'Build the package'); },
         // Ogni passo ha il suo selettore e restano tutti nel documento: si guarda solo quello visibile
         switchTabs: () => Array.from(stepEl().querySelectorAll<HTMLElement>('[data-target-view]'))
             .map(b => ({ label: norm(b.textContent), active: b.classList.contains('active') })),
@@ -518,7 +528,7 @@ export async function boot(world: UiWorld, presetSettings?: Record<string, unkno
         },
 
         reviewRows() {
-            return Array.from(doc.querySelectorAll('#step-review table tbody tr')).map(tr => {
+            return Array.from(doc.querySelectorAll('#step-review table:not(.confirm-targets) tbody tr')).map(tr => {
                 const cells = Array.from(tr.querySelectorAll('td'));
                 return {
                     agent: norm(cells[0]?.textContent),

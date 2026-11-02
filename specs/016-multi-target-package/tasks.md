@@ -37,6 +37,13 @@ Regole del progetto (CLAUDE.md): a ogni modifica `npx tsc --noEmit`, `npm run bu
 - [x] T029 Anteprima, controlli, conferma dei nomi misti, risultato e storico con le scelte per Target
 - [x] T030 Test della schermata e mutazioni (`motore:`, `schermata:`) aggiornati; poi di nuovo T021–T022
 
+## Fase 4c — Rifiniture della prova a mano (D9)
+- [x] T031 Publish del Target a tre pulsanti; cambiarlo aggiorna gli agent sotto (azzera le loro eccezioni)
+- [x] T032 `restoreDefaults` / `missingPresets` e pulsante Restore defaults
+- [x] T033 Riepilogo dei Target (agent, publish, file) nella revisione e nei dialoghi della versione e del suffisso vuoto
+- [x] T034 Test del servizio e della schermata
+- [ ] T035 Mutazioni D9 (14) tutte scoperte
+
 ## Fase 5 — Chiusura
 - [x] T020 Mutazioni in `scripts/mutation-check.mjs` (gruppi `targets:`, `confronto:`, `motore:`, `artefatti:`, `schermata:`), tutte scoperte
 - [ ] T021 `npm run test:full` e `npm run test:mutation` interi

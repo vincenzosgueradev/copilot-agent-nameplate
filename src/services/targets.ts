@@ -34,6 +34,17 @@ export function defaultTargets(): Target[] {
     return DEFAULT_TARGET_NAMES.map(name => ({ name, publishOnImport: 'keep' as PublishMode }));
 }
 
+/** I preset che mancano dalla lista (senza distinguere maiuscole), nell'ordine di partenza. */
+export function missingPresets(list: readonly Target[]): string[] {
+    const have = new Set(list.map(t => t.name.toLowerCase()));
+    return DEFAULT_TARGET_NAMES.filter(n => !have.has(n.toLowerCase()));
+}
+
+/** Rimette in fondo i preset tolti (publish `keep`); gli altri Target restano come sono (D9). */
+export function restoreDefaults(list: readonly Target[]): Target[] {
+    return [...list, ...missingPresets(list).map(name => ({ name, publishOnImport: 'keep' as PublishMode }))];
+}
+
 /**
  * Perche' `name` non va bene come nome di un Target, o `null` se va bene. Il vuoto e' ammesso
  * («nessun suffisso») ma una sola volta. `exceptIndex` e' il Target che si sta rinominando.

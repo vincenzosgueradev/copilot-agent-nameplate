@@ -1,6 +1,6 @@
 # Specifica 016 — Targets: le destinazioni del rilascio, un solo giro
 
-**Stato**: **Implementata (fasi 1–5); in corso la revisione D8 (agent e publish per Target).** Decisioni prese (D1–D8); plan, research, data-model, contratto del manifest, quickstart, tasks e checklist scritti. Tutte le assunzioni confermate (D7 chiude P1).
+**Stato**: **Implementata (fasi 1–5, D8 e D9); resta la prova a mano.** Decisioni prese (D1–D9); plan, research, data-model, contratto del manifest, quickstart, tasks e checklist scritti. Tutte le assunzioni confermate (D7 chiude P1).
 **Estende**: 002 (suffisso unico per la solution), 004 (versione alzata in DEV), artifact set (001 FR-078/FR-083), 012 (impostazioni per ambiente, come i pin). **Nasce da**: la domanda su come si arriva in PROD (vedi 015) e dall'idea dell'utente: una lista di destinazioni che ognuno compone e che il tool ricorda.
 
 ## Il problema
@@ -23,6 +23,8 @@ Chi promuove una solution da DEV ha una **lista di Targets** sua (per esempio UA
 - **D7 — Eccezione di publish per agent**: vale la regola **più specifica**: l'eccezione dell'agent batte il default del Target. ~~Ed è la stessa in tutti i Target~~ — **da D8 è per Target**.
 - **D8 — Agent e publish per Target** (dopo la prova a mano del 2026-11-01): sotto **ogni Target spuntato** compare la sua tabella di agent, con la **casella** (rinominare o lasciare com'è) e il **publish per agent** di quel Target. Le scelte sono **indipendenti fra Target** (togliere un agent da UAT non lo toglie da PROD). Ogni tabella parte con tutti gli agent spuntati e con il default di publish del Target. Le scelte per agent **non si ricordano** fra un giro e l'altro (come prima); si ricorda solo la lista dei Target e le spunte (D3). Motivo: il selettore `[UAT] | [PROD]` sopra una tabella sola non faceva capire a quale Target appartenessero le scelte.
 - **D6 — Manifest**: **sempre il formato nuovo** (`targets[]`), anche con un solo Target. Un solo formato da mantenere; si rilascia come MINOR con una nota nelle Upgrade notes (chi legge il manifest con uno script deve adattarsi).
+
+- **D9 — Rifiniture dopo la seconda prova a mano** (2026-11-02): (a) il publish di un Target ha i **tre pulsanti sempre visibili**, come quello degli agent, non un menu a tendina; (b) cambiare il publish di un Target lo applica a **tutti i suoi agent** (le eccezioni per agent di quel Target si azzerano) e i pulsanti sotto si aggiornano; (c) un pulsante **Restore defaults** rimette in fondo i preset tolti (DEV, TEST, UAT, STAGING, PREPROD, PROD), senza toccare gli altri Target; (d) la revisione e i dialoghi della versione e del suffisso vuoto dicono **quanti package escono da un export** e li elencano in una tabella (Target, agent rinominati, publish, file da importare).
 
 ## Che cosa NON promette
 Non è «lo stesso artefatto in ogni ambiente» (il principio delle Pipelines): lo zip per PROD resta diverso da quello per UAT perché i nomi degli agent sono diversi, ed è la ragione d'essere del tool. Promette che la differenza è **provata e limitata** a quei nomi (e a `publishOnImport` se scelto).
