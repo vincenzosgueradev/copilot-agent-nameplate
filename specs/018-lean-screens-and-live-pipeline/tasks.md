@@ -4,8 +4,8 @@
 - [x] T003 Mutazioni della revisione (`mutation-check.mjs`)
 - [x] T004 Popup: icona di intestazione, righe con icona, niente tabella ripetuta (`ui.ts`, `app.ts`, `icons.ts`, `styles.css`)
 - [x] T005 Pipeline numerata e viva (`app.ts`, `styles.css`)
-- [ ] T006 Pulizia dei testi nelle altre schermate; frasi tolte in `research.md`
-- [ ] T007 Test e mutazioni di T004-T006 (T004, T005 fatti: `ui.polish.test.ts`, 17 mutazioni `polish:`; T006 da fare)
+- [x] T006 Pulizia dei testi nelle altre schermate; frasi tolte in `research.md`
+- [x] T007 Test e mutazioni di T004-T006 (`ui.polish.test.ts` con 17 mutazioni `polish:`, `ui.lean.test.ts` con 13 mutazioni `lean:`)
 - [ ] T008 Prova a mano del `quickstart.md`
 
 ## Tracciabilità
@@ -19,4 +19,4 @@
 | FR-006 pipeline numerata | `app.ts` (`packProgressHtml`), `styles.css` (`.ph*`) | «pipeline: passi numerati, quello in corso si vede» |
 | FR-007 reduced-motion | `styles.css` | «il passo in corso pulsa, e con prefers-reduced-motion si ferma» |
 | FR-008 senza colore | numero, spunta e scala | «gli stati sono sempre: fatti, al piu' uno in corso, da fare», «piu' grande» |
-| FR-009 pulizia | da fare | da fare |
+| FR-009 pulizia | `app.ts`, `styles.css` | `ui.lean.test.ts` «le frasi ridondanti non ci sono piu'» |
