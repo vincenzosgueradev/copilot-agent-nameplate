@@ -352,6 +352,8 @@ const MUTATIONS = [
     ["diffui", "src/styles.css", ".diff-code { position: relative; padding: 0 12px 0 24px; white-space: pre;", ".diff-code { position: relative; padding: 0 12px 0 24px; white-space: normal;", "diffui: il codice del diff va a capo"],
     ["diffui", "src/styles.css", ".diff-scroll { overflow-x: auto; }", ".diff-scroll { overflow-x: visible; }", "diffui: una riga lunga allarga la pagina"],
     ["diffui", "src/styles.css", "    --diff-add-bg: rgba(30, 150, 70, 0.11);", "    --diff-add-bg: rgba(60, 190, 100, 0.15);", "diffui: il verde del tema chiaro e' come quello scuro"],
+    ["diffui", "src/styles.css", "    --diff-add-hl: rgba(60, 190, 100, 0.34);", "    --diff-add-hl: rgba(60, 190, 100, 0.42);", "diffui: il tratto verde evidenziato del tema scuro e' troppo forte per il testo"],
+    ["diffui", "src/styles.css", "    --diff-del-fg: #b3261e;", "    --diff-del-fg: #e57373;", "diffui: il conteggio rosso del tema chiaro non si legge"],
     ['targets', 'src/services/targets.ts', 'i !== exceptIndex && ', '', 'targets: rinominare in se stesso risulta un doppione'],
     ['targets', 'src/services/targets.ts', 'from >= out.length || to >= out.length', 'from > out.length || to > out.length', 'targets: lo spostamento oltre la fine corrompe la lista'],
     ['targets', 'src/services/targets.ts', 'if (!Array.isArray(raw)) return null;', 'if (!Array.isArray(raw)) return [];', 'targets: un valore illeggibile vale lista vuota invece dei preset'],

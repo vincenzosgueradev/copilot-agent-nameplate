@@ -325,3 +325,41 @@ describe('il CSS del diff (FR-008, FR-011, FR-014)', () => {
         expect(css).toMatch(/\.change-tab:focus-visible/);
     });
 });
+
+describe('i colori del diff si leggono in tutti e due i temi (FR-014)', () => {
+    const css = readSource('styles.css');
+    const dark = /:root \{([^}]*)\}/.exec(css)![1]!;
+    const light = /:root\[data-theme="light"\] \{([^}]*)\}/.exec(css)![1]!;
+    const get = (block: string, v: string): string => new RegExp(`${v}:\s*([^;]+);`).exec(block)![1]!.trim();
+
+    const rgb = (hex: string): number[] => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+    const lum = (c: number[]): number => {
+        const l = c.map(v => v / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+        return 0.2126 * l[0]! + 0.7152 * l[1]! + 0.0722 * l[2]!;
+    };
+    const contrast = (a: number[], b: number[]): number => {
+        const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+        return (x! + 0.05) / (y! + 0.05);
+    };
+    /** Un rgba() sopra uno sfondo: il colore che si vede davvero. */
+    const over = (rgba: string, bg: number[]): number[] => {
+        const m = /rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/.exec(rgba)!;
+        const a = Number(m[4]);
+        return [1, 2, 3].map(i => Math.round(Number(m[i]) * a + bg[i - 1]! * (1 - a)));
+    };
+
+    for (const [name, block] of [['scuro', dark], ['chiaro', light]] as const) {
+        const surface = rgb(get(block, '--color-surface'));
+        const text = rgb(get(block, '--color-text'));
+        for (const v of ['--diff-del-bg', '--diff-add-bg', '--diff-del-hl', '--diff-add-hl']) {
+            it(`${name}: il testo su ${v} ha un contrasto di almeno 4,5`, () => {
+                expect(contrast(text, over(get(block, v), surface)), v).toBeGreaterThanOrEqual(4.5);
+            });
+        }
+        for (const v of ['--diff-del-fg', '--diff-add-fg']) {
+            it(`${name}: i conteggi ${v} su sfondo del riquadro hanno un contrasto di almeno 4,5`, () => {
+                expect(contrast(rgb(get(block, v)), surface), v).toBeGreaterThanOrEqual(4.5);
+            });
+        }
+    }
+});

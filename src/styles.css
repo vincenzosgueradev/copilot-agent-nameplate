@@ -24,7 +24,7 @@
     --diff-del-hl: rgba(255, 70, 70, 0.40);
     --diff-del-fg: #f1707a;
     --diff-add-bg: rgba(60, 190, 100, 0.15);
-    --diff-add-hl: rgba(60, 190, 100, 0.42);
+    --diff-add-hl: rgba(60, 190, 100, 0.34);
     --diff-add-fg: #5fd38d;
     --diff-gutter: #2d2d30;
     --color-success: #4caf50;
