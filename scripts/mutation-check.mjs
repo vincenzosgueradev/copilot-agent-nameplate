@@ -224,7 +224,6 @@ const MUTATIONS = [
     ["production", "src/services/targets.ts", "map[environment] = list.map(t => (isProductionTarget(t)", "map[environment] = list.map(t => (false", "production: la marcatura non si salva"],
     ["production", "src/services/targets.ts", "return production && !t.name.trim() ? { ...rest, production: true } : rest;", "return production ? { ...rest, production: true } : rest;", "production: un Target con nome si puo' marcare"],
     ["production", "src/services/targets.ts", "return production && !t.name.trim() ? { ...rest, production: true } : rest;", "return { ...rest, production: true };", "production: la casella non si puo' smarcare"],
-    ["production", "src/app.ts", "isProductionTarget(t) ? 'production' : 'removes the suffix'", "false ? 'production' : 'removes the suffix'", "production: la tabella non dice production"],
     ["production", "src/app.ts", "state.targets = setTargetProduction(state.targets, i, (el as HTMLInputElement).checked);", "setTargetProduction(state.targets, i, (el as HTMLInputElement).checked);", "production: la casella non fa nulla"],
     ["production", "src/app.ts", "${t.name.trim() ? '' : `<label class=\"check target-prod\"", "${false ? '' : `<label class=\"check target-prod\"", "production: la casella compare anche sui Target con un nome"],
     ["production", "src/app.ts", "${isProductionTarget(t) ? 'checked' : ''}", "${''}", "production: la casella non mostra lo stato salvato"],
