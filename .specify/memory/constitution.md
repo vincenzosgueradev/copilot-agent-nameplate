@@ -20,6 +20,8 @@ TODOs deferred: none
 
 # Power Platform Toolbox — Copilot Studio Tools Constitution
 
+**Inherits the root constitution** (the orchestrator's `.specify/memory/constitution.md`, Principles I-X, version 1.0.0). The rules below only add to it or make it stricter; where the root is stricter, the root wins.
+
 ## Core Principles
 
 ### I. Gap-First — Build What Doesn't Exist
