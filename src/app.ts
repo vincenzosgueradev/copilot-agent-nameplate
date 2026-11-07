@@ -11,7 +11,7 @@ import {
 import { OverwriteDeclined, buildHistoryRecord, writeArtifactSet } from './services/artifacts';
 import { describeError } from './services/dataverse';
 import { openFolder, saveJsonFile, saveTextFile, selectFolder } from './services/files';
-import { addRecord, deleteRecord, readHistory } from './services/history';
+import { addRecord, clearHistory, deleteRecord, readHistory } from './services/history';
 import { askConfirm } from './services/ui';
 import { loadAgentCards } from './services/agentCards';
 import { MAX_PINS, pinFirst, readPins, setPinned } from './services/pins';
@@ -39,6 +39,7 @@ import {
     type NameOccurrence,
     type PackageComponent,
     type PackagingOptions,
+    type PackagingRecord,
     type PatchChange,
     type PublishMode,
     type Solution,
@@ -449,8 +450,8 @@ function renderTypeFilter(): void {
         const agents = state.agents.length;
         // I conteggi per tipo (unmanaged, managed, tutte) stanno gia' nelle schede sotto: qui i totali
         stats.innerHTML = statsHtml([
-            { label: 'Solutions', value: String(counts.all) },
-            { label: 'Agents', value: String(agents) },
+            { label: 'Solutions', value: String(counts.all), icon: 'layers' },
+            { label: 'Agents', value: String(agents), icon: 'robot', tone: 'agents' },
         ]);
     }
     if (subtitle) {
@@ -610,7 +611,7 @@ function renderSolutionsTable(): void {
                 <tr>
                     ${th('displayName', 'Display name')}
                     ${th('name', 'Name')}
-                    ${th('agents', 'Agents', 'col-num')}
+                    ${th('agents', 'Agents', 'col-count')}
                     ${th('created', 'Created')}
                     ${th('version', 'Version')}
                     ${th('publisher', 'Publisher')}
@@ -620,9 +621,9 @@ function renderSolutionsTable(): void {
             <tbody>
                 ${rows.map(({ solution: s, matchedAgents }) => `
                 <tr class="data-row${state.pins.includes(s.uniqueName) ? ' is-pinned' : ''}${s.isManaged && showType ? ' is-managed' : ''}" data-solution="${escapeHtml(s.solutionId)}"${s.isManaged ? ' title="Managed: it cannot be exported, so it cannot be the source of a package"' : ''}>
-                    <td class="cell-strong">${pinButtonHtml(s)}${highlight(s.friendlyName || s.uniqueName, q)}</td>
+                    <td class="cell-strong"><div class="name-cell">${pinButtonHtml(s)}<span class="name-text">${highlight(s.friendlyName || s.uniqueName, q)}</span></div></td>
                     <td class="cell-muted">${highlight(s.uniqueName, q)}</td>
-                    <td class="col-num"><span class="count-pill">${s.agentCount}</span></td>
+                    <td class="col-count"><span class="count-pill">${s.agentCount}</span></td>
                     <td class="cell-muted" title="${escapeHtml(formatAbsoluteDate(s.createdOn))}">
                         ${escapeHtml(formatRelativeDate(s.createdOn))}</td>
                     <td class="cell-muted">${escapeHtml(s.version || '—')}</td>
@@ -632,9 +633,9 @@ function renderSolutionsTable(): void {
                 ${agentHits(matchedAgents)}`).join('')}
                 ${showOrphans ? `
                 <tr class="data-row" data-solution="__none__">
-                    <td class="cell-strong"><span class="pin-slot"></span>Agents without a solution</td>
+                    <td class="cell-strong"><div class="name-cell"><span class="pin-slot"></span><span class="name-text">Agents without a solution</span></div></td>
                     <td class="cell-muted">—</td>
-                    <td class="col-num"><span class="count-pill">${orphans.length}</span></td>
+                    <td class="col-count"><span class="count-pill">${orphans.length}</span></td>
                     <td class="cell-muted">—</td>
                     <td class="cell-muted">—</td>
                     <td class="cell-muted">—</td>
@@ -792,8 +793,7 @@ function renderSolutionDetail(keepScroll = false): void {
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Agent</th>
-                            <th>Agent type</th>
+                            <th>Agent</th><th>Agent type</th>
                             <th>Status</th>
                             <th>Last published</th>
                             <th>Modified</th>
@@ -812,6 +812,7 @@ function renderSolutionDetail(keepScroll = false): void {
                         </tr>`).join('')}
                     </tbody>
                 </table>
+                ${agentKindLegendHtml()}
                 ${sol && sol.exportable ? `
                 <div class="panel-foot">
                     <span class="hint">The suffix applies to all ${agents.length}
@@ -965,11 +966,15 @@ function buildBreadcrumb(): Crumb[] {
  * intestazioni a tile (elenco delle solution, solution aperta, anteprima) la usano, cosi' etichette
  * e struttura restano uguali (spec 011).
  */
-interface Stat { label: string; value: string; sub?: string; title?: string }
+interface Stat { label: string; value: string; sub?: string; title?: string; icon?: IconName; tone?: 'agents' }
 function statsHtml(stats: Stat[]): string {
-    return stats.map(s => `
-        <div class="stat"><dt>${escapeHtml(s.label)}</dt>
-            <dd${s.title ? ` title="${escapeHtml(s.title)}"` : ''}>${escapeHtml(s.value)}${s.sub ? `<span class="stat-sub">${escapeHtml(s.sub)}</span>` : ''}</dd></div>`).join('');
+    return stats.map(s => {
+        const body = `<dt>${escapeHtml(s.label)}</dt>
+            <dd${s.title ? ` title="${escapeHtml(s.title)}"` : ''}>${escapeHtml(s.value)}${s.sub ? `<span class="stat-sub">${escapeHtml(s.sub)}</span>` : ''}</dd>`;
+        return s.icon
+            ? `<div class="stat stat--icon"><span class="stat-badge${s.tone ? ` stat-badge--${s.tone}` : ''}">${icon(s.icon)}</span><div class="stat-text">${body}</div></div>`
+            : `<div class="stat">${body}</div>`;
+    }).join('');
 }
 
 function renderBreadcrumb(): void {
@@ -1457,25 +1462,37 @@ function agentIconHtml(id: string, size: 16 | 20 | 24 = 24): string {
 
 const KIND_LABEL: Record<AgentKind, string> = {
     standard: 'Standard harness',
-    harness: 'GitHub Copilot harness',
+    harness: 'Microsoft Copilot harness',
     unknown: 'Unknown agent type',
 };
+/** La sigla nella cella: corta, cosi' la colonna resta stretta; la legenda sotto la scioglie. */
+const KIND_ABBR: Record<AgentKind, string> = { standard: 'STD', harness: 'MCH', unknown: 'N/A' };
 
 /**
- * La cella del tipo di agent (spec 010): il logo dell'app per lo standard, il marchio GitHub
- * Copilot per l'harness, un trattino se il tipo non si riconosce. Prima della lettura e' vuota ma
- * ha gia' le sue dimensioni, quindi le righe non si spostano. Etichetta e suggerimento dicono il
- * nome del tipo: l'icona da sola non basta a chi non la riconosce.
+ * La cella del tipo di agent (spec 010): una sigla (STD, MCH, N/A) in un'etichetta colorata, niente
+ * icone. Prima della lettura e' vuota ma ha gia' le sue dimensioni, quindi le righe non si spostano.
+ * Etichetta e suggerimento dicono il nome intero; la legenda sotto la tabella spiega le sigle.
  */
 function agentKindHtml(id: string): string {
     const kind = state.cards.get(id)?.kind;
     const attrs = `data-card-kind="${escapeHtml(id)}"`;
-    if (!kind) return `<span class="agent-kind" ${attrs} data-kind=""></span>`;
+    if (!kind) return `<span class="agent-kind agent-kind--unknown" ${attrs} data-kind="" title="Reading the agent type…">${KIND_ABBR.unknown}</span>`;
     const label = KIND_LABEL[kind];
-    const inner = kind === 'standard'
-        ? '<img src="./logo-color.svg" alt="" width="20" height="20">'
-        : kind === 'harness' ? icon('github-copilot') : icon('minus', 'icon--sm');
-    return `<span class="agent-kind agent-kind--${kind}" ${attrs} data-kind="${kind}" role="img" aria-label="${label}" title="${label}">${inner}</span>`;
+    return `<span class="agent-kind agent-kind--${kind}" ${attrs} data-kind="${kind}" role="img" aria-label="${label}" title="${label}">${KIND_ABBR[kind]}</span>`;
+}
+
+/** La legenda delle sigle: stesse etichette della colonna, con il nome intero e cosa significano. */
+function agentKindLegendHtml(): string {
+    return `
+        <div class="legend" aria-label="Agent type legend">
+            <div class="legend-title">${icon('info', 'icon--sm')}<span>Agent type legend</span></div>
+            <dl class="legend-grid">${(['standard', 'harness', 'unknown'] as AgentKind[]).map(k => `
+                <div class="legend-item">
+                    <dt><span class="agent-kind agent-kind--${k}" aria-hidden="true">${KIND_ABBR[k]}</span></dt>
+                    <dd><strong>${KIND_LABEL[k]}</strong></dd>
+                </div>`).join('')}
+            </dl>
+        </div>`;
 }
 
 /** Icona e nome: la cella dell'agent nelle liste (spec 008). */
@@ -1564,6 +1581,28 @@ function agentRowsHtml(target: Target): string {
         ${mixed.length > 1 ? mixedSuffixHtml(mixed, target.name) : ''}`;
 }
 
+/** Oltre questa soglia l'elenco degli agent di un Target e di un'anteprima si puo' ripiegare (spec 019, FR-015). */
+const FOLD_AFTER = 2;
+/** I Target con l'elenco degli agent ripiegato, per nome: si conserva mentre la lista si ridisegna. */
+const foldedAgentLists = new Set<string>();
+
+/** L'elenco degli agent di un Target; con piu' di due agent ha un'intestazione che lo ripiega. */
+function agentsBlockHtml(t: Target, i: number): string {
+    const agents = solutionAgents();
+    const fold = agents.length > FOLD_AFTER;
+    const closed = fold && foldedAgentLists.has(t.name);
+    const picked = agents.length - excludedOf(t.name).size;
+    const head = fold ? `
+        <button type="button" class="fold-head" data-agents-fold aria-expanded="${!closed}"
+            aria-label="${closed ? 'Expand' : 'Collapse'} the agents of ${escapeHtml(targetLabel(t.name))}">
+            ${icon('chevron-down', 'icon--sm fold-chevron')}
+            <strong>Agents</strong>
+            <span class="chip chip--muted">${picked} of ${agents.length} selected</span>
+        </button>` : '';
+    return `<div class="target-agents${closed ? ' is-folded' : ''}" data-agents-for="${i}">${head}
+        <div class="agents-body"${closed ? ' hidden' : ''}>${agentRowsHtml(t)}</div></div>`;
+}
+
 /** Le righe della lista dei Target: casella, nome, publish on import, ordine e rimozione. */
 function targetRowsHtml(): string {
     if (!state.targets.length) return '<li class="hint">No targets yet: add one below.</li>';
@@ -1598,7 +1637,7 @@ function targetRowsHtml(): string {
                     aria-label="Remove ${escapeHtml(label)}">${icon('close', 'icon--sm')}</button>
             </span>
         </div>
-        ${on ? `<div class="target-agents" data-agents-for="${i}">${agentRowsHtml(t)}</div>` : ''}
+        ${on ? agentsBlockHtml(t, i) : ''}
         </li>`;
     }).join('');
 }
@@ -1620,9 +1659,20 @@ function renderSuffixStep(): void {
                     <div class="panel-head">
                         <h3 class="panel-heading">${icon('tag', 'icon--head')}Targets</h3>
                         <span class="panel-sub">tick the targets to build for</span>
-                        <button type="button" id="target-restore-btn" class="btn btn--secondary btn--sm target-restore"
-                            title="Put back the standard targets you removed (DEV, TEST, UAT, STAGING, PREPROD, PROD)"
-                            ${missingPresets(state.targets).length ? '' : 'disabled'}>Restore defaults</button>
+                        <span class="head-tools">
+                            <button type="button" id="targets-select-all-btn" class="btn btn--secondary btn--sm"
+                                title="Tick every target">Select all</button>
+                            <button type="button" id="targets-deselect-all-btn" class="btn btn--secondary btn--sm"
+                                title="Untick every target">Deselect all</button>
+                            ${solutionAgents().length > FOLD_AFTER ? `
+                            <button type="button" id="targets-collapse-btn" class="btn btn--secondary btn--sm"
+                                title="Fold the agent list of every ticked target">${icon('chevron-up', 'icon--sm')} Collapse all</button>
+                            <button type="button" id="targets-expand-btn" class="btn btn--secondary btn--sm"
+                                title="Unfold the agent list of every ticked target">${icon('chevron-down', 'icon--sm')} Expand all</button>` : ''}
+                            <button type="button" id="target-restore-btn" class="btn btn--secondary btn--sm target-restore"
+                                title="Put back the standard targets you removed (DEV, TEST, UAT, STAGING, PREPROD, PROD)"
+                                ${missingPresets(state.targets).length ? '' : 'disabled'}>Restore defaults</button>
+                        </span>
                     </div>
                     <div class="panel-body">
                         <div class="target-head" aria-hidden="true">
@@ -1738,8 +1788,42 @@ function renderSuffixStep(): void {
     const addBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#target-add-btn')!;
     const addEmptyBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#target-add-empty-btn')!;
     const restoreBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#target-restore-btn')!;
+    // Comprimi/espandi tutto: ogni bottone si spegne quando non avrebbe effetto
+    const collapseAllBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#targets-collapse-btn');
+    const expandAllBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#targets-expand-btn');
+    const selectAllBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#targets-select-all-btn')!;
+    const deselectAllBtn = els.stepSuffix.querySelector<HTMLButtonElement>('#targets-deselect-all-btn')!;
+    const syncSelectTargets = () => {
+        selectAllBtn.disabled = state.targets.every(t => state.selectedTargets.includes(t.name));
+        deselectAllBtn.disabled = selectedTargetList().length === 0;
+    };
+    selectAllBtn.addEventListener('click', () => {
+        state.selectedTargets = state.targets.map(t => t.name);
+        persistSelection();
+        refreshTargets();
+    });
+    deselectAllBtn.addEventListener('click', () => {
+        state.selectedTargets = [];
+        persistSelection();
+        refreshTargets();
+    });
+    const syncFoldAll = () => {
+        const names = selectedTargetList().map(t => t.name);
+        if (collapseAllBtn) collapseAllBtn.disabled = names.every(n => foldedAgentLists.has(n));
+        if (expandAllBtn) expandAllBtn.disabled = !names.some(n => foldedAgentLists.has(n));
+    };
+    collapseAllBtn?.addEventListener('click', () => {
+        for (const t of selectedTargetList()) foldedAgentLists.add(t.name);
+        refreshTargets();
+    });
+    expandAllBtn?.addEventListener('click', () => {
+        foldedAgentLists.clear();
+        refreshTargets();
+    });
     const refreshTargets = () => {
         listEl.innerHTML = targetRowsHtml();
+        syncFoldAll();
+        syncSelectTargets();
         restoreBtn.disabled = missingPresets(state.targets).length === 0;
         addEmptyBtn.hidden = state.targets.some(t => t.name === '');
         const none = els.stepSuffix.querySelector<HTMLElement>('#target-none');
@@ -1822,6 +1906,11 @@ function renderSuffixStep(): void {
         const owner = state.targets[Number(node.closest<HTMLElement>('[data-target-index]')?.dataset.targetIndex)];
         const sel = node.closest<HTMLButtonElement>('button[data-select]');
         const toggle = node.closest<HTMLButtonElement>('.toggle-btn');
+        if (owner && node.closest('[data-agents-fold]')) {
+            if (foldedAgentLists.has(owner.name)) foldedAgentLists.delete(owner.name); else foldedAgentLists.add(owner.name);
+            refreshTargets();
+            return;
+        }
         if (owner && toggle?.hasAttribute('data-target-publish')) {
             // Il valore del Target vale per tutti i suoi agent: le eccezioni per agent si azzerano (D9)
             state.targets = setTargetPublish(state.targets, state.targets.indexOf(owner), toggle.dataset.val as PublishMode);
@@ -1895,6 +1984,8 @@ function renderSuffixStep(): void {
         listEl.querySelectorAll('.is-dragging').forEach(r => r.classList.remove('is-dragging'));
     });
     syncSelectAll();
+    syncFoldAll();
+    syncSelectTargets();
     refreshNext();
 
     const refreshVersion = () => {
@@ -2110,7 +2201,12 @@ function renderPreviewStep(): void {
         return;
     }
     state.packaging = null;
-    void runPreview(sol, runs, ++previewSeq, key);
+    // Mentre si esporta Back resta spento: tornare indietro non ferma l'export (gira in DEV) e lascerebbe
+    // l'utente con un lavoro in corso che non vede piu'. Si riaccende alla fine, anche se fallisce.
+    const back = els.stepPreview.querySelector<HTMLButtonElement>('#back-btn')!;
+    back.disabled = true;
+    back.title = 'Wait for the export to finish';
+    void runPreview(sol, runs, ++previewSeq, key).finally(() => { back.disabled = false; back.title = ''; });
 }
 
 /** Tutto ciò che, cambiando, rende obsoleto il package già preparato. */
@@ -2236,6 +2332,8 @@ async function runPreview(
 let diffMode: DiffMode = 'split';
 /** La scheda scelta per ogni agent: `diff` di partenza (FR-007). */
 const changeTabs = new Map<string, 'diff' | 'table'>();
+/** Gli agent dell'anteprima ripiegati (spec 019, FR-015): solo con piu' di due agent. */
+const foldedChanges = new Set<string>();
 
 const CHANGE_LABEL: Record<PatchChange['element'], string> = {
     name: 'Name', publishOnImport: 'Publish on import',
@@ -2278,17 +2376,20 @@ function changeGroupsHtml(r: PackagingResult): string {
         const tabBtn = (id: 'diff' | 'table', label: string) => `
             <button type="button" class="change-tab${tab === id ? ' is-active' : ''}" role="tab"
                 aria-selected="${tab === id}" data-change-tab="${id}">${label}</button>`;
+        const closed = foldable && foldedChanges.has(key);
         return `
-        <section class="change-group" data-group="${escapeHtml(key)}">
+        <section class="change-group${closed ? ' is-folded' : ''}" data-group="${escapeHtml(key)}">
             <header class="change-head">
+                ${foldable ? `<button type="button" class="fold-head fold-head--icon" data-change-fold aria-expanded="${!closed}"
+                    aria-label="${closed ? 'Expand' : 'Collapse'} ${escapeHtml(title)}">${icon('chevron-down', 'icon--sm fold-chevron')}</button>` : ''}
                 ${icon(iconName, 'icon--head')}
                 <strong>${escapeHtml(title)}</strong>
                 <code>${escapeHtml(sub)}</code>
                 <span class="chip chip--muted">${changes.length} ${changes.length === 1 ? 'change' : 'changes'}</span>
                 <div class="change-tabs" role="tablist" aria-label="View">${tabBtn('diff', 'Diff')}${tabBtn('table', 'Table')}</div>
             </header>
-            <div class="change-pane" data-pane="diff" role="tabpanel"${tab === 'diff' ? '' : ' hidden'}>${diffsOf(changes)}</div>
-            <div class="change-pane" data-pane="table" role="tabpanel"${tab === 'table' ? '' : ' hidden'}>
+            <div class="change-pane" data-pane="diff" role="tabpanel"${!closed && tab === 'diff' ? '' : ' hidden'}>${diffsOf(changes)}</div>
+            <div class="change-pane" data-pane="table" role="tabpanel"${!closed && tab === 'table' ? '' : ' hidden'}>
                 <table class="data-table data-table--fill">
                     <colgroup><col style="width:30%"><col style="width:26%"><col style="width:26%"><col></colgroup>
                     <thead><tr><th>What</th><th>Before</th><th>After</th><th>State</th></tr></thead>
@@ -2308,6 +2409,7 @@ function changeGroupsHtml(r: PackagingResult): string {
         .sort((x, y) => nameOf(x.agent.schemaName, x.agent.name)
             .localeCompare(nameOf(y.agent.schemaName, y.agent.name)));
     const left = outcomes.filter(o => o.excluded);
+    const foldable = perAgent.length > FOLD_AFTER;
 
     const toolbar = perAgent.length ? `
         <div class="diff-toolbar">
@@ -2418,7 +2520,18 @@ function renderPreviewResult(r: PackagingResult): void {
                 b.classList.toggle('is-active', on);
                 b.setAttribute('aria-selected', String(on));
             });
-            group.querySelectorAll<HTMLElement>('.change-pane').forEach(p => { p.hidden = p.dataset.pane !== want; });
+            const folded = group.classList.contains('is-folded');
+            group.querySelectorAll<HTMLElement>('.change-pane').forEach(p => { p.hidden = folded || p.dataset.pane !== want; });
+        }));
+        panels.querySelectorAll<HTMLElement>('[data-change-fold]').forEach(btn => btn.addEventListener('click', () => {
+            const group = btn.closest<HTMLElement>('.change-group')!;
+            const key = group.dataset.group ?? '';
+            const closed = !foldedChanges.has(key);
+            if (closed) foldedChanges.add(key); else foldedChanges.delete(key);
+            group.classList.toggle('is-folded', closed);
+            btn.setAttribute('aria-expanded', String(!closed));
+            const tab = changeTabs.get(key) ?? 'diff';
+            group.querySelectorAll<HTMLElement>('.change-pane').forEach(p => { p.hidden = closed || p.dataset.pane !== tab; });
         }));
     }
 
@@ -2798,35 +2911,22 @@ function renderResultStep(): void {
     if (!set || !r) { navigateTo('welcome'); return; }
 
     const deploys = set.files.filter(f => f.role === 'deploy');
-    const deploy = deploys[0];
     els.stepResult.innerHTML = `
         <div class="step-header step-header-row">
             <div class="step-id">${icon('archive')}<h2 class="step-title">Artifact set ready</h2></div>
             ${stepperHtml(5)}
         </div>
 
-        ${deploys.length > 1 ? `
-        <div class="handoff handoff--many">
-            <span class="handoff-mark">${icon('check')}</span>
-            <div class="handoff-text">
-                <div class="handoff-label">To import, one managed archive per environment</div>
-                ${deploys.map(f => `
-                <div class="handoff-line">
-                    <code class="handoff-file">${icon('archive', 'icon--archive')} ${escapeHtml(f.fileName)}</code>
-                    <span class="chip chip--muted">${escapeHtml(targetLabel(f.target ?? ''))}</span>
-                </div>`).join('')}
-            </div>
-            <span class="chip chip--success">managed</span>
-        </div>` : `
         <div class="handoff">
             <span class="handoff-mark">${icon('check')}</span>
             <div class="handoff-text">
-                <div class="handoff-label">To import into UAT or PROD</div>
-                <code class="handoff-file">${icon('archive', 'icon--archive')}
-                    ${escapeHtml(deploy?.fileName ?? '—')}</code>
+                <div class="handoff-label">${deploys.length > 1 ? 'To import, one managed archive per environment' : 'To import into UAT or PROD'}</div>
+                <div class="handoff-file">${deploys.length > 1
+                    ? `${deploys.length} managed archives are ready`
+                    : 'The managed archive is ready'}</div>
+                <div class="handoff-sub">They are the rows marked <strong>Deploy</strong> below.</div>
             </div>
-            <span class="chip chip--success">managed</span>
-        </div>`}
+        </div>
 
         <section class="panel" data-panel="result-files" data-info="The files written to disk, with their role and SHA-256 hash. Import only the managed archive into UAT or PROD.">
             <div class="panel-head">
@@ -2836,13 +2936,14 @@ function renderResultStep(): void {
             <div class="panel-body">
                 <table class="data-table">
                     <thead><tr>
-                        <th>File</th><th>Role</th><th class="col-num">Entries</th><th>SHA-256</th>
+                        <th>File</th><th>Target</th><th>Role</th><th class="col-num">Entries</th><th>SHA-256</th>
                     </tr></thead>
                     <tbody>${set.files.map(f => `
                         <tr${f.role === 'deploy' ? ' class="row-highlight"' : ''}>
                             <td class="cell-strong">
                                 ${icon('archive', 'icon--archive icon--sm')}
                                 <code>${escapeHtml(f.fileName)}</code></td>
+                            <td>${f.target === undefined ? '<span class="cell-muted">—</span>' : `<span class="chip chip--muted">${escapeHtml(targetLabel(f.target))}</span>`}</td>
                             <td>${roleChip(f.role)}</td>
                             <td class="col-num">${f.entryCount}</td>
                             <td class="cell-muted"><code title="${escapeHtml(f.sha256)}">${escapeHtml(f.sha256.slice(0, 16))}…</code></td>
@@ -2853,11 +2954,9 @@ function renderResultStep(): void {
                     would create an unmanaged solution, the very problem this flow removes.
                 </div>
                 <div class="note">
-                    The package carries the version <strong>DEV now has</strong>. Tick several targets
-                    together to build them from one export and one version. To build another one later, turn off
-                    <em>Raise the version in DEV</em>: DEV is already there. Artifacts
-                    of the same version are told apart by the suffix in the name and by the
-                    <strong>hash</strong> in the manifest.
+                    The package carries the version <strong>DEV now has</strong>. To build another target later
+                    from the same version, turn off <em>Raise the version in DEV</em>; the suffix and the
+                    <strong>hash</strong> in the manifest tell the archives apart.
                 </div>
             </div>
         </section>
@@ -2936,6 +3035,7 @@ async function renderHistoryStep(): Promise<void> {
             <div class="panel-head panel-head--lg">
                 <div><h2 class="panel-heading">${icon('history', 'icon--head')}Packaging history</h2>
                     <div class="panel-sub">kept for 30 days, on this device only</div></div>
+                <div class="history-tools" id="history-tools"></div>
             </div>
             <div class="panel-table" id="history-body">
                 <div class="progress-line"><span class="spinner"></span> reading…</div>
@@ -2947,41 +3047,61 @@ async function renderHistoryStep(): Promise<void> {
     if (!body) return;
 
     if (!list.length) {
-        body.innerHTML = `<div class="empty-state">
-            <p>No packaging recorded yet.</p>
+        body.innerHTML = `<div class="empty-state empty-state--history">
+            ${icon('history', 'empty-icon')}
+            <p><strong>No packaging recorded yet</strong></p>
             <p class="hint">Operations will appear here, with their paths and file hashes.</p>
         </div>`;
         return;
     }
+
+    const tools = document.getElementById('history-tools')!;
+    tools.innerHTML = `
+        <span class="chip chip--muted" id="history-count">${list.length} ${list.length === 1 ? 'entry' : 'entries'}</span>
+        <button type="button" class="btn btn--secondary btn--sm btn--danger-ghost" id="history-clear-btn">
+            ${icon('close', 'icon--sm')} Clear all</button>`;
+
+    const agentsHtml = (r: PackagingRecord): string => {
+        const rows = r.agents.map(a => `
+            <li class="rec-rename">
+                <span class="cell-muted rec-from">${escapeHtml(a.before)}</span>
+                ${a.excluded
+                    ? '<span class="chip chip--muted">left as it is</span>'
+                    : `${icon('arrow-right', 'icon--xs')}<strong>${escapeHtml(a.after)}</strong>`}
+            </li>`).join('');
+        const n = r.agents.length;
+        // Con piu' di due agent l'elenco si ripiega, come le altre schermate (spec 019, FR-015)
+        return n > FOLD_AFTER
+            ? `<details class="rec-agents"><summary>${icon('chevron-down', 'icon--sm fold-chevron')}
+                   <strong>${n} agents</strong><span class="cell-muted">renamed</span></summary>
+                   <ul class="rec-rows">${rows}</ul></details>`
+            : `<ul class="rec-rows">${rows}</ul>`;
+    };
 
     body.innerHTML = `
         <ul class="rec-list">${list.map(r => `
             <li class="rec">
                 <div class="rec-head">
                     <div class="rec-title">
-                        ${icon('package', 'icon--head icon--sm')}
-                        <span class="rec-solution">${escapeHtml(r.solutionUniqueName)}</span>
-                        <span class="rec-version">${escapeHtml(r.version)}</span>
-                        ${r.suffix
-                            ? `<span class="chip chip--muted">${escapeHtml(r.suffix)}</span>`
-                            : '<span class="chip chip--muted">no suffix</span>'}
+                        <span class="rec-badge">${icon('package', 'icon--head')}</span>
+                        <div class="rec-names">
+                            <div class="rec-line">
+                                <span class="rec-solution">${escapeHtml(r.solutionUniqueName)}</span>
+                                <span class="rec-version">${escapeHtml(r.version)}</span>
+                            </div>
+                            <div class="rec-targets">${(r.suffix ? r.suffix : 'no suffix').split(' + ')
+                                .map(t => `<span class="chip chip--muted">${escapeHtml(t)}</span>`).join('')}</div>
+                        </div>
                     </div>
                     <div class="rec-actions">
                         <span class="chip chip--${r.status === 'ok' ? 'success' : 'error'}">${escapeHtml(r.status)}</span>
-                        <button class="btn btn--secondary btn--sm" data-export="${escapeHtml(r.id)}">Export</button>
-                        <button class="btn btn--secondary btn--sm" data-delete="${escapeHtml(r.id)}">Delete</button>
+                        <button class="btn btn--secondary btn--sm" data-export="${escapeHtml(r.id)}">${icon('download', 'icon--sm')} Export</button>
+                        <button class="btn btn--secondary btn--sm" data-delete="${escapeHtml(r.id)}" aria-label="Delete this entry">${icon('close', 'icon--sm')} Delete</button>
                     </div>
                 </div>
 
                 <div class="rec-body">
-                    ${r.agents.map(a => `
-                        <div class="rec-rename">
-                            <span class="cell-muted">${escapeHtml(a.before)}</span>
-                            ${a.excluded
-                                ? '<span class="cell-muted">left as it is</span>'
-                                : `${icon('arrow-right', 'icon--xs')}
-                            <strong>${escapeHtml(a.after)}</strong>`}
-                        </div>`).join('')}
+                    ${agentsHtml(r)}
 
                     <div class="rec-path">
                         ${icon('folder', 'icon--folder icon--sm')}
@@ -3023,6 +3143,18 @@ async function renderHistoryStep(): Promise<void> {
             await deleteRecord(id);
             void renderHistoryStep();
         });
+    });
+    document.getElementById('history-clear-btn')!.addEventListener('click', async () => {
+        const ok = await askConfirm({
+            title: `Clear all ${list.length} ${list.length === 1 ? 'entry' : 'entries'}?`,
+            okLabel: 'Clear all',
+            danger: true,
+            bodyHtml: `<p>Every history entry is removed. <strong>The files on disk are not
+                touched</strong>: they stay in their folders.</p>`,
+        });
+        if (!ok) return;
+        await clearHistory();
+        void renderHistoryStep();
     });
 }
 

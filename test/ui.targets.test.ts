@@ -705,6 +705,53 @@ describe('piu\' Target nello stesso giro (FR-006, FR-008, FR-009, FR-012, FR-013
         expect(text).toContain('removes the existing suffix');
     });
 
+    for (const noSuffixFirst of [true, false]) {
+        it(`D8: l'avviso del suffisso vuoto esclude gli agent tolti proprio dal Target senza suffisso (${noSuffixFirst ? 'aggiunto prima' : 'aggiunto dopo'})`, async () => {
+            const world: UiWorld = {
+                solutions: [{ unique: 'S1' }],
+                agents: [
+                    { name: 'a1 [DEV]', schema: 'ava_a1', solution: 'S1', publish: null },
+                    { name: 'a3 [DEV]', schema: 'ava_a3', solution: 'S1', publish: null },
+                ],
+            };
+            const ui = await bare(world);
+            if (noSuffixFirst) await ui.addTarget('');
+            await ui.tickTarget('UAT', true);
+            await ui.tickTarget('PROD', true);
+            if (!noSuffixFirst) await ui.addTarget('');
+            await ui.toggleAgent('a1 [DEV]', '');    // tolto solo nel Target senza suffisso: UAT e PROD lo tengono
+            await ui.nextRaw();
+            const text = (ui.doc.getElementById('confirm-overlay')!.textContent ?? '').replace(/\s+/g, ' ');
+            expect(text).toContain('a3 [DEV]');
+            expect(text).not.toContain('a1 [DEV]');
+        });
+    }
+
+    it('D8: l\'avviso del suffisso vuoto non segue il Target scelto nell\'anteprima', async () => {
+        const world: UiWorld = {
+            solutions: [{ unique: 'S1' }],
+            agents: [
+                { name: 'a1 [DEV]', schema: 'ava_a1', solution: 'S1', publish: null },
+                { name: 'a3 [DEV]', schema: 'ava_a3', solution: 'S1', publish: null },
+            ],
+        };
+        const ui = await bare(world);
+        await ui.tickTarget('UAT', true);
+        await ui.tickTarget('PROD', true);
+        await ui.addTarget('');
+        await ui.toggleAgent('a1 [DEV]', '');    // tolto solo nel Target senza suffisso
+        await ui.next();
+        await ui.buildPackage();
+        await ui.switchTo('[UAT]');              // ora il Target mostrato e' UAT, che ha ancora a1
+        await ui.back();                         // dall'anteprima alla revisione
+        await ui.back();                         // e dalla revisione al suffisso
+        expect(ui.step()).toBe('suffix');
+        await ui.nextRaw();
+        const text = (ui.doc.getElementById('confirm-overlay')!.textContent ?? '').replace(/\s+/g, ' ');
+        expect(text).toContain('a3 [DEV]');
+        expect(text).not.toContain('a1 [DEV]');
+    });
+
     it('D8: un solo giro, due zip con agent e publish diversi', async () => {
         const ui = await twoTargets();
         await ui.toggleAgent('agent2', 'PROD');            // PROD lascia agent2 com'e'
@@ -832,7 +879,10 @@ describe('piu\' Target nello stesso giro (FR-006, FR-008, FR-009, FR-012, FR-013
         expect(t).toContain('one managed archive per environment');
         expect(t).toContain('S1_1_0_0_3_managed_UAT.zip');
         expect(t).toContain('S1_1_0_0_3_managed_PROD.zip');
-        expect(ui.doc.querySelectorAll('#step-result .handoff-line').length).toBe(2);
+        // nessuna ridondanza: il banner non ripete i nomi, ogni file compare una volta sola
+        expect(ui.doc.querySelector('#step-result .handoff')!.textContent).not.toContain('.zip');
+        expect(t.split('S1_1_0_0_3_managed_UAT.zip').length - 1).toBe(1);
+        expect(ui.text('result')).toContain('2 managed archives are ready');
     });
 
     it('con un Target solo il risultato e\' quello di sempre: un archivio, nessun elenco', async () => {
@@ -843,7 +893,7 @@ describe('piu\' Target nello stesso giro (FR-006, FR-008, FR-009, FR-012, FR-013
         await ui.toVerify();
         await ui.save();
         expect(ui.text('result')).toContain('To import into UAT or PROD');
-        expect(ui.doc.querySelectorAll('#step-result .handoff-line').length).toBe(0);
+        expect(ui.doc.querySelector('#step-result .handoff')!.textContent).not.toContain('.zip');
     });
 
     it('cambiare i Target dopo l\'anteprima rifa\' l\'export; non cambiare nulla no', async () => {

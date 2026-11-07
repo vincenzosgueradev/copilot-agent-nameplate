@@ -85,7 +85,10 @@ describe('lo stepper: l\'aspetto (FR-001, FR-002)', () => {
     });
     it('i cerchi sono grandi 32px e la pagina corrente ha l\'etichetta in evidenza', () => {
         expect(rule(/\.stepper-dot\s*\{([^}]*)\}/)).toMatch(/width:\s*32px/);
-        expect(rule(/\.stepper-item\.active\s*\{([^}]*)\}/)).toMatch(/font-weight:\s*600/);
+        const active = rule(/\.stepper-item\.active\s*\{([^}]*)\}/);
+        expect(active).toMatch(/font-weight:\s*400/);
+        expect(active).toMatch(/font-size:\s*var\(--fs-md\)/);
+        expect(active).toMatch(/color:\s*var\(--color-text-strong\)/);
     });
     it('la linea si riempie con una transizione, solo quando e\' fatta', () => {
         expect(rule(/\.stepper-line::after\s*\{([^}]*)\}/)).toMatch(/transform:\s*scaleX\(0\)/);

@@ -262,3 +262,25 @@ describe('diffLines: proprieta\' con seme fisso', () => {
         }
     });
 });
+
+describe('diffLines: file grandi con una modifica sola (prefisso e suffisso comuni)', () => {
+    const lines = (n: number) => Array.from({ length: n }, (_, i) => `riga ${i}`);
+
+    it('una riga cambiata in fondo a 5000 resta una sola riga cambiata, non «tutto sostituito»', () => {
+        const a = lines(5000);
+        const b = lines(5000);
+        b[4999] = 'riga nuova';
+        const d = diffLines(a.join('\n'), b.join('\n'));
+        expect(d.added).toBe(1);
+        expect(d.removed).toBe(1);
+        expect(d.rows.filter(r => r.kind === 'changed')).toHaveLength(1);
+    });
+
+    it('una riga cambiata all\'inizio di 5000 resta una sola riga cambiata', () => {
+        const a = lines(5000);
+        const b = lines(5000);
+        b[0] = 'riga nuova';
+        const d = diffLines(a.join('\n'), b.join('\n'));
+        expect([d.added, d.removed]).toEqual([1, 1]);
+    });
+});

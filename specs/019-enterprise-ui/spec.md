@@ -1,7 +1,7 @@
 # Specifica 019 — Interfaccia enterprise: stepper, sezioni ripiegabili con info e diff del package
 
 **Estende**: 018 (schermate sobrie e pipeline viva), 001 (l'anteprima: «What gets changed»). **Nasce da**: la prova a mano della 018 (2026-11-02): l'utente ha apprezzato la pipeline numerata e ha chiesto «un ultra upgrade» dello stile: più bello, più immediato, più facile da capire e da usare.
-**Stato**: In corso.
+**Stato**: Implementata (prova a mano fatta il 2026-11-07).
 
 ## Il problema
 1. L'indicatore dei passi in alto (Suffix · Review · Preview · Checks · Result) ha cerchi piccoli e la pagina corrente si distingue poco.
@@ -39,6 +39,11 @@ Chi apre l'anteprima vede subito dove si trova (stepper), apre solo le sezioni c
 
 **Aspetto**
 - **FR-014**: Riquadri, tessere di riepilogo e diff usano gli stessi colori e raggi, in tema scuro e chiaro; il diff usa i colori dell'editor (rosso/verde) leggibili in entrambi i temi.
+
+**Rifiniture dalla prova a mano (2026-11-03)**
+- **FR-015**: Con **piu' di due agent** l'elenco degli agent si puo' ripiegare, come le sezioni: nel passo Suffix ogni Target ha un'intestazione «Agents · N of M selected» che ripiega la sua tabella; nell'anteprima ogni agent ha un pulsante che ripiega le sue schede Diff / Table; nello storico gli agent di una voce stanno in un elenco ripiegabile. Con uno o due agent non c'e' nessun pulsante. Di partenza tutto e' aperto; lo stato di Suffix e dell'anteprima si conserva mentre la schermata si ridisegna; ripiegare non cambia scelte ne' dati (il contenuto resta nella pagina) e non tocca gli altri agent o Target.
+- **FR-016**: Il cerchio del passo corrente dello stepper (ingrandito, con anello e bagliore) non e' tagliato dal contenitore che scorre: sopra e ai lati c'e' lo spazio che serve.
+- **FR-017**: Lo storico mostra il numero di voci e un pulsante **Clear all** che, dopo una conferma, le toglie tutte; annullando non si perde nulla; i file su disco non si toccano. Con lo storico vuoto non ci sono ne' conteggio ne' pulsante. Ogni voce e' una scheda piu' leggibile: icona, soluzione e versione, un chip per Target, esito, Export e Delete, percorso e hash.
 
 ## Fuori ambito
 - Cambiare cosa fa il tool, i dati salvati, il package, il manifest o Dataverse.

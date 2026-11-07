@@ -60,3 +60,8 @@ export async function addRecord(record: PackagingRecord): Promise<void> {
 export async function deleteRecord(id: string): Promise<void> {
     await mutate(list => list.filter(r => r.id !== id));
 }
+
+/** Svuota lo storico. Non tocca i file sul disco: sono quelli dei package. */
+export async function clearHistory(): Promise<void> {
+    await mutate(() => []);
+}

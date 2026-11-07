@@ -25,7 +25,7 @@ dice che cosa i test **non** coprono e come controllarlo a mano.
 | [016](016-multi-target-package/spec.md) | Targets: lista di destinazioni personalizzabile e ricordata per ambiente DEV; un export, una versione, uno zip per Target e confronto tra i Target | **Implementata** (fasi 1-5 e revisione D8: agent e publish per Target); resta la prova a mano sul DEV (quickstart) | — | estende 002, 004 |
 | [017](017-production-target/spec.md) | Casella «Production» sul target senza suffisso: l'avviso della 013 non compare per la produzione | **Implementata** (resta la prova a mano sul DEV) | — | estende 013, 016 |
 | [018](018-lean-screens-and-live-pipeline/spec.md) | Revisione sobria (senza elenco agent), popup con icone, pipeline numerata e viva, pulizia dei testi ridondanti | **In corso** (blocco A fatto) | — | estende 001, 013, 016 |
-| [019](019-enterprise-ui/spec.md) | Interfaccia enterprise: stepper con la pagina corrente evidente, sezioni ripiegabili con icona info, diff del package alla Visual Studio | **In corso** | — | estende 018, 001 |
+| [019](019-enterprise-ui/spec.md) | Interfaccia enterprise: stepper con la pagina corrente evidente, sezioni ripiegabili con icona info, diff del package alla Visual Studio | **Implementata** | — | estende 018, 001 |
 
 ## Come leggere le specifiche successive
 

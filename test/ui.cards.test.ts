@@ -140,9 +140,9 @@ const kindWorld = (): UiWorld => ({
         { name: 'empty [DEV]', schema: 'ava_a4', solution: 'S1', publish: null, icon: null, template: null },
     ],
 });
-const STANDARD = { kind: 'standard', label: 'Standard harness', title: 'Standard harness', hasLogo: true, hasMask: false, text: '' };
-const HARNESS = { kind: 'harness', label: 'GitHub Copilot harness', title: 'GitHub Copilot harness', hasLogo: false, hasMask: true, text: '' };
-const UNKNOWN = { kind: 'unknown', label: 'Unknown agent type', title: 'Unknown agent type', hasLogo: false, hasMask: true, text: '' };
+const STANDARD = { kind: 'standard', label: 'Standard harness', title: 'Standard harness', hasLogo: false, hasMask: false, text: 'STD' };
+const HARNESS = { kind: 'harness', label: 'Microsoft Copilot harness', title: 'Microsoft Copilot harness', hasLogo: false, hasMask: false, text: 'MCH' };
+const UNKNOWN = { kind: 'unknown', label: 'Unknown agent type', title: 'Unknown agent type', hasLogo: false, hasMask: false, text: 'N/A' };
 
 describe('colonna Agent type nella vista della solution (FR-001, FR-002, FR-004)', () => {
     it('la colonna sta subito dopo Agent', async () => {
@@ -159,6 +159,20 @@ describe('colonna Agent type nella vista della solution (FR-001, FR-002, FR-004)
         expect(ui.kindOf('hub [DEV]')).toEqual(HARNESS);
         expect(ui.kindOf('odd [DEV]')).toEqual(UNKNOWN);
         expect(ui.kindOf('empty [DEV]')).toEqual(UNKNOWN);
+    });
+
+    it('sotto la tabella c\'e\' la legenda: ogni sigla col nome intero, niente icone nella colonna', async () => {
+        const ui = await boot(kindWorld());
+        await ui.openSolution('S1');
+        const legend = ui.doc.querySelector('#step-solution .legend')!;
+        expect(legend).toBeTruthy();
+        const t = legend.textContent!.replace(/\s+/g, ' ');
+        for (const [abbr, name] of [['STD', 'Standard harness'], ['MCH', 'Microsoft Copilot harness'], ['N/A', 'Unknown agent type']]) {
+            expect(t, abbr).toContain(abbr);
+            expect(t, name).toContain(name);
+        }
+        expect(t).not.toContain('GitHub');
+        expect(ui.doc.querySelectorAll('#step-solution [data-card-kind] img, #step-solution [data-card-kind] .icon')).toHaveLength(0);
     });
 
     it('il nome dell\'agent non cambia e non contiene il tipo (nessuna ridondanza)', async () => {
@@ -237,6 +251,6 @@ describe('il tipo non esce dalla schermata (FR-007)', () => {
         await ui.save();
         const { manifest } = ui.written();
         const dump = JSON.stringify(manifest) + JSON.stringify(ui.history());
-        for (const secret of ['cliagent', 'harness agent', 'GitHub Copilot']) expect(dump.includes(secret), secret).toBe(false);
+        for (const secret of ['cliagent', 'harness agent', 'Microsoft Copilot']) expect(dump.includes(secret), secret).toBe(false);
     });
 });

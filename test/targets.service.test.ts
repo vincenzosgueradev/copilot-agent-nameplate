@@ -341,7 +341,8 @@ describe('Target Production senza suffisso (spec 017)', () => {
             ['senza nome, non marcato', t(''), false, true],
             ['senza nome, marcato', prod(), true, false],
             ['senza nome, marcato false esplicito', { ...t(''), production: false }, false, true],
-            ['solo spazi, marcato', { name: '   ', publishOnImport: 'keep', production: true }, true, false],
+            ['solo spazi, non marcato: conta come senza nome', { name: '   ', publishOnImport: 'keep' }, false, true],
+            ['solo spazi, marcato',{ name: '   ', publishOnImport: 'keep', production: true }, true, false],
             ['con nome, non marcato', t('UAT'), false, false],
             ['con nome, marcato a mano nei dati: ignorato', { ...t('PROD'), production: true }, false, false],
         ];

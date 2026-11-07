@@ -83,9 +83,9 @@ describe('l ordine nell intestazione (FR-003, FR-005)', () => {
             expect(toggle(ui, id).compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING, id).toBeTruthy();
         }
     });
-    it('cio che sta a destra resta a destra: Restore defaults prende panel-head-end', async () => {
+    it('cio che sta a destra resta a destra: i controlli di Restore defaults stanno in panel-head-end', async () => {
         const ui = await open('suffix');
-        expect(ui.doc.getElementById('target-restore-btn')!.classList.contains('panel-head-end')).toBe(true);
+        expect(ui.doc.getElementById('target-restore-btn')!.closest('.panel-head-end')).not.toBeNull();
         expect(panel(ui, 'suffix-options').querySelectorAll('.panel-head-end').length, 'senza controlli a destra non c e nulla da spingere').toBe(0);
     });
 });
@@ -130,6 +130,19 @@ describe('ripiegare e riaprire (FR-003, FR-006)', () => {
         const seg = ui.doc.querySelector<HTMLElement>('#step-verify [data-target-view]')!;
         await click(ui, seg);
         expect(panel(ui, 'verify-checks').classList.contains('panel--collapsed')).toBe(false);
+    });
+    it('il selettore dei Target compare solo con piu\' di un Target spuntato', async () => {
+        for (const [targets, buttons] of [[['UAT'], 0], [['UAT', 'PROD'], 2]] as const) {
+            const ui = await boot(WORLD);
+            await ui.openSolution('S1');
+            await ui.startRenameBare();
+            for (const t of targets) await ui.tickTarget(t, true);
+            await ui.next();
+            await ui.buildPackage();
+            await ui.toVerify();
+            const found = ui.doc.querySelectorAll('#step-verify [data-target-view]').length;
+            expect(found, `${targets.length} Target spuntati`).toBe(buttons);
+        }
     });
     it('ripiegare non perde nulla: i controlli restano nella pagina con il loro stato', async () => {
         const ui = await open('suffix');

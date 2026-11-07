@@ -207,7 +207,18 @@ export function diffLines(oldText: string, newText: string, options: DiffOptions
     return { rows: shown, added, removed, hidden: changeRows.length - seen };
 }
 
-/** Il diff di un file, con il suo nome. */
+/**
+ * Un JSON si confronta sempre con la stessa indentazione: l'export lo scrive su una riga, la patch lo
+ * riscrive rientrato, e senza questo il diff mostrerebbe una riga rossa enorme contro un file verde intero.
+ * Si rientra solo cio' che e' JSON valido; qualsiasi altro testo resta com'e'. L'ordine delle chiavi non cambia.
+ */
+export function indentJson(text: string): string {
+    if (!text.trim()) return text;
+    try { return JSON.stringify(JSON.parse(text.replace(/^﻿/, '')), null, 2); } catch { return text; }
+}
+
+/** Il diff di un file, con il suo nome. I file .json si confrontano rientrati allo stesso modo. */
 export function fileDiff(file: string, oldText: string, newText: string, options?: DiffOptions): FileDiff {
+    if (file.toLowerCase().endsWith('.json')) { oldText = indentJson(oldText); newText = indentJson(newText); }
     return { file, ...diffLines(oldText, newText, options) };
 }
