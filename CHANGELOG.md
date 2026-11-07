@@ -8,6 +8,15 @@ Every release MUST have an entry here before it is published (Constitution, *Rel
 Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Security**, plus
 **Upgrade notes** when a release asks something of the user.
 
+## [1.2.1] - 2026-11-07
+
+The marketplace card now shows the short description whole, and the page describes what 1.2.0 added.
+
+### Changed
+- The short description is shorter, so the marketplace card shows it whole instead of cutting it.
+- The marketplace page text now describes Targets, the before and after diff, the guidance for managed solutions
+  and the History changes of 1.2.0, not only the Updates list.
+
 ## [1.2.0] - 2026-11-07
 
 Several destinations from one export, guidance for managed solutions and a new look with a before and after diff.

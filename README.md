@@ -260,9 +260,14 @@ and every change is verified with a type check, a build and the tests before it 
 
 ## Updates
 
-Page text reviewed for version 1.2.0.
+Page text reviewed for version 1.2.1.
 
 Newest first. The full history is in [CHANGELOG.md](https://github.com/vincenzosgueradev/copilot-agent-nameplate/blob/main/CHANGELOG.md). Rules: [docs/marketplace-page-standard.md](https://github.com/vincenzosgueradev/copilot-agent-nameplate/blob/main/docs/marketplace-page-standard.md).
+
+### 1.2.1 - 2026-11-07
+
+- Changed the short description so the marketplace card shows it whole.
+- Changed the page text to describe Targets, the before and after diff, the guidance for managed solutions and the History changes.
 
 ### 1.2.0 - 2026-11-07
 
