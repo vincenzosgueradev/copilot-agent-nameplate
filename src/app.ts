@@ -739,7 +739,6 @@ function selectSolution(solutionId: string, highlightAgentId = ''): void {
         // Un'altra solution: bozza, esclusioni e package gia' preparato non valgono piu'
         state.excludedByTarget.clear();
         state.publishByTarget.clear();
-        state.options.publishByAgent = {};
         resetVersionPlan();
         state.selectedTargets = [];
         state.selectionFor = '';
@@ -3260,7 +3259,6 @@ toolbox.events.on((_event: unknown, payload: { event: string }) => {
         state.solutions = [];
         state.excludedByTarget.clear();
         state.publishByTarget.clear();
-        state.options.publishByAgent = {};
         resetVersionPlan();
         state.highlightAgentId = '';
         state.activeSolution = null;
