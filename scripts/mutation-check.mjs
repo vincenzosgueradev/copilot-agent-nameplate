@@ -505,7 +505,7 @@ const MUTATIONS = [
     ["fold", "src/styles.css", "padding: 12px 20px 12px 14px; }", "padding: 6px 4px; }", "fold: lo stepper non ha spazio per il bagliore"],
 ];
 
-const only = process.argv[2];
+const only = process.argv.slice(2).find(a => !a.startsWith('--'));
 const originals = new Map();
 const restore = () => { for (const [file, text] of originals) writeFileSync(at(file), text); originals.clear(); };
 process.on('SIGINT', () => { restore(); process.exit(130); });
@@ -520,16 +520,28 @@ const chunkSet = chunk
     : null;
 let todo = MUTATIONS.filter(m => chunkSet ? chunkSet.has(m) : (!only || m[1].includes(only) || m[4].includes(only)));
 
-// `--changed-since=<tag>`: salta le mutazioni su codice di app.ts identico alla versione gia' rilasciata (gia' verificato allora)
+// `--changed-since=<ref>`: salta le mutazioni su codice identico alla versione gia' rilasciata (gia' verificato allora).
+// Vale per ogni file di src: una mutazione resta solo se il testo che altera non esisteva (uguale) in <ref>,
+// o se il file non esisteva. Cosi' si provano soltanto le funzioni toccate o nuove.
 const since = process.argv.find(a => a.startsWith('--changed-since='))?.slice('--changed-since='.length);
 if (since) {
-    const shown = spawnSync('git', ['show', `${since}:src/app.ts`], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 });
-    if (shown.status !== 0) { console.error(`git show ${since}:src/app.ts non riuscito`); process.exit(2); }
-    const lf = (text) => text.split('\r\n').join('\n');
-    const old = lf(shown.stdout);
+    const lf = (text) => text.split(String.fromCharCode(13, 10)).join(String.fromCharCode(10));
+    const oldFiles = new Map();
+    const oldText = (file) => {
+        if (!oldFiles.has(file)) {
+            const shown = spawnSync('git', ['show', `${since}:${file}`], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 });
+            oldFiles.set(file, shown.status === 0 ? lf(shown.stdout) : null);
+        }
+        return oldFiles.get(file);
+    };
+    if (spawnSync('git', ['rev-parse', '--verify', `${since}^{commit}`], { cwd: root }).status !== 0) { console.error(`--changed-since: ${since} non e' un commit o un tag`); process.exit(2); }
     const before = todo.length;
-    todo = todo.filter((m) => m[1] !== 'src/app.ts' || !(typeof m[2] === 'string' ? old.includes(lf(m[2])) : m[2].test(old)));
-    console.log(`--changed-since=${since}: ${before - todo.length} mutazioni su codice invariato saltate`);
+    todo = todo.filter((m) => {
+        const old = oldText(m[1]);
+        if (old === null) return true;
+        return !(typeof m[2] === 'string' ? old.includes(lf(m[2])) : m[2].test(old));
+    });
+    console.log(`--changed-since=${since}: ${before - todo.length} mutazioni su codice invariato saltate, ${todo.length} da provare`);
 }
 const progressFile = at('test-results/mutation-progress.txt');
 const started = Date.now();

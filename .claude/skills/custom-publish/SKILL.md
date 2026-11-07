@@ -30,9 +30,9 @@ Also read `../../PPTB-PUBLISHING-RULES.md` before the first publish of a tool.
 3. **Checks** - all must pass, report each in one line:
    - `npx tsc --noEmit`
    - `npm test`, then `npm run test:full`, then `npm run test:mutation` if `package.json` has that script (Principle VIII). Any failure, or a surviving mutation, is a stop; do not publish.
-   - **Do not repeat what already passed on the same code.** Find the commit of the version on npm (`git log -S'"version": "<npm version>"' --format=%h -- package.json`, oldest) and run
-     `git diff --stat <that-hash> HEAD -- src scripts vite.config.ts tsconfig.json`. If it is empty, the code is identical to a release that already passed: skip `test:mutation` (a slow check, hours in some tools)
-     and say in the summary "mutation skipped: code identical to <npm version> (<hash>)". Keep `tsc`, `npm test`, `test:full`, `validate` and the build: they are fast. If the diff is not empty, or the commit cannot be found, run it in full.
+   - **Test only what changed since the last release.** Find the commit of the version on npm (`git log -S'"version": "<npm version>"' --format=%h -- package.json`, oldest `<hash>`) and run
+     `npm run test:mutation -- --changed-since=<hash>`: it skips every mutant on code identical to that release (it already passed) and runs the ones on changed or new code. If nothing in `src` changed it runs zero, and the
+     summary says "mutation: 0 to run, code identical to <npm version> (<hash>)". If the commit cannot be found, or the script has no such option, run the full check and say why. `tsc`, `npm test`, `test:full`, `validate` and the build always run: they are fast.
    - Every check the tool's `CLAUDE.md` lists under `## Extra checks` for a release (for example smoke scripts). If one needs an input that is not available, say it was skipped and why.
    - `npm run validate` (pptb-validate). If the binary is missing, say the validation gate could not be run and treat it as a stop.
 4. **Set the version** to `V` without touching git: `npm version <V> --no-git-tag-version`
