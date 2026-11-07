@@ -520,28 +520,24 @@ const chunkSet = chunk
     : null;
 let todo = MUTATIONS.filter(m => chunkSet ? chunkSet.has(m) : (!only || m[1].includes(only) || m[4].includes(only)));
 
-// `--changed-since=<ref>`: salta le mutazioni su codice identico alla versione gia' rilasciata (gia' verificato allora).
-// Vale per ogni file di src: una mutazione resta solo se il testo che altera non esisteva (uguale) in <ref>,
-// o se il file non esisteva. Cosi' si provano soltanto le funzioni toccate o nuove.
+// `--changed-since=<ref>`: salta le mutazioni dei file identici alla versione gia' rilasciata (gia' verificati allora).
+// Basta una riga diversa nel file e TUTTE le sue mutazioni girano: una mutazione puo' dipendere dal codice attorno,
+// quindi non si salta mai per "il testo alterato esiste ancora". Un file nuovo gira sempre.
 const since = process.argv.find(a => a.startsWith('--changed-since='))?.slice('--changed-since='.length);
 if (since) {
     const lf = (text) => text.split(String.fromCharCode(13, 10)).join(String.fromCharCode(10));
-    const oldFiles = new Map();
-    const oldText = (file) => {
-        if (!oldFiles.has(file)) {
-            const shown = spawnSync('git', ['show', `${since}:${file}`], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 });
-            oldFiles.set(file, shown.status === 0 ? lf(shown.stdout) : null);
-        }
-        return oldFiles.get(file);
-    };
     if (spawnSync('git', ['rev-parse', '--verify', `${since}^{commit}`], { cwd: root }).status !== 0) { console.error(`--changed-since: ${since} non e' un commit o un tag`); process.exit(2); }
+    const same = new Map();
+    const unchanged = (file) => {
+        if (!same.has(file)) {
+            const shown = spawnSync('git', ['show', `${since}:${file}`], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 });
+            same.set(file, shown.status === 0 && lf(shown.stdout) === lf(readFileSync(at(file), 'utf8')));
+        }
+        return same.get(file);
+    };
     const before = todo.length;
-    todo = todo.filter((m) => {
-        const old = oldText(m[1]);
-        if (old === null) return true;
-        return !(typeof m[2] === 'string' ? old.includes(lf(m[2])) : m[2].test(old));
-    });
-    console.log(`--changed-since=${since}: ${before - todo.length} mutazioni su codice invariato saltate, ${todo.length} da provare`);
+    todo = todo.filter((m) => !unchanged(m[1]));
+    console.log(`--changed-since=${since}: ${before - todo.length} mutazioni di file invariati saltate, ${todo.length} da provare`);
 }
 const progressFile = at('test-results/mutation-progress.txt');
 const started = Date.now();

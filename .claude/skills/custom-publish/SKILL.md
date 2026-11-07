@@ -31,7 +31,7 @@ Also read `../../PPTB-PUBLISHING-RULES.md` before the first publish of a tool.
    - `npx tsc --noEmit`
    - `npm test`, then `npm run test:full`, then `npm run test:mutation` if `package.json` has that script (Principle VIII). Any failure, or a surviving mutation, is a stop; do not publish.
    - **Test only what changed since the last release.** Find the commit of the version on npm (`git log -S'"version": "<npm version>"' --format=%h -- package.json`, oldest `<hash>`) and run
-     `npm run test:mutation -- --changed-since=<hash>`: it skips every mutant on code identical to that release (it already passed) and runs the ones on changed or new code. If nothing in `src` changed it runs zero, and the
+     `npm run test:mutation -- --changed-since=<hash>`: it skips the mutants of files byte-identical to that release (they already passed) and reruns ALL the mutants of any file that changed by even one line, or is new: never skip a mutant of touched code. If nothing in `src` changed it runs zero, and the
      summary says "mutation: 0 to run, code identical to <npm version> (<hash>)". If the commit cannot be found, or the script has no such option, run the full check and say why. `tsc`, `npm test`, `test:full`, `validate` and the build always run: they are fast.
    - Every check the tool's `CLAUDE.md` lists under `## Extra checks` for a release (for example smoke scripts). If one needs an input that is not available, say it was skipped and why.
    - `npm run validate` (pptb-validate). If the binary is missing, say the validation gate could not be run and treat it as a stop.
