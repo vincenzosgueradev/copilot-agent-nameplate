@@ -12,7 +12,7 @@
  * Ctrl+C: non si usa git, cosi' le modifiche non committate non vanno perse.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +22,32 @@ const at = p => join(root, p);
 
 /** `from` puo' essere una stringa o una RegExp; la prima occorrenza viene sostituita. */
 const MUTATIONS = [
+    // ── riscritte sul codice di oggi (selezione per Target, spec 018/019)
+    ["app.ts", "src/app.ts", "if (selectedTargetList().some(needsNoSuffixWarning) && !(await confirmNoSuffix(sol))) return;", "if (!(await confirmNoSuffix(sol))) return;", "nosuffix: l'avviso compare anche con un suffisso"],
+    ["app.ts", "src/app.ts", "if (selectedTargetList().some(needsNoSuffixWarning) && !(await confirmNoSuffix(sol))) return;", "", "nosuffix: nessun avviso"],
+    ["app.ts", "src/app.ts", "if (selectedTargetList().some(needsNoSuffixWarning) && !(await confirmNoSuffix(sol))) return;", "if (selectedTargetList().some(needsNoSuffixWarning)) await confirmNoSuffix(sol);", "nosuffix: annullare va avanti lo stesso"],
+    ["targets.ts", "src/services/targets.ts", "t.name.trim() === '' && !isProductionTarget(t)", "t.name === '' && !isProductionTarget(t)", "nosuffix: gli spazi non contano come vuoto"],
+    ["app.ts", "src/app.ts", "${mixed.length > 1 ? mixedSuffixHtml(mixed, target.name) : ''}", "", "suffissi misti: nessun avviso nella scheda del Target"],
+    ["app.ts", "src/app.ts", "if (mixed.length > 1) out.push(mixedSuffixHtml(mixed, t.name));", "", "suffissi misti: nessun avviso nel dialogo di conferma"],
+    ["app.ts", "src/app.ts", "p.hidden = folded || p.dataset.pane !== want;", "p.hidden = folded || p.dataset.pane === want;", "diffui: i pannelli delle schede sono invertiti"],
+    ["app.ts", "src/app.ts", "${!closed && tab === 'table' ? '' : ' hidden'}>", " hidden>", "diffui: la scheda Table non si apre"],
+    ["app.ts", "src/app.ts", "${deploys.length > 1 ? 'To import, one managed archive per environment'", "${false ? 'To import, one managed archive per environment'", "schermata: il risultato non elenca un archivio per Target"],
+    ["stepper", "src/styles.css", ".stepper-item.active { color: var(--color-text-strong); font-weight: 400; font-size: var(--fs-md); }", ".stepper-item.active { color: var(--color-text-strong); font-weight: 400; font-size: inherit; }", "stepper: l'etichetta corrente non e' in evidenza"],
+    // ── diff.ts (spec 019)
+    ['diff', 'src/services/diff.ts', "if (lines[lines.length - 1] === '') lines.pop();", "", 'diff: il \\n finale crea una riga vuota'],
+    ['diff', 'src/services/diff.ts', "text.replace(/\\r\\n/g, '\\n')", "text", 'diff: CRLF e LF risultano diversi'],
+    ['diff', 'src/services/diff.ts', "while (p < a.length && p < b.length && a[p] === b[p]) p++;", "", 'diff: il prefisso comune non si toglie'],
+    ['diff', 'src/services/diff.ts', "dp[(i + 1) * w + j]! >= dp[i * w + j + 1]!", "dp[(i + 1) * w + j]! < dp[i * w + j + 1]!", 'diff: la LCS sceglie il ramo sbagliato'],
+    ['diff', 'src/services/diff.ts', "if (n * m <= MAX_CELLS) {", "if (false) {", 'diff: la LCS non viene mai usata'],
+    ['diff', 'src/services/diff.ts', "const pairs = Math.min(dels.length, inss.length);", "const pairs = 0;", 'diff: tolte e aggiunte non si abbinano'],
+    ['diff', 'src/services/diff.ts', "if (j - i === 1) rows.push(all[i]!);", "if (false) rows.push(all[i]!);", 'diff: un salto nasconde una sola riga'],
+    ['diff', 'src/services/diff.ts', "if (seen >= maxChanged) break;", "", 'diff: il limite di righe non vale'],
+    ['diff', 'src/services/diff.ts', "hidden: changeRows.length - seen", "hidden: 0", 'diff: le righe nascoste non si contano'],
+    ['diff', 'src/services/diff.ts', "const removed = changeRows.filter(r => r.oldNo !== null).length;", "const removed = changeRows.filter(r => r.kind === 'removed').length;", 'diff: le righe cambiate non contano come tolte'],
+    ['diff', 'src/services/diff.ts', "while (start > 0 && isWord(oldText[start - 1])) start--;", "", 'diff: il tratto non si allarga alla parola (inizio)'],
+    ['diff', 'src/services/diff.ts', "while (isWord(oldText[endOld])) { endOld++; endNew++; }", "", 'diff: il tratto non si allarga alla parola (fine)'],
+    ['diff', 'src/services/diff.ts', "if (file.toLowerCase().endsWith('.json'))", "if (false)", 'diff: i JSON non si rientrano'],
+    ['diff', 'src/services/diff.ts', "text.replace(/^﻿/, '')", "text", 'diff: il BOM rompe il JSON'],
     // ── patch.ts: il piano
     ['patch.ts', 'src/services/patch.ts', "return options.publishByAgent?.[schemaName] ?? options.publishOnImport;", 'return options.publishOnImport;', "l'eccezione per agent viene ignorata"],
     ['patch.ts', 'src/services/patch.ts', 'const clean = suffix.trim();', 'const clean = suffix;', 'il suffisso non viene ripulito'],
@@ -50,28 +76,19 @@ const MUTATIONS = [
     ['rezip.ts', 'src/services/rezip.ts', 'if (a.length !== b.length) return false;', '', 'confronto byte con lunghezze diverse'],
     ['rezip.ts', 'src/services/rezip.ts', '&& v.byteIdenticalEntries === expectedEntries;', ';', 'le entry intatte non vengono contate'],
     // ── app.ts: la schermata
-    ['app.ts', 'src/app.ts', 'for (const a of selectedAgents()) setPublishMode(a.schemaName, btn.dataset.publishAll as PublishMode);', 'for (const a of solutionAgents()) setPublishMode(a.schemaName, btn.dataset.publishAll as PublishMode);', '"all" tocca anche gli agent esclusi'],
-    ['app.ts', 'src/app.ts', 'nextBtn.disabled = selectedAgents().length === 0 || versionIssue() !== null;', 'nextBtn.disabled = versionIssue() !== null;', 'Next resta acceso senza agent selezionati'],
     ["app.ts", "src/app.ts", "<td>${escapeHtml(publishSummary(t.name))}</td>", "<td>Leave as is</td>", "la revisione mostra sempre \"Leave as is\""],
     ['app.ts', 'src/app.ts', 'const changedEntries = pkg.entries.length - r.managed.expectedIdenticalEntries;', 'const changedEntries = 1;', 'il banner dice sempre "1 entry"'],
-    ['app.ts', 'src/app.ts', 'if (mixed.length > 1) {', 'if (false) {', 'nessuna conferma sui suffissi misti'],
-    ['app.ts', 'src/app.ts', 'const chosen = selectedAgents().map(a => a.schemaName);', 'const chosen = solutionAgents().map(a => a.schemaName);', 'il package include gli agent esclusi'],
     ['app.ts', 'src/app.ts', 'if (state.browsingSolutionId !== solutionId) {', 'if (false) {', 'cambiando solution lo stato non si azzera'],
     ['app.ts', 'src/app.ts', 'state.options.publishByAgent = {};', '', 'cambiando solution i publish per agent restano'],
-    ['app.ts', 'src/app.ts', 'if (box.checked) state.excludedAgents.delete(box.dataset.agent!);', 'if (!box.checked) state.excludedAgents.delete(box.dataset.agent!);', 'la spunta di un agent fa il contrario'],
     ['app.ts', 'src/app.ts', 'state.highlightAgentId = highlightAgentId;', "state.highlightAgentId = '';", 'la ricerca non evidenzia l\'agent'],
     ['app.ts', 'src/app.ts', '<tfoot>', '<tbody>', 'le azioni globali non stanno piu\' nel piede della tabella'],
     ['app.ts', 'src/app.ts', "common === m ? ' is-active' : ''", "false ? ' is-active' : ''", 'il toggle "per tutti" non resta acceso'],
-    ['app.ts', 'src/app.ts', 'chosen.every(a => publishModeFor(state.options, a.schemaName) === first)', 'true', 'il toggle "per tutti" si accende anche con valori misti'],
     ['app.ts', 'src/app.ts', '<td colspan="4" class="foot-cell">', '<td colspan="2" class="foot-cell">', 'il toggle "per tutti" non e\' sotto la colonna dei toggle'],
     ['app.ts', 'src/app.ts', '<table class="data-table data-table--fill">', '<table class="data-table">', 'la tabella non usa tutta la larghezza'],
     ["app.ts", "src/app.ts", " cell-nowrap\" title=\"${escapeHtml(next)}\">", "\" title=\"${escapeHtml(next)}\">", "il nome risultante puo' andare a capo"],
     ['app.ts', 'src/app.ts', '${sol && sol.exportable ? `', '${sol ? `', 'il rename e\' offerto anche su una solution managed'],
-    ['app.ts', 'src/app.ts', 'agents: agentOutcomes(pkg, r.plan),', 'agents: [],', 'lo storico non registra gli agent'],
-    ['app.ts', 'src/app.ts', 'if (btn.dataset.publish) {', 'if (false) {', 'il toggle di un agent non fa niente'],
     ['app.ts', 'src/app.ts', '<span class="agent-name">${escapeHtml(a.name)}</span>', '<span class="agent-name">${a.name}</span>', 'il nome dell\'agent non e\' sfuggito (HTML)'],
     // ── revisione, artefatti, avanzamento, anteprima per agent (v1.1.0)
-    ['app.ts', 'src/app.ts', /(<div class=")stack(">\r?\n\s+<section class="panel">\r?\n\s+<div class="panel-head">\r?\n\s+<h3 class="panel-heading">\$\{icon\('pencil', 'icon--head'\)\}Rename)/, '$1two-col$2', 'v1.1.0: i pannelli della revisione tornano affiancati'],
     ['styles.css', 'src/styles.css', /(\.art-desc \{)/, '$1 max-width: 78ch;', 'v1.1.0: le descrizioni degli artefatti hanno una larghezza massima'],
     ['styles.css', 'src/styles.css', '.art-body { flex: 1; min-width: 0; }', '.art-body { min-width: 0; }', 'v1.1.0: il testo degli artefatti non riempie la riga'],
     ['packaging.ts', 'src/services/packaging.ts', 'const PHASE_PAUSE_MS = 700;', 'const PHASE_PAUSE_MS = 0;', 'v1.1.0: nessuna pausa tra le fasi'],
@@ -110,11 +127,9 @@ const MUTATIONS = [
     ['packaging.ts', 'src/services/packaging.ts', 'version: options.newVersion ?? undefined', 'version: undefined', 'v1.1.0: la verifica non controlla la versione dello zip'],
     ['app.ts', 'src/app.ts', "state.options.newVersion = state.raiseVersion && !versionIssue() ? chosenVersion().trim() : null;", 'state.options.newVersion = null;', 'v1.1.0: la schermata non passa mai la versione'],
     ['app.ts', 'src/app.ts', "'Choose a valid new version below to continue.'", "''", 'v1.1.0: nessun invito a correggere la versione'],
-    ['app.ts', 'src/app.ts', 'nextBtn.disabled = selectedAgents().length === 0 || versionIssue() !== null;', 'nextBtn.disabled = selectedAgents().length === 0;', 'v1.1.0: Next acceso con una versione non valida'],
     ['app.ts', 'src/app.ts', '(state.options.newVersion ?? state.versionFrom ?? sol.version)', 'sol.version', 'v1.1.0: i nomi degli archivi non portano la versione nuova'],
     ['app.ts', 'src/app.ts', "(raise ? [VERSION_PHASE, ...PACK_PHASES] : [...PACK_PHASES])", '[...PACK_PHASES]', 'v1.1.0: manca la fase "Raise the version in DEV"'],
     ['app.ts', 'src/app.ts', "if (!state.versionFrom || (!state.packaging && !state.versionTouched)) state.versionFrom = sol.version;", "if (!state.versionFrom) state.versionFrom = sol.version;", 'v1.1.0: la versione di partenza non si rilegge'],
-    ['app.ts', 'src/app.ts', 'versionChange: r.versionChange,', 'versionChange: null,', 'v1.1.0: lo storico non registra la versione'],
     ['agentCards.ts', 'src/services/agentCards.ts', "|| !value.startsWith(PNG_SIGNATURE)", "", "v1.1.0 (008): un JPEG o un testo diventano \"icona\""],
     ['agentCards.ts', 'src/services/agentCards.ts', "if (!value || value.length > MAX_ICON_CHARS) return null;", "if (!value) return null;", "v1.1.0 (008): nessun limite alla lunghezza dell'icona"],
     ['agentCards.ts', 'src/services/agentCards.ts', "if (!BASE64_RE.test(value) ||", "if (false ||", "v1.1.0 (008): caratteri fuori dall'alfabeto base64 accettati"],
@@ -136,7 +151,11 @@ const MUTATIONS = [
     ['agentCards.ts', "src/services/agentCards.ts", "const EMPTY: AgentCard = { iconDataUri: null, kind: 'unknown' };", "const EMPTY: AgentCard = { iconDataUri: null, kind: 'standard' };", "v1.1.0 (010): una lettura fallita dichiara tutti standard"],
     ['agentCards.ts', "src/services/agentCards.ts", "                <attribute name=\"template\"/>\n", "", "v1.1.0 (010): la colonna template non viene letta"],
     ['agentCards.ts', "src/services/agentCards.ts", "kind: agentKindOf(templateOf.get(a.id)),", "kind: 'standard',", "v1.1.0 (010): il tipo non dipende dal template"],
-    ['app.ts', "src/app.ts", "harness: 'GitHub Copilot harness',", "harness: '',", "v1.1.0 (010): l'icona harness non ha etichetta"],
+    ['app.ts', "src/app.ts", "harness: 'Microsoft Copilot harness',", "harness: '',", "v1.1.0 (010): l'icona harness non ha etichetta"],
+    ['app.ts', "src/app.ts", "    back.disabled = true;", "", "v1.1.5 (019): Back resta attivo mentre si esporta"],
+    ['app.ts', "src/app.ts", "for (const t of selectedTargetList()) foldedAgentLists.add(t.name);", "void 0;", "v1.1.5 (019): Collapse all non ripiega nulla"],
+    ['app.ts', "src/app.ts", "foldedAgentLists.clear();", "void 0;", "v1.1.5 (019): Expand all non riapre nulla"],
+    ['app.ts', "src/app.ts", "harness: 'MCH',", "harness: 'GCH',", "v1.1.5 (019): la sigla del tipo harness cambia"],
     ['app.ts', "src/app.ts", "el.outerHTML = agentKindHtml(el.dataset.cardKind ?? '');", "void 0;", "v1.1.0 (010): il tipo non si riempie dopo la lettura"],
     ['app.ts', "src/app.ts", /<th>Agent<\/th>\s*<th>Agent type<\/th>/, "<th>Agent</th><th>Type</th>", "v1.1.0 (010): la colonna ha un altro titolo"],
     ['app.ts', "src/app.ts", "{ label: 'Version', value: pkg.version },", "{ label: 'Versione', value: pkg.version },", "v1.1.0 (011): un'etichetta in italiano"],
@@ -144,7 +163,6 @@ const MUTATIONS = [
     ['app.ts', "src/app.ts", "{ label: 'Entries', value: String(pkg.entries.length) },", "{ label: 'Entry', value: String(pkg.entries.length) },", "v1.1.0 (011): etichetta dell'anteprima diversa dalle altre"],
     ['app.ts', "src/app.ts", "label: 'Checks', step: 'verify'", "label: 'Verifica', step: 'verify'", "v1.1.0 (011): il percorso non usa il nome del passo"],
     ['app.ts', "src/app.ts", "<dd${s.title ? ` title=\"${escapeHtml(s.title)}\"` : ''}>${escapeHtml(s.value)}", "<dd${s.title ? ` title=\"${escapeHtml(s.title)}\"` : ''}>${s.value}", "v1.1.0 (011): il valore di una tile diventa HTML"],
-    ['app.ts', "src/app.ts", /\{ label: 'Agents', value: String\(agents\) \},\s*\]\);/, "{ label: 'Agents', value: String(agents) }, { label: 'Managed', value: String(counts.managed) }]);", "v1.1.0 (011): il conteggio managed si ripete nelle tile"],
     // ── packaging.ts: il collegamento
     ['packaging.ts', 'src/services/packaging.ts', "expected.publish![c.file] = c.after === 'true';", 'expected.publish![c.file] = true;', 'la verifica riceve publishOnImport sbagliato'],
     // ── pins.ts / app.ts: pin delle solution (012)
@@ -161,10 +179,6 @@ const MUTATIONS = [
     ['app.ts', 'src/app.ts', 'state.pins = await readPins(conn.name);', '', 'pin: i pin non si leggono all avvio'],
     ['app.ts', 'src/app.ts', "    setPinned(state.connectionName, uniqueName, on).catch(", "    Promise.resolve().catch(", 'pin: il pin non si salva'],
     // ── app.ts: avviso "nessun suffisso" (013) e limite dei pin (012)
-    ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "if (state.suffix === '' && !(await confirmNoSuffix())) return;", 'nosuffix: gli spazi non contano come vuoto'],
-    ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "if (!(await confirmNoSuffix())) return;", 'nosuffix: l avviso compare anche con un suffisso'],
-    ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "", 'nosuffix: nessun avviso'],
-    ['app.ts', 'src/app.ts', "if (state.suffix.trim() === '' && !(await confirmNoSuffix())) return;", "if (state.suffix.trim() === '') await confirmNoSuffix();", 'nosuffix: annullare va avanti lo stesso'],
     ['app.ts', 'src/app.ts', "return state.pins.filter(n => known.has(n)).length >= MAX_PINS;", "return false;", 'pin: nessun limite'],
     ['package.ts', 'src/services/package.ts', '? agentSchemas.includes(parent)', '? true', 'inventario: il padre estraneo conta come dell agent'],
     ['package.ts', 'src/services/package.ts', '? agentSchemas.includes(parent)', '? agentSchemas.some(s => component.startsWith(`${s}.`))', 'inventario: il parentbotid e ignorato, vale il nome'],
@@ -211,7 +225,6 @@ const MUTATIONS = [
     ['targets', 'src/services/targets.ts', String.raw`/[[\]\\/:*?"<>|`, String.raw`/[\]\\/:*?"<>|`, 'targets: la parentesi quadra aperta e\' ammessa nel nome'],
     ['targets', 'src/services/targets.ts', 't.name.toLowerCase() === clean.toLowerCase()', 't.name === clean', 'targets: i doppioni con altre maiuscole sono ammessi'],
     ['targets', 'src/services/targets.ts', 'out.splice(at < 0 ? out.length : at, 0,', 'out.splice(out.length, 0,', 'targets: Restore defaults rimette i preset in coda invece che al loro posto'],
-    ['targets', 'src/services/targets.ts', 'rank(t.name) > rank(name)', 'rank(t.name) >= rank(name)', 'targets: Restore defaults inserisce dopo il preset successivo'],
     ['schermata', 'src/styles.css', '.dialog--wide .dialog-body { max-height: calc(100vh - 190px); overflow-x: hidden; }', '.dialog--wide .dialog-body { max-height: 400px; }', 'schermata: il dialogo largo torna a 400px con barre di scorrimento'],
     ['schermata', 'src/styles.css', '.data-table.confirm-targets td { white-space: normal;', '.data-table.confirm-targets td { white-space: nowrap;', 'schermata: il nome del file non va a capo e allarga la tabella'],
     ["production", "src/app.ts", "selectedTargetList().some(needsNoSuffixWarning)", "selectedTargetList().some(t => t.name.trim() === '')", "production: l'avviso scatta anche per il Target marcato"],
@@ -277,7 +290,6 @@ const MUTATIONS = [
     ["stepper", "src/styles.css", ".stepper-line.done::after { transform: scaleX(1); }", ".stepper-line.done::after { transform: scaleX(0); }", "stepper: la linea fatta resta vuota"],
     ["stepper", "src/styles.css", "box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 28%, transparent),", "box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 28%, transparent),", "stepper: il cerchio corrente non ha l'anello"],
     ["stepper", "src/styles.css", "    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);\n}\n.stepper-line.done", "    transition: none;\n}\n.stepper-line.done", "stepper: la linea non si riempie con una transizione"],
-    ["stepper", "src/styles.css", ".stepper-item.active { color: var(--color-text-strong); font-weight: 600;", ".stepper-item.active { color: var(--color-text-strong); font-weight: 400;", "stepper: l'etichetta corrente non e' in evidenza"],
     ["stepper", "src/styles.css", "    .stepper-dot, .stepper-item, .stepper-line::after { transition: none; }", "    .stepper-dot, .stepper-item, .stepper-line::after { }", "stepper: con meno animazioni le transizioni restano"],
     ["panels", "src/app.ts", "        if (!seenPanels.has(id)) {", "        if (true) {", "panels: il «ripiegato di partenza» vale a ogni visita"],
     ["panels", "src/app.ts", "            if (panel.dataset.collapsed === '1') collapsedPanels.add(id);\n", "", "panels: nessun riquadro parte ripiegato"],
@@ -335,13 +347,11 @@ const MUTATIONS = [
     ["diffui", "src/app.ts", "decode(patched![f])), diffMode)).join('');", "decode(patched![f])), 'split')).join('');", "diffui: il diff non segue il modo Split / Unified"],
     ["diffui", "src/app.ts", "const tab = changeTabs.get(key) ?? 'diff';", "const tab = changeTabs.get(key) ?? 'table';", "diffui: la scheda di partenza e' Table"],
     ["diffui", "src/app.ts", "            changeTabs.set(group.dataset.group ?? '', want);\n", "", "diffui: la scheda scelta non si conserva"],
-    ["diffui", "src/app.ts", "p.hidden = p.dataset.pane !== want;", "p.hidden = p.dataset.pane === want;", "diffui: i pannelli delle schede sono invertiti"],
     ["diffui", "src/app.ts", "b.setAttribute('aria-selected', String(on));", "b.setAttribute('aria-selected', String(!on));", "diffui: aria-selected delle schede e' invertito"],
     ["diffui", "src/app.ts", "diffMode = btn.dataset.diffMode === 'unified' ? 'unified' : 'split';", "diffMode = 'split';", "diffui: Unified non si attiva"],
     ["diffui", "src/app.ts", "diffMode = btn.dataset.diffMode === 'unified' ? 'unified' : 'split';\n            if (state.packaging) renderPreviewResult(", "diffMode = btn.dataset.diffMode === 'unified' ? 'unified' : 'split';\n            if (false) renderPreviewResult(", "diffui: cambiare modo non ridisegna il diff"],
     ["diffui", "src/app.ts", "const toolbar = perAgent.length ? `", "const toolbar = false ? `", "diffui: la barra Split / Unified non compare"],
     ["diffui", "src/app.ts", "aria-pressed=\"${diffMode === 'split'}\"", "aria-pressed=\"${diffMode === 'unified'}\"", "diffui: aria-pressed del pulsante Split e' invertito"],
-    ["diffui", "src/app.ts", "data-pane=\"table\" role=\"tabpanel\"${tab === 'table' ? '' : ' hidden'}>", "data-pane=\"table\" role=\"tabpanel\" hidden>", "diffui: la scheda Table non si apre"],
     ["diffui", "src/app.ts", "fileDiff(f, decode(pkg.entries.find(e => e.path === f)?.data), decode(patched![f]))", "fileDiff(f, decode(patched![f]), decode(pkg.entries.find(e => e.path === f)?.data))", "diffui: prima e dopo sono scambiati"],
     ["diffui", "src/app.ts", "<div class=\"change-tabs\" role=\"tablist\" aria-label=\"View\">", "<div class=\"change-tabs\" role=\"list\" aria-label=\"View\">", "diffui: le schede non hanno il ruolo tablist"],
     ["diffui", "src/styles.css", ".change-pane[hidden] { display: none; }", ".change-pane[hidden] { display: block; }", "diffui: il pannello nascosto si vede"],
@@ -424,7 +434,6 @@ const MUTATIONS = [
     ['schermata', 'src/app.ts', "return state.options.keepSourceArtifacts ? n * 2 + 2 : n;", "return state.options.keepSourceArtifacts ? n * 2 : n;", "schermata: il conteggio degli archivi dimentica gli originali"],
     ['schermata', 'src/app.ts', "return labels.length > 1 ? [{ target: tr.target.name, labels }] : [];", "return [];", "schermata: i nomi misti non chiedono conferma"],
     ['schermata', 'src/app.ts', "const several = (state.packaging?.targets.length ?? 1) > 1;", "const several = false;", "schermata: la conferma dei nomi misti non dice in quale Target"],
-    ['schermata', 'src/app.ts', "${deploys.length > 1 ? `", "${false ? `", "schermata: il risultato non elenca un archivio per Target"],
     ['schermata', 'src/app.ts', "    return Math.max(0, multi.targets.findIndex(t => t.target.name === name));", "    return 0;", "schermata: anteprima e controlli mostrano sempre il primo Target"],
     ['schermata', 'src/app.ts', "c.differing.filter(d => d.kind === 'agent-name').length", "c.differing.filter(d => d.kind === 'publish-on-import').length", "schermata: la tabella dei Target scambia nomi e publish"],
     ['schermata', 'src/app.ts', "state.targets = moveTarget(state.targets, i, i - 1);", "state.targets = moveTarget(state.targets, i, i + 1);", "schermata: il pulsante su sposta in giu'"],
@@ -458,7 +467,6 @@ const MUTATIONS = [
     ['schermata', "src/app.ts", "const picked = selectedAgents('');", "const picked = selectedAgents();", "schermata: D8 UI: l'avviso del suffisso vuoto usa gli agent del Target mostrato"],
     ['schermata', "src/app.ts", "        state.excludedByTarget.clear();\n        state.publishByTarget.clear();\n        state.options.publishByAgent = {};\n        resetVersionPlan();\n        state.selectedTargets = [];", "        state.publishByTarget.clear();\n        state.options.publishByAgent = {};\n        resetVersionPlan();\n        state.selectedTargets = [];", "schermata: D8 UI: cambiando solution le esclusioni restano"],
     ['schermata', "src/app.ts", "${mixed.length > 1 ? mixedSuffixHtml(mixed, target.name) : ''}`;", "${mixed.length > 1 ? mixedSuffixHtml(mixed) : ''}`;", "schermata: D8 UI: l'avviso dei nomi misti elenca gli agent del Target sbagliato"],
-    ['schermata', "src/app.ts", "${on ? `<div class=\"target-agents\" data-agents-for=\"${i}\">${agentRowsHtml(t)}</div>` : ''}", "<div class=\"target-agents\" data-agents-for=\"${i}\">${agentRowsHtml(t)}</div>", "schermata: D8 UI: la tabella compare anche per i Target non spuntati"],
     ['schermata', "src/app.ts", "const out = state.excludedByTarget.get(name);\n    return solutionAgents().filter(a =>\n        out?.has(a.id) &&", "const out = state.excludedByTarget.get('');\n    return solutionAgents().filter(a =>\n        out?.has(a.id) &&", "schermata: D8 UI: i nomi misti guardano le esclusioni del Target senza suffisso"],
     // -- spec 016 D9: publish del Target a pulsanti, Restore, riepilogo nei popup
     ["targets", "src/services/targets.ts", "return DEFAULT_TARGET_NAMES.filter(n => !have.has(n.toLowerCase()));", "return DEFAULT_TARGET_NAMES.filter(n => have.has(n.toLowerCase()));", "targets: D9: i preset mancanti sono quelli presenti"],
@@ -475,6 +483,26 @@ const MUTATIONS = [
     ["schermata", "src/app.ts", "${n > 1 ? `\n            <p class=\"dlg-note\">", "${n > 0 ? `\n            <p class=\"dlg-note\">", "schermata: D9 UI: il dialogo della versione parla di piu' package anche con uno solo"],
     ["schermata", "src/app.ts", "        wide: several,\n", "        wide: false,\n", "schermata: D9 UI: il dialogo del suffisso vuoto resta stretto con la tabella"],
     ["schermata", "src/app.ts", "        wide: n > 1,\n", "        wide: false,\n", "schermata: D9 UI: il dialogo della versione resta stretto con la tabella"],
+    // ── fold (spec 019, blocco D): elenchi ripiegabili, stepper, storico
+    ["fold", "src/app.ts", "    const fold = agents.length > FOLD_AFTER;", "    const fold = agents.length >= FOLD_AFTER;", "fold: due agent hanno gia' l'intestazione che ripiega"],
+    ["fold", "src/app.ts", "const FOLD_AFTER = 2;", "const FOLD_AFTER = 3;", "fold: la soglia sale a tre agent"],
+    ["fold", "src/app.ts", "if (foldedAgentLists.has(owner.name)) foldedAgentLists.delete(owner.name); else foldedAgentLists.add(owner.name);", "foldedAgentLists.add(owner.name);", "fold: un elenco ripiegato non si riapre"],
+    ["fold", "src/app.ts", "const closed = fold && foldedAgentLists.has(t.name);", "const closed = false;", "fold: lo stato ripiegato si perde al ridisegno"],
+    ["fold", "src/app.ts", "const picked = agents.length - excludedOf(t.name).size;", "const picked = agents.length;", "fold: il conteggio ignora gli agent tolti"],
+    ["fold", "src/app.ts", "const foldable = perAgent.length > FOLD_AFTER;", "const foldable = perAgent.length >= FOLD_AFTER;", "fold: l'anteprima ripiega gia' con due agent"],
+    ["fold", "src/app.ts", "const closed = foldable && foldedChanges.has(key);", "const closed = false;", "fold: l'anteprima perde lo stato ripiegato al ridisegno"],
+    ["fold", "src/app.ts", "p.hidden = closed || p.dataset.pane !== tab;", "p.hidden = p.dataset.pane !== tab;", "fold: il pulsante non nasconde le schede dell'agent"],
+    ["fold", "src/app.ts", "p.hidden = folded || p.dataset.pane !== want;", "p.hidden = p.dataset.pane !== want;", "fold: cambiare scheda riapre un agent ripiegato"],
+    ["fold", "src/app.ts", "        await clearHistory();", "        void 0;", "fold: Clear all non svuota lo storico"],
+    [
+        "fold", "src/app.ts", /(title: `Clear all[\s\S]*?\}\);\s*)if \(!ok\) return;/, "$1", "fold: Clear all cancella anche se si annulla",
+    ],
+    ["fold", "src/services/history.ts", "await mutate(() => []);", "await mutate(list => list.slice(1));", "fold: Clear all lascia una voce"],
+    ["fold", "src/app.ts", "<span class=\"chip chip--muted\" id=\"history-count\">${list.length} ${list.length === 1 ? 'entry' : 'entries'}</span>", "<span class=\"chip chip--muted\" id=\"history-count\">${list.length} entries</span>", "fold: il conteggio dello storico non gestisce il singolare"],
+    ["fold", "src/app.ts", ".split(' + ')", ".split(',')", "fold: i Target dello storico non sono chip separati"],
+    ["fold", "src/app.ts", "return n > FOLD_AFTER\n", "return n > 99\n", "fold: gli agent dello storico non si ripiegano"],
+    ["fold", "src/styles.css", ".step-header-row { padding-top: 14px; }", ".step-header-row { padding-top: 0; }", "fold: il cerchio dello stepper e' tagliato in alto"],
+    ["fold", "src/styles.css", "padding: 12px 20px 12px 14px; }", "padding: 6px 4px; }", "fold: lo stepper non ha spazio per il bagliore"],
 ];
 
 const only = process.argv[2];
@@ -483,26 +511,86 @@ const restore = () => { for (const [file, text] of originals) writeFileSync(at(f
 process.on('SIGINT', () => { restore(); process.exit(130); });
 process.on('SIGTERM', () => { restore(); process.exit(143); });
 
+// Quali mutazioni girano, e l'avanzamento: un contatore, il tempo stimato e un file leggibile in ogni momento
+// `chunk:K/N` prende il blocco K di N delle mutazioni di src/app.ts (le piu' numerose): blocchi esatti, senza buchi ne' doppioni
+const chunk = /^chunk:(\d+)\/(\d+)$/.exec(only ?? '');
+const appOnly = MUTATIONS.filter(([, file]) => file === 'src/app.ts');
+const chunkSet = chunk
+    ? new Set(appOnly.slice(Math.floor((Number(chunk[1]) - 1) * appOnly.length / Number(chunk[2])), Math.floor(Number(chunk[1]) * appOnly.length / Number(chunk[2]))))
+    : null;
+let todo = MUTATIONS.filter(m => chunkSet ? chunkSet.has(m) : (!only || m[1].includes(only) || m[4].includes(only)));
+
+// `--changed-since=<tag>`: salta le mutazioni su codice di app.ts identico alla versione gia' rilasciata (gia' verificato allora)
+const since = process.argv.find(a => a.startsWith('--changed-since='))?.slice('--changed-since='.length);
+if (since) {
+    const shown = spawnSync('git', ['show', `${since}:src/app.ts`], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 });
+    if (shown.status !== 0) { console.error(`git show ${since}:src/app.ts non riuscito`); process.exit(2); }
+    const lf = (text) => text.split('\r\n').join('\n');
+    const old = lf(shown.stdout);
+    const before = todo.length;
+    todo = todo.filter((m) => m[1] !== 'src/app.ts' || !(typeof m[2] === 'string' ? old.includes(lf(m[2])) : m[2].test(old)));
+    console.log(`--changed-since=${since}: ${before - todo.length} mutazioni su codice invariato saltate`);
+}
+const progressFile = at('test-results/mutation-progress.txt');
+const started = Date.now();
+const fmt = ms => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+// Quale file di test ha scoperto ogni mutazione l'ultima volta: tiene le esecuzioni successive corte
+const killersFile = at('test-results/mutation-killers.json');
+let killers = {};
+try { killers = JSON.parse(readFileSync(killersFile, 'utf8')); } catch { /* la prima volta non c'e' */ }
+const saveKillers = () => { try { mkdirSync(dirname(killersFile), { recursive: true }); writeFileSync(killersFile, JSON.stringify(killers, null, 1)); } catch { /* e' solo un aiuto */ } };
+const runSuite = files => spawnSync('npx', ['vitest', 'run', '--bail', '1', ...files], { cwd: root, shell: true, encoding: 'utf8' });
+
 const results = [];
-for (const [, file, from, to, why] of MUTATIONS) {
-    if (only && !file.includes(only) && !why.includes(only)) continue;
+const writeProgress = (done) => {
+    const survived = results.filter(r => r.status === 'SOPRAVVISSUTA').length;
+    const stale = results.filter(r => r.status === 'ANCORA NON TROVATA').length;
+    const elapsed = Date.now() - started;
+    const eta = done ? (elapsed / done) * (todo.length - done) : 0;
+    const text = `${done}/${todo.length} fatte, ${results.filter(r => r.status === 'scoperta').length} scoperte, ${survived} sopravvissute, ${stale} obsolete; `
+        + `trascorsi ${fmt(elapsed)}, mancano circa ${fmt(eta)}; rimaste ${todo.length - done}
+`;
+    try { mkdirSync(dirname(progressFile), { recursive: true }); writeFileSync(progressFile, text); } catch { /* il file e' solo un aiuto */ }
+    return text.trim();
+};
+console.log(`${todo.length} mutazioni da provare${only ? ` (filtro: ${only})` : ''}. Avanzamento anche in test-results/mutation-progress.txt
+`);
+
+for (const [, file, from, to, why] of todo) {
     const original = readFileSync(at(file), 'utf8');
     const match = typeof from === 'string' ? original.includes(from) : from.test(original);
-    if (!match) { results.push({ why, file, status: 'ANCORA NON TROVATA' }); continue; }
+    if (!match) {
+        results.push({ why, file, status: 'ANCORA NON TROVATA' });
+        console.log(`[${results.length}/${todo.length}] OBS ${file}: ${why}`);
+        writeProgress(results.length);
+        continue;
+    }
 
     originals.set(file, original);
     try {
         writeFileSync(at(file), original.replace(from, to));
-        const run = spawnSync('npx', ['vitest', 'run', '--bail', '1'], { cwd: root, shell: true, encoding: 'utf8' });
-        results.push({ why, file, status: run.status === 0 ? 'SOPRAVVISSUTA' : 'scoperta' });
+        // Prima solo il file di test che l'ha scoperta l'ultima volta (pochi secondi); l'intera suite solo se non basta
+        let killed = false;
+        const known = killers[why];
+        if (known) killed = runSuite([known]).status !== 0;
+        if (!killed) {
+            const full = runSuite([]);
+            killed = full.status !== 0;
+            const failed = /FAIL\s+(test\/[^\s>]+\.test\.ts)/.exec(`${full.stdout}
+${full.stderr}`);
+            if (killed && failed && killers[why] !== failed[1]) { killers[why] = failed[1]; saveKillers(); }
+        }
+        results.push({ why, file, status: killed ? 'scoperta' : 'SOPRAVVISSUTA' });
     } finally {
         restore();
     }
-    console.log(`${results.at(-1).status === 'scoperta' ? 'ok  ' : 'KO  '} ${file}: ${why}`);
+    const tag = results.at(-1).status === 'scoperta' ? 'ok ' : 'KO ';
+    console.log(`[${results.length}/${todo.length}] ${tag} ${file}: ${why}`);
+    console.log(`        ${writeProgress(results.length)}`);
 }
 
 const bad = results.filter(r => r.status !== 'scoperta');
-console.log(`\n${results.length - bad.length}/${results.length} difetti scoperti dalla suite`);
+console.log(`\n${results.length - bad.length}/${results.length} difetti scoperti dalla suite (${fmt(Date.now() - started)})`);
 if (bad.length) {
     console.log('\nDa sistemare:');
     for (const b of bad) console.log(`  - [${b.status}] ${b.file}: ${b.why}`);

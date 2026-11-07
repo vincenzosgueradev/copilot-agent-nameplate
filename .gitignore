@@ -32,3 +32,6 @@ Thumbs.db
 # Temp
 *.tmp
 *.temp
+
+# Avanzamento e cache del controllo per mutazione (generati)
+test-results/
