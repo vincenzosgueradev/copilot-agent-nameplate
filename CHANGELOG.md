@@ -8,6 +8,36 @@ Every release MUST have an entry here before it is published (Constitution, *Rel
 Changelog*). Sections used: **Added**, **Changed**, **Fixed**, **Removed**, **Security**, plus
 **Upgrade notes** when a release asks something of the user.
 
+## [1.2.0] - 2026-11-07
+
+Several destinations from one export, guidance for managed solutions and a new look with a before and after diff.
+
+### Added
+- **Targets.** Pick several destinations (for example TEST, UAT, PROD) and build one package for each from a
+  single export, with one version and one zip per Target. Each Target carries its own agents and its own
+  "publish on import" choice, has its own publish button, and the list can be restored to the defaults.
+  The Target without a suffix can be marked as production (shown as PROD), and the empty-suffix warning
+  no longer appears for it.
+- **Guidance for managed solutions.** A note above the list explains what a managed solution is and where to
+  build the package; the banner names the environment and says what to do. Agents without a solution are
+  hidden from the Managed view.
+- **Before and after diff.** In the preview, every changed file of an agent shows the original and the patched
+  text side by side, numbered, with removed lines in red and added lines in green. A switch moves between
+  Split and Unified, and a Table tab keeps the previous Before / After view.
+- **Collapsible sections.** Every panel can be folded, with an info icon that explains in a sentence what it
+  is for. With more than two agents, the agent lists in Suffix, Preview and History fold too.
+- **History.** It shows the number of entries and a **Clear all** button (with confirmation; files on disk are
+  not touched). Each entry is a clearer card with a chip per Target.
+
+### Changed
+- The stepper makes the current step clearly larger, with a ring and a glow.
+- The review is leaner: it keeps only the warnings, no agent list. Dialogs have icons and the export
+  steps are numbered live.
+
+### Fixed
+- **A crafted zip could hang the tool.** The zip library is updated to 0.8.3, which fixes an endless loop
+  on certain ZIP64 files.
+
 ## [1.1.4] - 2026-10-31
 
 Fixes to the icon and the links on the marketplace page.
