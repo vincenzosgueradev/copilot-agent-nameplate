@@ -14,7 +14,7 @@ $ARGUMENTS
 
 Consider the user input if not empty (scope, type hint, extra context).
 
-# Conventional Commits — Agent Rename Manager (PPTB tool)
+# Conventional Commits - Agent Nameplate (PPTB tool)
 
 ## Format
 
@@ -36,28 +36,28 @@ Consider the user input if not empty (scope, type hint, extra context).
 | `style` | CSS / formatting, no logic change |
 | `refactor` | Restructure without behavior change |
 | `perf` | Performance improvement |
-| `test` | Tests / smoke script only |
+| `test` | Tests only |
 | `build` | Vite, tsconfig, dependencies, package.json/lock |
-| `ci` | Pipeline config (.github, Azure DevOps) |
+| `ci` | Pipeline config (`.github`) |
 | `chore` | Tooling, repo config, `.claude`, `.specify` |
 | `revert` | Revert a previous commit |
 
-## Scopes (use the most specific; omit if > 3 areas)
+## Scopes (use the most specific; omit if more than 3 areas)
 
 | Scope | Area |
 |---|---|
-| `ui` | `src/app.ts`, `index.html`, `styles.css`, `components/`, `services/ui.ts` |
-| `package` | Solution package handling: `package.ts`, `packaging.ts`, `rezip.ts`, `export.ts`, `files.ts` |
-| `patch` | Agent display-name patching: `patch.ts`, `compat.ts`, `baseline/` |
-| `dataverse` | `dataverse.ts`, `solutions.ts` |
-| `deploy` | `deploy.ts` |
-| `history` | `history.ts`, `artifacts.ts`, `log.ts` |
-| `headless` | `headless.ts`, `vite.headless.config.ts`, headless API |
-| `config` | `pptb.config.json`, pptb fields in `package.json` |
-| `smoke` | `scripts/smoke-package.mts` |
+| `ui` | `src/views/**`, `index.html`, `styles.css` |
+| `model` | `src/model/**` (pure domain) |
+| `services` | `src/services/**` (use cases, plan/apply) |
+| `state` | `src/state/**` (reducer, store) |
+| `host` | `src/host.ts` (the only door to PPTB) |
+| `config` | `package.json` PPTB fields, vite and vitest config |
 | `specs` | `specs/**` (spec-kit artifacts) |
 | `constitution` | `.specify/memory/constitution.md` |
 | `claude` | `.claude/**` |
+
+If the tool's `CLAUDE.md` has a `## Commit scopes` section, add those scopes to the table (and drop generic ones that
+do not exist in this tool).
 
 ## Rules
 
@@ -70,9 +70,9 @@ Consider the user input if not empty (scope, type hint, extra context).
 ## Procedure
 
 1. `git status` and `git diff` (staged; if nothing staged, look at unstaged + untracked changes).
-2. If nothing is staged, propose which files to stage (never `node_modules`, `dist`, `.env*`, secrets, `*.zip` solution packages). Prefer staging by explicit path over `git add -A`.
+2. If nothing is staged, propose which files to stage (never `node_modules`, `dist`, `.env*`, secrets, `*.zip`). Prefer staging by explicit path over `git add -A`.
 3. If the changes clearly belong to several concerns, propose a split and commit them one at a time.
-4. Generate the message and show it with `AskUserQuestion` (options: proposed message — recommended; change type/scope; write my own).
+4. Generate the message and show it with `AskUserQuestion` (options: proposed message - recommended; change type/scope; write my own).
 5. Commit using a HEREDOC. Append the attribution line required by the session's system reminder, if any.
 6. Show hash + short summary (`git log -1 --stat`).
 

@@ -157,14 +157,18 @@ https://docs.powerplatformtoolbox.com/policies/marketplace):
 
 How we work after each release:
 
-1. Publish to npm, then check the tool's row in My Tools: the **version** column must show the new number.
-2. If it still shows the old one, press **More, Trigger Update**: the row shows "Updating" and then the new version.
-3. Open the tool's public page and check the logo, the description and the README with its screenshots.
-4. After a **Needs Changes**: fix, publish a new version, then press **Resubmit** on the row.
+1. Publish to npm.
+2. **Push `main` and the tag `vX.Y.Z` to GitHub, before anything else on the marketplace**: the page reads the
+   README from `main`, so until the push it still shows the previous Updates list. Check that the raw README on
+   `raw.githubusercontent.com` has the new `### X.Y.Z` heading.
+3. Check the tool's row in My Tools: the **version** column must show the new number.
+4. If it still shows the old one, press **More, Trigger Update**: the row shows "Updating" and then the new version.
+5. Open the tool's public page and check the logo (not the stand-in box), the description and the README with its screenshots.
+6. Only then, after a **Needs Changes**: press **Resubmit** on the row.
 
-Written down 2026-10-31 from the My Tools page and the PPTB docs. Confirmed the same day with Agent Nameplate:
-after publishing 1.1.3 the row still showed v1.1.2; **More, Trigger Update** made it show "Updating" and then
-v1.1.3, Active, within a few minutes. Whether the registry would have picked the version up by itself later was not
+Written down 2026-10-31 from the My Tools page and the PPTB docs. Confirmed the same day on a published tool:
+after publishing, the row still showed the previous version; **More, Trigger Update** made it show "Updating" and then
+the new version, Active, within a few minutes. Whether the registry would have picked the version up by itself later was not
 tested.
 
 A fix that only changes the README or the images still needs a new npm version: the page reads the README from the

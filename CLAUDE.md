@@ -46,7 +46,7 @@ Quando proponi il rilascio, scrivi la sequenza: `/custom-changelog` → `/custom
 
 ## Regole di pubblicazione PPTB: leggere sempre, aggiornare sempre
 
-Il file condiviso `../PPTB-PUBLISHING-RULES.md` (cartella sopra i tool) raccoglie cosa chiedono le pagine ufficiali e cosa
+Il file condiviso `../../PPTB-PUBLISHING-RULES.md` (cartella sopra i tool) raccoglie cosa chiedono le pagine ufficiali e cosa
 hanno chiesto le revisioni passate. È fonte di verità per `package.json`, README, icona e rilascio.
 
 - **Leggilo per intero** prima di toccare `package.json`, il README, l'icona o la pagina del marketplace, prima di
@@ -90,3 +90,19 @@ Tieni d'occhio i pattern ripetuti. Se noti uno di questi casi, **proponi tu** un
 - durante il lavoro emerge un'attività ricorrente che oggi non è coperta da nessuna skill.
 
 Formato: "Secondo me conviene creare la skill `/custom-xxx` perché …" con una riga su cosa farebbe e se la renderesti automatica o manuale. Non riproporre una skill già rifiutata.
+
+## Extra checks
+
+Used by `/custom-ampush` (push) and `/custom-publish` (release) in addition to build, tests and validate.
+
+- Push: `npm run smoke`; the build is `npm run build` plus `npm run build-headless`.
+- Release: `npm run smoke -- <path to a managed zip from a previous artifact set>` and
+  `npm run smoke:multi -- <same zip>`; if no zip is available, say they were skipped and why.
+- Also scan `scripts/**` and `headless.ts` in `/custom-dedup`.
+
+## Commit scopes
+
+Used by `/custom-commit` in addition to the generic ones: `package` (`package.ts`, `packaging.ts`, `rezip.ts`,
+`export.ts`, `files.ts`), `patch` (`patch.ts`, `compat.ts`, `baseline/`), `dataverse` (`dataverse.ts`, `solutions.ts`),
+`deploy` (`deploy.ts`), `history` (`history.ts`, `artifacts.ts`, `log.ts`), `headless` (`headless.ts`,
+`vite.headless.config.ts`), `smoke` (`scripts/smoke-package.mts`).

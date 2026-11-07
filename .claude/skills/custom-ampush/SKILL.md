@@ -1,6 +1,6 @@
 ---
 name: "custom-ampush"
-description: "Pre-push readiness check for Agent Rename Manager: git state, tsc + vite build, smoke test, spec task completeness. Read-only; reports READY or NOT READY. Run manually before pushing."
+description: "Pre-push readiness check: git state, tsc + vite build, tests, spec task completeness. Read-only; reports READY or NOT READY. Run manually before pushing."
 user-invocable: true
 disable-model-invocation: false
 ---
@@ -9,20 +9,20 @@ disable-model-invocation: false
 
 Read-only: never run `git add`, `commit`, `push`, `amend`, `reset`.
 
-## Step 1 — Git state
+## Step 1 - Git state
 Run `git status` and `git log --oneline @{u}..HEAD` (if no upstream, say: "No upstream. Use `git push -u origin <branch>`").
-If the tree is clean and nothing is ahead → print "Working tree clean. Nothing to commit or push." and stop.
+If the tree is clean and nothing is ahead, print "Working tree clean. Nothing to commit or push." and stop.
 
-## Step 2 — Blockers (run all, collect all)
-1. **Build**: from ``, run `npm run build` (tsc + vite + headless build). Any `error TS` / build failure → blocker, list errors.
-2. **Smoke**: from ``, run `npm run smoke`. Failure → blocker.
-2b. **Tests**: from ``, run `npm test` (fast suite, ≈40 s). Any failure → blocker, list the failing test names and the first assertion message. (The exhaustive `npm run test:full` and `npm run test:mutation` are required before a *release*, not before every push.)
-3. **Specs**: for each `specs/*/tasks.md`, count `- [ ]` vs `- [x]`. If > 20% unchecked → blocker (list the spec and unchecked tasks). If none exist, note it and skip.
-4. **Hygiene (warning only)**: staged/untracked files that look wrong — `node_modules/`, `dist/`, `.env*`, `*.zip`, `*.log`, secrets/tokens in the diff.
-5. **Docs drift (warning only)**: if `src/**` changed but neither `README.md` nor `specs/**` did, mention it.
+## Step 2 - Blockers (run all, collect all)
+1. **Build**: run `npm run build` (tsc + vite). Any `error TS` or build failure is a blocker; list the errors.
+2. **Extra checks**: run every check the tool's `CLAUDE.md` lists under `## Extra checks` for a push (for example a smoke script). A missing script named there is a blocker; a failing one is a blocker. If the section is absent, skip.
+3. **Tests**: run `npm test` (fast suite). Any failure is a blocker; list the failing test names and the first assertion message. (`npm run test:full` is required before a *release*, not before every push.)
+4. **Specs**: for each `specs/*/tasks.md`, count `- [ ]` vs `- [x]`. If more than 20% are unchecked, it is a blocker (list the spec and the unchecked tasks). If none exist, note it and skip.
+5. **Hygiene (warning only)**: staged or untracked files that look wrong: `node_modules/`, `dist/`, `.env*`, `*.zip`, `*.log`, secrets or tokens in the diff.
+6. **Docs drift (warning only)**: if `src/**` changed but neither `README.md` nor `specs/**` did, mention it.
 
-## Step 3 — Output
-- Blockers → print `🔴 NOT READY TO PUSH` with a checklist; stop.
-- Otherwise print `🟡 READY TO PUSH`: files grouped as Modified/Added/Deleted, commits ahead of origin, warnings.
+## Step 3 - Output
+- Blockers: print `NOT READY TO PUSH` with a checklist; stop.
+- Otherwise print `READY TO PUSH`: files grouped as Modified/Added/Deleted, commits ahead of origin, warnings.
   If there are uncommitted changes, tell the user to run `/custom-commit` first.
-  Then show: `git push` (or `git push -u origin <branch>`).
+  Then show: `git push` (or `git push -u origin <branch>`). The user runs it, never you.
