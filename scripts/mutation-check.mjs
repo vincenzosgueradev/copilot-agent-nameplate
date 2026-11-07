@@ -520,25 +520,41 @@ const chunkSet = chunk
     : null;
 let todo = MUTATIONS.filter(m => chunkSet ? chunkSet.has(m) : (!only || m[1].includes(only) || m[4].includes(only)));
 
-// `--changed-since=<ref>`: salta le mutazioni dei file identici alla versione gia' rilasciata (gia' verificati allora).
-// Basta una riga diversa nel file e TUTTE le sue mutazioni girano: una mutazione puo' dipendere dal codice attorno,
-// quindi non si salta mai per "il testo alterato esiste ancora". Un file nuovo gira sempre.
+// --changed-since=<ref>: cautious mode. The source mutants are skipped ONLY if nothing that decides their outcome changed
+// since <ref>: src, test, scripts, build/test config, package.json dependencies and scripts, the mutant list.
+// If any of them differs, ALL mutants run (no per-file selection: a mutant can depend on other code).
+// The mutants on package.json and README.md always run (minutes).
 const since = process.argv.find(a => a.startsWith('--changed-since='))?.slice('--changed-since='.length);
 if (since) {
-    const lf = (text) => text.split(String.fromCharCode(13, 10)).join(String.fromCharCode(10));
-    if (spawnSync('git', ['rev-parse', '--verify', `${since}^{commit}`], { cwd: root }).status !== 0) { console.error(`--changed-since: ${since} non e' un commit o un tag`); process.exit(2); }
-    const same = new Map();
-    const unchanged = (file) => {
-        if (!same.has(file)) {
-            const shown = spawnSync('git', ['show', `${since}:${file}`], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 });
-            same.set(file, shown.status === 0 && lf(shown.stdout) === lf(readFileSync(at(file), 'utf8')));
-        }
-        return same.get(file);
-    };
-    const before = todo.length;
-    todo = todo.filter((m) => !unchanged(m[1]));
-    console.log(`--changed-since=${since}: ${before - todo.length} mutazioni di file invariati saltate, ${todo.length} da provare`);
+    const CR = String.fromCharCode(13);
+    const NL = String.fromCharCode(10);
+    const norm = (t) => t.split(CR + NL).join(NL);
+    const lines = (t) => norm(t).split(NL).filter(Boolean);
+    const git = (...args) => spawnSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 });
+    const out = (r) => (r.status === 0 ? r.stdout : null);
+    const guarded = ['src', 'test', 'scripts', 'vite.config.ts', 'vite.headless.config.ts', 'vitest.config.ts', 'tsconfig.json'];
+    const inGuard = (f) => guarded.some(g => f === g || f.startsWith(g + '/'));
+    const reasons = [];
+    const tracked = lines(out(git('diff', '--name-only', since, '--', ...guarded)) ?? 'unknown-ref');
+    const fresh = lines(out(git('ls-files', '--others', '--exclude-standard', '--', ...guarded)) ?? '');
+    const changed = [...tracked, ...fresh].filter(f => f !== 'scripts/mutation-check.mjs');
+    if (changed.length) reasons.push(changed.length + ' changed files (' + changed.slice(0, 3).join(', ') + (changed.length > 3 ? ', ...' : '') + ')');
+    const mutantLines = (t) => lines(t).filter(l => l.trim().startsWith('["') || l.trim().startsWith("['")).join(NL);
+    const readNow = (f) => readFileSync(at(f), 'utf8');
+    const oldScript = out(git('show', since + ':scripts/mutation-check.mjs'));
+    if (oldScript === null || mutantLines(oldScript) !== mutantLines(readNow('scripts/mutation-check.mjs'))) reasons.push('mutant list changed');
+    const deps = (t) => { try { const j = JSON.parse(t); return JSON.stringify([j.dependencies, j.devDependencies, j.scripts]); } catch { return null; } };
+    const oldPkg = out(git('show', since + ':package.json'));
+    if (oldPkg === null || deps(oldPkg) !== deps(readNow('package.json'))) reasons.push('package.json dependencies or scripts changed');
+    if (reasons.length) {
+        console.log('--changed-since=' + since + ': ' + reasons.join('; ') + ': running ALL mutants');
+    } else {
+        const before = todo.length;
+        todo = todo.filter((m) => !inGuard(m[1]));
+        console.log('--changed-since=' + since + ': nothing relevant changed, ' + (before - todo.length) + ' mutants skipped, ' + todo.length + ' to run');
+    }
 }
+if (process.argv.includes('--dry-run')) { console.log('dry run: ' + todo.length + ' of ' + MUTATIONS.length + ' mutations would run, nothing touched'); process.exit(0); }
 const progressFile = at('test-results/mutation-progress.txt');
 const started = Date.now();
 const fmt = ms => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
