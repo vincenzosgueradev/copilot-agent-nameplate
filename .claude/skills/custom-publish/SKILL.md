@@ -24,6 +24,7 @@ Also read `../../PPTB-PUBLISHING-RULES.md` before the first publish of a tool.
    - Working tree not clean: the published build would not match a commit. Ask the user to commit first (`/custom-commit`).
    - `V` is not greater than the version on npm: that number is taken. Say which is the highest and ask.
    - `V` is more than one step ahead of the npm version: ask whether it is intended.
+   - The newest `### x.y.z` heading under **Updates** in `README.md` is not `V`: the npm page shows the README packed in the version and it cannot be changed afterwards. Write the entry (from the changelog) and commit it first.
    - Not on `main`, or `main` has commits not on the remote: say so and ask.
 3. **Checks** - all must pass, report each in one line:
    - `npx tsc --noEmit`
