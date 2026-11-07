@@ -250,6 +250,16 @@ and every change is verified with a type check, a build and the tests before it 
 
 Newest first. The full history is in [CHANGELOG.md](https://github.com/vincenzosgueradev/copilot-agent-nameplate/blob/main/CHANGELOG.md). Rules: [docs/marketplace-page-standard.md](https://github.com/vincenzosgueradev/copilot-agent-nameplate/blob/main/docs/marketplace-page-standard.md).
 
+### 1.2.0 - 2026-11-07
+
+- Added Targets: one export builds one package per destination, each with its own agents and publish on import choice.
+- Added guidance for managed solutions.
+- Added a before and after diff of the patched files in the preview, with Split and Unified views.
+- Added collapsible sections with an info icon, and folding agent lists.
+- Added the history count and a Clear all button.
+- Changed the stepper so the current step stands out, and the review to show only the warnings.
+- Fixed the zip library loop on certain ZIP64 files.
+
 ### 1.1.4 - 2026-10-31
 
 - Changed the marketplace icon to a one-colour outline of the same agent over a nameplate.
