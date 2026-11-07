@@ -127,7 +127,8 @@ The README Updates section is derived from it at release time, never the other w
 
 - [ ] Version in `package.json` = newest Updates entry = tag to be created.
 - [ ] The Updates entry is written from the changelog and every bullet passes section 4.
-- [ ] Every README heading (features, changes, does not cover, privacy) still matches the build.
+- [ ] Every README heading (features, changes, does not cover, privacy) still matches the build, and every Added/Changed bullet of the new changelog entry appears in the body, not only in Updates.
+- [ ] The line `Page text reviewed for version X.Y.Z.` (under the Updates heading) is the new version; a test checks it.
 - [ ] Screenshot shows the current version of the screen.
 - [ ] Every issue fixed in this version is named in the entry and will be closed with the version.
 - [ ] After `npm publish`: the tool's row in **My Tools** shows the new version (section 6); if not, **Trigger Update**.

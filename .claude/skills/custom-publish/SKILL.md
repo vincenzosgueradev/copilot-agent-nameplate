@@ -25,6 +25,7 @@ Also read `../../PPTB-PUBLISHING-RULES.md` before the first publish of a tool.
    - `V` is not greater than the version on npm: that number is taken. Say which is the highest and ask.
    - `V` is more than one step ahead of the npm version: ask whether it is intended.
    - The newest `### x.y.z` heading under **Updates** in `README.md` is not `V`: the npm page shows the README packed in the version and it cannot be changed afterwards. Write the entry (from the changelog) and commit it first.
+   - The README body was not reviewed for `V`: the line `Page text reviewed for version V.` is missing or older, or an Added/Changed bullet of the changelog entry has no counterpart in Features, Usage or the limits section. Compare each bullet with the body, list the gaps, and stop until the README is updated and committed.
    - Not on `main`, or `main` has commits not on the remote: say so and ask.
 3. **Checks** - all must pass, report each in one line:
    - `npx tsc --noEmit`

@@ -74,3 +74,13 @@ describe('dipendenze di produzione (npm audit)', () => {
         expect(atLeast(installed, '0.8.3')).toBe(true);
     });
 });
+
+describe('README (PPTB-PUBLISHING-RULES.md section 3)', () => {
+    it('states that the page text was reviewed for the current version', () => {
+        const readme = readFileSync(resolve(root, 'README.md'), 'utf8');
+        const version = (JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { version: string }).version;
+        const m = readme.match(/^Page text reviewed for version (\d+\.\d+\.\d+)\.$/m);
+        expect(m, 'README needs the line "Page text reviewed for version X.Y.Z."').not.toBeNull();
+        expect(m![1]).toBe(version);
+    });
+});

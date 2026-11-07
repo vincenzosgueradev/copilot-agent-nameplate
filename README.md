@@ -16,6 +16,9 @@ upgrade. This tool moves the rename into the package, where it belongs to the ma
   their icon and type (standard or GitHub Copilot harness); pin the ones you use most.
 
 **Name it**
+- **Build for several destinations at once.** Add a Target for each environment (for example TEST, UAT, PROD) and
+  get one package per Target from a single export, each with its own suffix, its own agents and its own
+  publish on import choice. The Target without a suffix can be marked as production.
 - **Set one suffix for the whole solution**, such as `[UAT]`, with preset buttons, and see the name each agent
   will get as you type. The tool warns when the names already carry a different suffix, or none.
 - **Leave agents out.** Untick an agent and it stays exactly as it is.
@@ -24,13 +27,18 @@ upgrade. This tool moves the rename into the package, where it belongs to the ma
   names the environment, the solution and both numbers and waits for your confirmation.
 
 **Check it**
-- **Preview first.** See exactly what changes in the package, per agent, before anything is exported.
+- **Preview first.** See exactly what changes in the package, per agent, before anything is exported, with a
+  before and after diff of every changed file, side by side (Split) or in one column (Unified).
 - **Verify entry by entry.** The solution is exported twice (managed and unmanaged), one element is patched, and
   the result is checked against the original: every other entry must be byte-identical.
 
 **Keep it**
 - **Save an artifact set** with the patched pair, the original exports and a `manifest.json` with a SHA-256
-  hash, and keep a history of what you packaged.
+  hash, and keep a history of what you packaged: the count of entries, a chip per Target, and a Clear all button
+  (files on disk are not touched).
+- **Guidance for managed solutions.** A note explains what a managed solution is and where to build the package;
+  the banner names the environment and says what to do.
+- **Folding panels.** Every panel folds, with an info icon that says what it is for.
 - **Works in the light and the dark theme** of Power Platform ToolBox.
 
 ## What this tool changes
@@ -77,8 +85,9 @@ Install **Agent Nameplate** from the Power Platform ToolBox marketplace. It need
    ![Solutions step with the agents of each solution](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/01-solutions.png)
 
    ![The agents of the chosen solution with their icon and type (standard or GitHub Copilot harness)](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/02-agents.png)
-2. **Suffix.** Type the suffix for the target environment, for example `[UAT]`, or use a preset. Leave it empty
-   to remove a suffix. Choose which agents to rename and how each one is published on import.
+2. **Suffix.** Pick one or more Targets, and for each one type the suffix of that environment, for example
+   `[UAT]`, or use a preset. Leave it empty to remove a suffix. Choose which agents to rename and how each one is
+   published on import; the Targets can be restored to the defaults.
 
    ![Suffix step: the suffix field with the preset buttons DEV, TEST, UAT, STAGING, PREPROD and PROD](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/03-suffix.png)
 
@@ -91,7 +100,9 @@ Install **Agent Nameplate** from the Power Platform ToolBox marketplace. It need
    ![Options of the review: the version written to DEV before the export and what happens next](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/06-options.png)
 
    ![Confirmation dialog: the environment, the solution and the old and new version, before anything is written to DEV](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/07-version-dialog.png)
-4. **Preview.** See what changes in the package, per agent, while the solution is exported and patched.
+4. **Preview.** See what changes in the package, per agent, while the solution is exported and patched. Open an
+   agent to see the original and the patched text of each changed file, with removed lines in red and added
+   lines in green; switch between Split and Unified, or use the Table tab for Before / After.
 
    ![Preview step: the five phases of the export and patch, all completed](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/08-preview.png)
 5. **Checks.** The tool verifies the patched package entry by entry against the original.
@@ -99,7 +110,8 @@ Install **Agent Nameplate** from the Power Platform ToolBox marketplace. It need
    ![Checks step: what travels in the package, the folders and how many agents](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/09-checks.png)
 
    ![Checks step: managed and unmanaged packages verified, 94 of 94 entries byte-identical where unchanged, 7 entries changed](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/10-verified.png)
-6. **Result.** Save the artifact set to a folder. Import the managed zip into the target environment yourself.
+6. **Result.** Save the artifact set to a folder, one version and one zip for each Target. Import the managed zip
+   of each Target into its environment yourself.
 
    ![Result step: the warning not to import the unmanaged archive, the version note and where the artifact set was saved](https://raw.githubusercontent.com/vincenzosgueradev/copilot-agent-nameplate/main/docs/screenshots/dark/11-result.png)
 
@@ -109,7 +121,7 @@ Install **Agent Nameplate** from the Power Platform ToolBox marketplace. It need
 
 ```text
 DEV → solution → ExportSolution ×2 (managed + unmanaged)
-    → patch <name> in bots/<schema>/bot.xml
+    → for each Target: patch <name> in bots/<schema>/bot.xml
     → rezip + entry-by-entry verification
     → artifact set: patched pair + originals + manifest.json
 ```
@@ -247,6 +259,8 @@ responsible for the result. Behavior is covered by an automated test suite and b
 and every change is verified with a type check, a build and the tests before it is released.
 
 ## Updates
+
+Page text reviewed for version 1.2.0.
 
 Newest first. The full history is in [CHANGELOG.md](https://github.com/vincenzosgueradev/copilot-agent-nameplate/blob/main/CHANGELOG.md). Rules: [docs/marketplace-page-standard.md](https://github.com/vincenzosgueradev/copilot-agent-nameplate/blob/main/docs/marketplace-page-standard.md).
 
