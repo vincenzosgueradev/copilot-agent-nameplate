@@ -1,0 +1,25 @@
+{
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "[ -f ../../scripts/sync-template.ps1 ] && pwsh -NoProfile -File ../../scripts/sync-template.ps1 -Tool agent-nameplate -Quiet || true"
+                    }
+                ]
+            }
+        ],
+        "PreToolUse": [
+            {
+                "matcher": "Bash|PowerShell",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/long-command-guard.mjs\""
+                    }
+                ]
+            }
+        ]
+    }
+}
